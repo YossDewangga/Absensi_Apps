@@ -150,6 +150,7 @@ class _AdminVisitPageState extends State<AdminVisitPage> {
                           var visitOutLocation = data['visit_out_location'] ?? 'Unknown';
                           var visitOutAddress = data['visit_out_address'] ?? 'Unknown';
                           var visitOutImageUrl = data['visit_out_imageUrl'] ?? '';
+                          var nextDestination = data['next_destination'] ?? 'N/A';
 
                           var approvalStatus = data['visit_out_isApproved'] as bool? ?? null;
 
@@ -180,6 +181,7 @@ class _AdminVisitPageState extends State<AdminVisitPage> {
                                     visitOutLocation,
                                     visitOutAddress,
                                     visitOutImageUrl,
+                                    nextDestination,
                                   ),
                                   const Divider(thickness: 1),
                                   _buildApprovalRow(approvalStatus),
@@ -204,7 +206,7 @@ class _AdminVisitPageState extends State<AdminVisitPage> {
     );
   }
 
-  Table _buildVisitLog(BuildContext context, String visitType, DateTime? timestamp, String location, String address, String imageUrl) {
+  Table _buildVisitLog(BuildContext context, String visitType, DateTime? timestamp, String location, String address, String imageUrl, [String? nextDestination]) {
     return Table(
       border: TableBorder.all(color: Colors.grey),
       columnWidths: const {
@@ -216,6 +218,8 @@ class _AdminVisitPageState extends State<AdminVisitPage> {
         _buildTableRow('$visitType Time:', timestamp != null ? _formattedDateTime(timestamp) : 'N/A'),
         _buildTableRow('Location:', location),
         _buildTableRow('Address:', address),
+        if (visitType == 'Visit Out' && nextDestination != null)
+          _buildTableRow('Next Destination:', nextDestination),
         if (imageUrl.isNotEmpty)
           TableRow(
             children: [

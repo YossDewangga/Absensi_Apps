@@ -28,6 +28,7 @@ class _ClockPageState extends State<ClockPage> {
   String? _currentRecordId;
   TimeOfDay? _designatedStartTime;
   Duration _lateDuration = Duration.zero;
+  String? _lateReason;
   File? _image;
 
   String? _userName;
@@ -233,34 +234,11 @@ class _ClockPageState extends State<ClockPage> {
         double distanceInMeters = Geolocator.distanceBetween(
             _officeLat, _officeLong, _currentPosition!.latitude, _currentPosition!.longitude);
         if (distanceInMeters <= 100) {
-          setState(() {
-            _clockStatus = 'Clock In';
-            _clockInTime = DateTime.now();
-            _clockInTimeStr = _formattedDateTime(_clockInTime!);
-            _isClockInDisabled = true;
-
-            if (nowDateTime.isAfter(startDateTime)) {
-              _lateDuration = nowDateTime.difference(startDateTime);
-            }
-          });
-
-          String imageUrl = await _uploadImage(_image!);
-
-          DocumentReference userDocRef = _firestore.collection('users').doc(_userId);
-          DocumentReference docRef = await userDocRef.collection('clockin_records').add({
-            'user_name': _userName,
-            'user_id': _userId,
-            'clockin_location': GeoPoint(_currentPosition!.latitude, _currentPosition!.longitude),
-            'timestamp': Timestamp.now(),
-            'clock_in_time': _clockInTime,
-            'is_late': nowDateTime.isAfter(startDateTime),
-            'late_duration': _formattedDuration(_lateDuration),
-            'image_url': imageUrl,
-          });
-          setState(() {
-            _currentRecordId = docRef.id;
-            print("Clock In ID: $_currentRecordId"); // Logging for debugging
-          });
+          if (nowDateTime.isAfter(startDateTime)) {
+            _showLateReasonDialog();
+          } else {
+            _processClockIn();
+          }
         } else {
           _showAlertDialog("Anda berada diluar jangkauan lokasi kantor.");
         }
@@ -270,6 +248,55 @@ class _ClockPageState extends State<ClockPage> {
     } else {
       _showAlertDialog("Anda harus melakukan Clock Out terlebih dahulu.");
     }
+  }
+
+  Future<void> _processClockIn() async {
+    final now = TimeOfDay.now();
+    final startDateTime = DateTime(
+      DateTime.now().year,
+      DateTime.now().month,
+      DateTime.now().day,
+      _designatedStartTime!.hour,
+      _designatedStartTime!.minute,
+    );
+
+    final nowDateTime = DateTime(
+      DateTime.now().year,
+      DateTime.now().month,
+      DateTime.now().day,
+      now.hour,
+      now.minute,
+    );
+
+    setState(() {
+      _clockStatus = 'Clock In';
+      _clockInTime = DateTime.now();
+      _clockInTimeStr = _formattedDateTime(_clockInTime!);
+      _isClockInDisabled = true;
+
+      if (nowDateTime.isAfter(startDateTime)) {
+        _lateDuration = nowDateTime.difference(startDateTime);
+      }
+    });
+
+    String imageUrl = await _uploadImage(_image!);
+
+    DocumentReference userDocRef = _firestore.collection('users').doc(_userId);
+    DocumentReference docRef = await userDocRef.collection('clockin_records').add({
+      'user_name': _userName,
+      'user_id': _userId,
+      'clockin_location': GeoPoint(_currentPosition!.latitude, _currentPosition!.longitude),
+      'timestamp': Timestamp.now(),
+      'clock_in_time': _clockInTime,
+      'is_late': nowDateTime.isAfter(startDateTime),
+      'late_duration': _formattedDuration(_lateDuration),
+      'late_reason': _lateReason,
+      'image_url': imageUrl,
+    });
+    setState(() {
+      _currentRecordId = docRef.id;
+      print("Clock In ID: $_currentRecordId"); // Logging for debugging
+    });
   }
 
   Future<void> _performClockOut() async {
@@ -679,6 +706,46 @@ class _ClockPageState extends State<ClockPage> {
                     };
                     Navigator.of(context).pop();
                   }
+                });
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _showLateReasonDialog() {
+    TextEditingController reasonController = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text("Keterangan Terlambat"),
+          content: TextFormField(
+            controller: reasonController,
+            decoration: InputDecoration(
+              labelText: 'Alasan Keterlambatan',
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
+          ),
+          actions: <Widget>[
+            TextButton(
+              child: Text("Batal"),
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+            ),
+            TextButton(
+              child: Text("Simpan"),
+              onPressed: () {
+                setState(() {
+                  _lateReason = reasonController.text;
+                  Navigator.of(context).pop();
+                  _processClockIn();
                 });
               },
             ),

@@ -256,10 +256,12 @@ class _AdminAbsensiPageState extends State<AdminAbsensiPage> {
                         var logbookEntries = data['logbook_entries'] != null
                             ? List<Map<String, dynamic>>.from(data['logbook_entries'])
                             : <Map<String, dynamic>>[];
-                        var imageUrl = data['image_url'] ?? '';
+                        var clockInImageUrl = data['image_url'] ?? '';
+                        var clockOutImageUrl = data['clock_out_image_url'] ?? '';
                         var lateDuration = clockInTime != null && _designatedStartTime != null
                             ? _calculateLateDuration(clockInTime, _designatedStartTime!)
                             : null;
+                        var lateReason = data['late_reason'] ?? 'N/A';
 
                         var approvalStatus = data['approval_status'] ?? 'Disapproved';
                         var showEditIcon = approvalStatus == 'Disapproved';
@@ -275,9 +277,9 @@ class _AdminAbsensiPageState extends State<AdminAbsensiPage> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                _buildTable('Time In', userName, clockInTime, imageUrl, data['clockin_location'] as GeoPoint?),
+                                _buildTable('Time In', userName, clockInTime, clockInImageUrl, data['clockin_location'] as GeoPoint?, lateReason),
                                 Divider(thickness: 1),
-                                _buildTable('Time Out', null, clockOutTime, null, data['clockout_location'] as GeoPoint?),
+                                _buildTable('Time Out', null, clockOutTime, clockOutImageUrl, data['clockout_location'] as GeoPoint?),
                                 Divider(thickness: 1),
                                 if (workingHours != null)
                                   _buildDurationTable('Working Hours', _formattedDuration(workingHours)),
@@ -332,7 +334,7 @@ class _AdminAbsensiPageState extends State<AdminAbsensiPage> {
     );
   }
 
-  Table _buildTable(String timeType, String? userName, DateTime? time, String? imageUrl, GeoPoint? location) {
+  Table _buildTable(String timeType, String? userName, DateTime? time, String? imageUrl, GeoPoint? location, [String? lateReason]) {
     return Table(
       border: TableBorder.all(color: Colors.grey),
       columnWidths: const {
@@ -344,7 +346,7 @@ class _AdminAbsensiPageState extends State<AdminAbsensiPage> {
         if (userName != null) _buildTableRow('User Name:', userName),
         _buildTableRow('$timeType:', time != null ? _formattedDateTime(time) : 'N/A'),
         _buildTableRow('Location:', location != null ? '${location.latitude}, ${location.longitude}' : 'N/A'),
-        if (imageUrl != null && timeType == 'Time In')
+        if (imageUrl != null && imageUrl.isNotEmpty)
           TableRow(
             children: [
               Padding(
@@ -367,7 +369,25 @@ class _AdminAbsensiPageState extends State<AdminAbsensiPage> {
                 ),
               ),
             ],
+          )
+        else
+          TableRow(
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(8.0),
+                child: Text(
+                  'Image:',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.all(8.0),
+                child: Text('No Image'),
+              ),
+            ],
           ),
+        if (lateReason != null && timeType == 'Time In')
+          _buildTableRow('Late Reason:', lateReason),
       ],
     );
   }

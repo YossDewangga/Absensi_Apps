@@ -36,6 +36,7 @@ class _VisitInAndOutPageState extends State<VisitInAndOutPage> {
   String? _userId;
   DateTime? _visitInTime;
   String _visitInDateTime = 'Unknown';
+  String _nextDestination = '';
 
   @override
   void initState() {
@@ -207,6 +208,13 @@ class _VisitInAndOutPageState extends State<VisitInAndOutPage> {
         _updateVisitOutDateTime();
       });
 
+      await _showNextDestinationDialog();
+
+      if (_nextDestination.isEmpty) {
+        _showDialog('Tujuan Selanjutnya harus diisi.');
+        return;
+      }
+
       try {
         String downloadUrl = await _uploadImageToStorage(_visitOutImage!, 'visit_out_images');
         await _saveVisitOutToFirestore(downloadUrl);
@@ -222,6 +230,35 @@ class _VisitInAndOutPageState extends State<VisitInAndOutPage> {
     } else {
       _showDialog('Failed to take picture or get location.');
     }
+  }
+
+  Future<void> _showNextDestinationDialog() async {
+    return showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Tujuan Selanjutnya'),
+        content: TextField(
+          onChanged: (value) {
+            setState(() {
+              _nextDestination = value;
+            });
+          },
+          decoration: InputDecoration(hintText: "Masukkan tujuan selanjutnya"),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              if (_nextDestination.isEmpty) {
+                _showDialog('Tujuan Selanjutnya harus diisi.');
+              } else {
+                Navigator.of(context).pop();
+              }
+            },
+            child: Text('OK'),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _takePicture(bool isVisitIn) async {
@@ -311,6 +348,7 @@ class _VisitInAndOutPageState extends State<VisitInAndOutPage> {
       'visit_out_location': _visitOutLocation,
       'visit_out_address': _visitOutAddress,
       'visit_out_imageUrl': downloadUrl,
+      'next_destination': _nextDestination,
     });
   }
 

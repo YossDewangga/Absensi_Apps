@@ -237,6 +237,7 @@ class _ClockHistoryPageState extends State<ClockHistoryPage> {
                     var lateDuration = clockInTime != null && _designatedStartTime != null
                         ? _calculateLateDuration(clockInTime, _designatedStartTime!)
                         : null;
+                    var lateReason = data['late_reason'] ?? 'N/A';
 
                     if (workingHours != null && _designatedEndTime != null && _designatedStartTime != null) {
                       var designatedDuration = Duration(
@@ -264,9 +265,9 @@ class _ClockHistoryPageState extends State<ClockHistoryPage> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            _buildTable(context, 'Clock In', clockInTime, data['clockin_location'] as GeoPoint?, imageUrl),
+                            _buildTable(context, 'Clock In', clockInTime, data['clockin_location'] as GeoPoint?, imageUrl, lateReason),
                             Divider(thickness: 1),
-                            _buildTable(context, 'Clock Out', clockOutTime, data['clockout_location'] as GeoPoint?, clockOutImageUrl, logbookEntries),
+                            _buildTable(context, 'Clock Out', clockOutTime, data['clockout_location'] as GeoPoint?, clockOutImageUrl, null, logbookEntries),
                             Divider(thickness: 1),
                             _buildApprovalStatusRow(approvalStatus),
                           ],
@@ -283,7 +284,7 @@ class _ClockHistoryPageState extends State<ClockHistoryPage> {
     );
   }
 
-  Widget _buildTable(BuildContext context, String title, DateTime? time, GeoPoint? location, String? imageUrl, [List<Map<String, dynamic>>? logbookEntries]) {
+  Widget _buildTable(BuildContext context, String title, DateTime? time, GeoPoint? location, String? imageUrl, [String? lateReason, List<Map<String, dynamic>>? logbookEntries]) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -305,6 +306,8 @@ class _ClockHistoryPageState extends State<ClockHistoryPage> {
               _buildTableRowImage(context, 'Image', imageUrl),
             if (title == 'Clock Out' && imageUrl != null)
               _buildTableRowImage(context, 'Image', imageUrl),
+            if (title == 'Clock In' && lateReason != null)
+              _buildTableRow('Late Reason', lateReason),
             if (title == 'Clock Out' && logbookEntries != null)
               ..._buildLogbookEntriesTable(logbookEntries),
           ],
