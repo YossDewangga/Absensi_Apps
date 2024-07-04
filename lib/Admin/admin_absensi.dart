@@ -87,16 +87,6 @@ class _AdminAbsensiPageState extends State<AdminAbsensiPage> {
     }
   }
 
-  void _updateApprovalStatus(String userId, String recordId, String newStatus) {
-    FirebaseFirestore.instance.collection('users').doc(userId)
-        .collection('clockin_records').doc(recordId).update({
-      'approval_status': newStatus,
-    }).catchError((error) {
-      print('Error updating approval status: $error');
-      _showAlertDialog('Error updating approval status: $error');
-    });
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -263,9 +253,6 @@ class _AdminAbsensiPageState extends State<AdminAbsensiPage> {
                             : null;
                         var lateReason = data['late_reason'] ?? 'N/A';
 
-                        var approvalStatus = data['approval_status'] ?? 'Disapproved';
-                        var showEditIcon = approvalStatus == 'Disapproved';
-
                         return Card(
                           margin: const EdgeInsets.all(8.0),
                           elevation: 3.0,
@@ -277,8 +264,10 @@ class _AdminAbsensiPageState extends State<AdminAbsensiPage> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
+                                Text('Clock In', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                                 _buildTable('Time In', userName, clockInTime, clockInImageUrl, data['clockin_location'] as GeoPoint?, lateReason),
                                 Divider(thickness: 1),
+                                Text('Clock Out', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                                 _buildTable('Time Out', null, clockOutTime, clockOutImageUrl, data['clockout_location'] as GeoPoint?),
                                 Divider(thickness: 1),
                                 if (workingHours != null)
@@ -316,8 +305,6 @@ class _AdminAbsensiPageState extends State<AdminAbsensiPage> {
                                       ),
                                     ],
                                   ),
-                                Divider(thickness: 1),
-                                _buildApprovalRow(approvalStatus, userId, recordId, showEditIcon),
                               ],
                             ),
                           ),
@@ -426,62 +413,6 @@ class _AdminAbsensiPageState extends State<AdminAbsensiPage> {
           ),
         ),
       ],
-    );
-  }
-
-  Widget _buildApprovalRow(String approvalStatus, String userId, String recordId, bool showEditIcon) {
-    Color textColor = approvalStatus == 'Approved' ? Colors.green : Colors.red;
-    return Row(
-      children: [
-        Text(
-          'Approval Status: ',
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        Text(
-          approvalStatus,
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-            color: textColor,
-          ),
-        ),
-        if (showEditIcon)
-          IconButton(
-            icon: Icon(Icons.edit),
-            onPressed: () {
-              _showApprovalDialog(context, userId, recordId, approvalStatus);
-            },
-          ),
-      ],
-    );
-  }
-
-  void _showApprovalDialog(BuildContext context, String userId, String recordId, String currentStatus) {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: Text('Change Approval Status'),
-          content: Text('Do you want to change the approval status?'),
-          actions: [
-            TextButton(
-              onPressed: () {
-                String newStatus = currentStatus == 'Approved' ? 'Disapproved' : 'Approved';
-                _updateApprovalStatus(userId, recordId, newStatus);
-                Navigator.of(context).pop();
-              },
-              child: Text('Yes'),
-            ),
-            TextButton(
-              onPressed: () {
-                Navigator.of(context).pop();
-              },
-              child: Text('No'),
-            ),
-          ],
-        );
-      },
     );
   }
 

@@ -32,11 +32,12 @@ class _VisitInAndOutPageState extends State<VisitInAndOutPage> {
   String _visitOutLocation = 'Unknown';
   String _visitOutAddress = 'Unknown';
   String _visitInDocumentId = '';
-  late Position _visitInPosition;
+  Position? _visitInPosition;
   String? _userId;
   DateTime? _visitInTime;
   String _visitInDateTime = 'Unknown';
   String _nextDestination = '';
+  String _visitStatus = 'Not Visited';
 
   @override
   void initState() {
@@ -65,8 +66,64 @@ class _VisitInAndOutPageState extends State<VisitInAndOutPage> {
       setState(() {
         _userId = user.uid;
       });
+      await _loadVisitStatus();
     } else {
       _showSnackBar('User not logged in.');
+    }
+  }
+
+  Future<void> _loadVisitStatus() async {
+    if (_userId != null) {
+      DocumentReference userDocRef = FirebaseFirestore.instance.collection('users').doc(_userId);
+      DocumentSnapshot snapshot = await userDocRef.get();
+      if (snapshot.exists && snapshot.data() != null) {
+        setState(() {
+          _visitStatus = snapshot['visit_status'] ?? 'Not Visited';
+          _visitInCompleted = _visitStatus == 'Visit In';
+          _visitOutCompleted = _visitStatus == 'Visit Out';
+        });
+
+        if (_visitInCompleted) {
+          await _loadVisitInDetails();
+        }
+      }
+    }
+  }
+
+  Future<void> _loadVisitInDetails() async {
+    if (_userId != null && _visitStatus == 'Visit In') {
+      DocumentReference userDocRef = FirebaseFirestore.instance.collection('users').doc(_userId);
+      QuerySnapshot visitSnapshots = await userDocRef.collection('visits').orderBy('visit_in_time', descending: true).limit(1).get();
+      if (visitSnapshots.docs.isNotEmpty) {
+        DocumentSnapshot visitSnapshot = visitSnapshots.docs.first;
+        setState(() {
+          _visitInDocumentId = visitSnapshot.id;
+          _visitInLocation = visitSnapshot['visit_in_location'];
+          _visitInAddress = visitSnapshot['visit_in_address'];
+          _visitInTime = (visitSnapshot['visit_in_time'] as Timestamp).toDate();
+          _updateVisitInDateTime();
+
+          List<String> locationParts = _visitInLocation.split(',');
+          _visitInPosition = Position(
+            latitude: double.parse(locationParts[0]),
+            longitude: double.parse(locationParts[1]),
+            timestamp: DateTime.now(), // Set a valid timestamp
+            altitude: 0.0,
+            accuracy: 0.0,
+            altitudeAccuracy: 0.0,
+            heading: 0.0,
+            speed: 0.0,
+            speedAccuracy: 0.0, headingAccuracy: 0.0,
+          );
+        });
+      }
+    }
+  }
+
+  Future<void> _updateVisitStatus(String status) async {
+    if (_userId != null) {
+      DocumentReference userDocRef = FirebaseFirestore.instance.collection('users').doc(_userId);
+      await userDocRef.set({'visit_status': status}, SetOptions(merge: true));
     }
   }
 
@@ -120,6 +177,14 @@ class _VisitInAndOutPageState extends State<VisitInAndOutPage> {
           ),
         ),
         SizedBox(height: 20),
+        Divider(thickness: 2),
+        Center(
+          child: Text(
+            'Current Status: $_visitStatus',
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.blue),
+            textAlign: TextAlign.center,
+          ),
+        ),
         Divider(thickness: 2),
       ],
     );
@@ -178,6 +243,7 @@ class _VisitInAndOutPageState extends State<VisitInAndOutPage> {
           _visitInDocumentId = documentId;
         });
 
+        await _updateVisitStatus('Visit In');
         _showDialog('Visit In Completed');
       } catch (e) {
         _showDialog('Failed to submit: $e');
@@ -194,12 +260,12 @@ class _VisitInAndOutPageState extends State<VisitInAndOutPage> {
     if (_visitOutImage != null && _visitInPosition != null) {
       Position position = await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high);
       double distanceInMeters = Geolocator.distanceBetween(
-        _visitInPosition.latitude, _visitInPosition.longitude,
+        _visitInPosition!.latitude, _visitInPosition!.longitude,
         position.latitude, position.longitude,
       );
 
-      if (distanceInMeters > 200) {
-        _showDialog('Visit Out gagal: Anda berada lebih dari 200 meter dari lokasi Visit In.');
+      if (distanceInMeters > 50) {
+        _showDialog('Visit Out gagal: Anda berada lebih dari 50 meter dari lokasi Visit In.');
         return;
       }
 
@@ -223,6 +289,7 @@ class _VisitInAndOutPageState extends State<VisitInAndOutPage> {
           _visitOutCompleted = true;
         });
 
+        await _updateVisitStatus('Visit Out');
         _showDialog('Visit Out Completed');
       } catch (e) {
         _showDialog('Failed to submit: $e');

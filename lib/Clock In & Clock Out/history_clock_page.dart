@@ -55,19 +55,6 @@ class _ClockHistoryPageState extends State<ClockHistoryPage> {
     }
   }
 
-  void _updateApprovalStatus(String userId, String recordId, String newStatus) {
-    FirebaseFirestore.instance
-        .collection('users')
-        .doc(userId)
-        .collection('clockin_records')
-        .doc(recordId)
-        .update({
-      'approval_status': newStatus,
-    }).catchError((error) {
-      print('Error updating approval status: $error');
-    });
-  }
-
   String _formattedDateTime(DateTime dateTime) {
     return "${dateTime.day}-${dateTime.month}-${dateTime.year} ${dateTime.hour}:${dateTime.minute}:${dateTime.second}";
   }
@@ -239,21 +226,6 @@ class _ClockHistoryPageState extends State<ClockHistoryPage> {
                         : null;
                     var lateReason = data['late_reason'] ?? 'N/A';
 
-                    if (workingHours != null && _designatedEndTime != null && _designatedStartTime != null) {
-                      var designatedDuration = Duration(
-                        hours: _designatedEndTime!.hour - _designatedStartTime!.hour,
-                        minutes: _designatedEndTime!.minute - _designatedStartTime!.minute,
-                      );
-                      double workingPercentage = (workingHours.inMinutes / designatedDuration.inMinutes) * 100;
-                      String newApprovalStatus = workingPercentage >= 85 ? 'Approved' : 'Disapproved';
-                      if (newApprovalStatus != data['approval_status']) {
-                        _updateApprovalStatus(userId, recordId, newApprovalStatus);
-                      }
-                      data['approval_status'] = newApprovalStatus;
-                    }
-
-                    var approvalStatus = data['approval_status'] ?? 'Disapproved';
-
                     return Card(
                       margin: const EdgeInsets.all(8.0),
                       elevation: 3.0,
@@ -268,8 +240,6 @@ class _ClockHistoryPageState extends State<ClockHistoryPage> {
                             _buildTable(context, 'Clock In', clockInTime, data['clockin_location'] as GeoPoint?, imageUrl, lateReason),
                             Divider(thickness: 1),
                             _buildTable(context, 'Clock Out', clockOutTime, data['clockout_location'] as GeoPoint?, clockOutImageUrl, null, logbookEntries),
-                            Divider(thickness: 1),
-                            _buildApprovalStatusRow(approvalStatus),
                           ],
                         ),
                       ),
@@ -425,36 +395,6 @@ class _ClockHistoryPageState extends State<ClockHistoryPage> {
               : Text('No Image'),
         ),
       ],
-    );
-  }
-
-  Widget _buildApprovalStatusRow(String approvalStatus) {
-    Color approvalColor = approvalStatus == 'Approved' ? Colors.green : Colors.red;
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4.0),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Expanded(
-            flex: 2,
-            child: Text(
-              'Approval Status',
-              style: TextStyle(fontWeight: FontWeight.bold),
-            ),
-          ),
-          Expanded(
-            flex: 3,
-            child: Text(
-              approvalStatus,
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                color: approvalColor,
-              ),
-            ),
-          ),
-        ],
-      ),
     );
   }
 }

@@ -19,7 +19,8 @@ class _LeaveApplicationPageState extends State<LeaveApplicationPage> {
   bool _isSubmitting = false;
   bool _isLoading = true;
   String? _userId;
-  int _leaveQuota = 12;
+  String? _displayName;
+  int _leaveQuota = 0;
 
   @override
   void initState() {
@@ -31,29 +32,18 @@ class _LeaveApplicationPageState extends State<LeaveApplicationPage> {
   Future<void> _getUserInfo() async {
     User? user = FirebaseAuth.instance.currentUser;
     if (user != null) {
-      setState(() {
-        _userId = user.uid;
-      });
-      await _loadUserLeaveQuota(user.uid);
-    } else {
-      _showSnackBar('User not logged in.');
-    }
-  }
-
-  Future<void> _loadUserLeaveQuota(String userId) async {
-    try {
-      DocumentSnapshot userDoc = await FirebaseFirestore.instance.collection('users').doc(userId).get();
+      _userId = user.uid;
+      DocumentSnapshot userDoc = await FirebaseFirestore.instance.collection('users').doc(_userId).get();
       if (userDoc.exists) {
         setState(() {
-          _leaveQuota = userDoc['leave_quota'] ?? 12;
+          _displayName = userDoc['displayName'];
+          _leaveQuota = userDoc['leave_quota'];
         });
+      } else {
+        _showSnackBar('User not found in Firestore.');
       }
-    } catch (e) {
-      print('Gagal memuat kuota cuti: $e');
-    } finally {
-      setState(() {
-        _isLoading = false;
-      });
+    } else {
+      _showSnackBar('User not logged in.');
     }
   }
 
@@ -111,6 +101,12 @@ class _LeaveApplicationPageState extends State<LeaveApplicationPage> {
       return;
     }
 
+    int leaveDays = _endDate!.difference(_startDate!).inDays + 1;
+    if (_leaveQuota < leaveDays) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Sisa cuti tidak mencukupi untuk pengajuan ini')));
+      return;
+    }
+
     setState(() {
       _isSubmitting = true;
     });
@@ -123,6 +119,8 @@ class _LeaveApplicationPageState extends State<LeaveApplicationPage> {
       // Simpan data pengajuan cuti ke sub-koleksi leave_applications di dalam dokumen pengguna
       DocumentReference userDocRef = FirebaseFirestore.instance.collection('users').doc(_userId);
       await userDocRef.collection('leave_applications').add({
+        'displayName': _displayName,
+        'userId': _userId,
         'Keterangan': _keteranganController.text,
         'start_date': _startDate,
         'end_date': _endDate,
@@ -139,7 +137,7 @@ class _LeaveApplicationPageState extends State<LeaveApplicationPage> {
         _endDateString = 'Pilih Tanggal Selesai';
       });
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Gagal mengajukan cuti')));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Gagal mengajukan cuti: $e')));
     } finally {
       setState(() {
         _isSubmitting = false;
@@ -172,11 +170,6 @@ class _LeaveApplicationPageState extends State<LeaveApplicationPage> {
               Text(
                 'Formulir Pengajuan Cuti',
                 style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-              ),
-              SizedBox(height: 20),
-              Text(
-                'Sisa Cuti: $_leaveQuota hari',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
               ),
               SizedBox(height: 20),
               Row(
@@ -233,6 +226,8 @@ class _LeaveApplicationPageState extends State<LeaveApplicationPage> {
                 ),
                 maxLines: 3,
               ),
+              SizedBox(height: 20),
+              Text('Sisa Cuti: $_leaveQuota hari', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
               SizedBox(height: 20),
               _isSubmitting
                   ? Center(child: CircularProgressIndicator())

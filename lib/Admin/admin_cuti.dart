@@ -15,6 +15,27 @@ class _AdminLeavePageState extends State<AdminLeavePage> {
   String? _editableRecordId;
 
   @override
+  void initState() {
+    super.initState();
+    _checkAndResetLeaveQuota();
+  }
+
+  Future<void> _checkAndResetLeaveQuota() async {
+    DateTime now = DateTime.now();
+    if (now.month == 1 && now.day == 1) { // Misal reset setiap awal tahun
+      QuerySnapshot userDocs = await FirebaseFirestore.instance.collection('users').get();
+      for (var doc in userDocs.docs) {
+        await doc.reference.update({
+          'leave_quota': 12, // Reset ke 12 hari
+        });
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Leave quota has been reset for all users.')),
+      );
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: Stack(
@@ -164,6 +185,7 @@ class _AdminLeavePageState extends State<AdminLeavePage> {
                             }
 
                             var userData = userSnapshot.data!.data() as Map<String, dynamic>;
+                            var displayName = userData['displayName'] ?? 'Unknown';
                             var leaveQuota = userData['leave_quota'] ?? 12;
 
                             return Card(
@@ -177,7 +199,7 @@ class _AdminLeavePageState extends State<AdminLeavePage> {
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    _buildTable('Pengajuan Cuti', userId, startDate, endDate, keterangan, leaveQuota),
+                                    _buildTable('Pengajuan Cuti', displayName, startDate, endDate, keterangan, leaveQuota),
                                     Divider(thickness: 1),
                                     Text(
                                       'Diajukan pada: ${submittedAt != null ? DateFormat('yyyy-MM-dd HH:mm:ss').format(submittedAt) : 'N/A'}',
@@ -186,7 +208,7 @@ class _AdminLeavePageState extends State<AdminLeavePage> {
                                     Divider(thickness: 1),
                                     _buildApprovalRow(status),
                                     if (_editableRecordId == recordId)
-                                      _buildApprovalButtons(context, userId, recordId, status)
+                                      _buildApprovalButtons(context, userId, recordId, status, startDate, endDate, leaveQuota)
                                     else
                                       _buildEditButton(recordId),
                                   ],
@@ -207,7 +229,7 @@ class _AdminLeavePageState extends State<AdminLeavePage> {
     );
   }
 
-  Table _buildTable(String title, String userId, DateTime? startDate, DateTime? endDate, String keterangan, int leaveQuota) {
+  Table _buildTable(String title, String displayName, DateTime? startDate, DateTime? endDate, String keterangan, int leaveQuota) {
     return Table(
       border: TableBorder.all(color: Colors.grey),
       columnWidths: const {
@@ -216,7 +238,7 @@ class _AdminLeavePageState extends State<AdminLeavePage> {
       },
       defaultVerticalAlignment: TableCellVerticalAlignment.middle,
       children: [
-        _buildTableRow('User ID:', userId),
+        _buildTableRow('User Name:', displayName),
         _buildTableRow('Keterangan:', keterangan),
         _buildTableRow('Tanggal Mulai:', startDate != null ? DateFormat('yyyy-MM-dd').format(startDate) : 'N/A'),
         _buildTableRow('Tanggal Selesai:', endDate != null ? DateFormat('yyyy-MM-dd').format(endDate) : 'N/A'),
@@ -264,7 +286,7 @@ class _AdminLeavePageState extends State<AdminLeavePage> {
     );
   }
 
-  Widget _buildApprovalButtons(BuildContext context, String userId, String recordId, String currentStatus) {
+  Widget _buildApprovalButtons(BuildContext context, String userId, String recordId, String currentStatus, DateTime? startDate, DateTime? endDate, int leaveQuota) {
     return Column(
       children: [
         Row(
@@ -274,8 +296,15 @@ class _AdminLeavePageState extends State<AdminLeavePage> {
               children: [
                 IconButton(
                   icon: Icon(Icons.check_circle, color: Colors.green),
-                  onPressed: () {
-                    _updateApprovalStatus(userId, recordId, 'Approved');
+                  onPressed: () async {
+                    int leaveDays = endDate!.difference(startDate!).inDays + 1;
+                    if (leaveQuota >= leaveDays) {
+                      await _updateApprovalStatus(userId, recordId, 'Approved', startDate, endDate, leaveQuota);
+                    } else {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Leave quota insufficient for approval.')),
+                      );
+                    }
                   },
                 ),
                 Text('Approve', style: TextStyle(color: Colors.green, fontSize: 12)),
@@ -286,7 +315,7 @@ class _AdminLeavePageState extends State<AdminLeavePage> {
                 IconButton(
                   icon: Icon(Icons.cancel, color: Colors.red),
                   onPressed: () {
-                    _updateApprovalStatus(userId, recordId, 'Rejected');
+                    _updateApprovalStatus(userId, recordId, 'Rejected', startDate, endDate, leaveQuota);
                   },
                 ),
                 Text('Reject', style: TextStyle(color: Colors.red, fontSize: 12)),
@@ -316,12 +345,17 @@ class _AdminLeavePageState extends State<AdminLeavePage> {
     );
   }
 
-  Future<void> _updateApprovalStatus(String userId, String recordId, String newStatus) async {
+  Future<void> _updateApprovalStatus(String userId, String recordId, String newStatus, DateTime? startDate, DateTime? endDate, int leaveQuota) async {
     try {
       await FirebaseFirestore.instance.collection('users').doc(userId)
           .collection('leave_applications').doc(recordId).update({
         'status': newStatus,
       });
+
+      if (newStatus == 'Approved' && startDate != null && endDate != null) {
+        int leaveDays = endDate.difference(startDate).inDays + 1;
+        await _updateUserLeaveQuota(userId, leaveQuota - leaveDays);
+      }
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(newStatus == 'Approved' ? 'Leave Approved' : 'Leave Rejected')),
@@ -334,6 +368,16 @@ class _AdminLeavePageState extends State<AdminLeavePage> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Failed to update status: $error')),
       );
+    }
+  }
+
+  Future<void> _updateUserLeaveQuota(String userId, int newQuota) async {
+    try {
+      await FirebaseFirestore.instance.collection('users').doc(userId).update({
+        'leave_quota': newQuota,
+      });
+    } catch (error) {
+      print('Failed to update leave quota: $error');
     }
   }
 

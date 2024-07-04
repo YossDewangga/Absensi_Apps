@@ -165,6 +165,7 @@ class _AdminVisitPageState extends State<AdminVisitPage> {
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
+                                  Text('Visit In', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                                   _buildVisitLog(
                                     context,
                                     'Visit In',
@@ -174,6 +175,7 @@ class _AdminVisitPageState extends State<AdminVisitPage> {
                                     visitInImageUrl,
                                   ),
                                   const Divider(thickness: 1),
+                                  Text('Visit Out', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                                   _buildVisitLog(
                                     context,
                                     'Visit Out',

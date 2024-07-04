@@ -35,6 +35,7 @@ class _OvertimePageState extends State<OvertimePage> {
     super.initState();
     _checkLocationPermission();
     _getCurrentUser();
+    _loadOvertimeStatus();
   }
 
   void _getCurrentUser() {
@@ -49,8 +50,7 @@ class _OvertimePageState extends State<OvertimePage> {
     if (permission == LocationPermission.deniedForever) {
       _showAlertDialog("Aplikasi membutuhkan izin lokasi untuk berfungsi.");
     }
-    if (permission == LocationPermission.whileInUse ||
-        permission == LocationPermission.always) {
+    if (permission == LocationPermission.whileInUse || permission == LocationPermission.always) {
       _getCurrentLocation();
     }
   }
@@ -64,6 +64,32 @@ class _OvertimePageState extends State<OvertimePage> {
       });
     } catch (e) {
       print("Could not get location: $e");
+    }
+  }
+
+  Future<void> _loadOvertimeStatus() async {
+    if (_currentUser != null) {
+      DocumentReference userDocRef = _firestore.collection('users').doc(_currentUser!.uid);
+      QuerySnapshot snapshot = await userDocRef.collection('overtime_records')
+          .orderBy('timestamp', descending: true)
+          .limit(1)
+          .get();
+
+      if (snapshot.docs.isNotEmpty) {
+        var latestRecord = snapshot.docs.first;
+        var data = latestRecord.data() as Map<String, dynamic>;
+
+        if (data['overtime_status'] == 'Overtime In') {
+          setState(() {
+            _overtimeStatus = 'Overtime In';
+            _overtimeInTime = (data['overtime_in_time'] as Timestamp).toDate();
+            _overtimeInTimeStr = _formattedDateTime(_overtimeInTime!);
+            _isOvertimeInDisabled = true;
+            _isOvertimeOutDisabled = false;
+            _currentRecordId = latestRecord.id;
+          });
+        }
+      }
     }
   }
 

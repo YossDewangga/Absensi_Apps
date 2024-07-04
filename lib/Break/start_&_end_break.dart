@@ -2,6 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:vibration/vibration.dart';
 import 'dart:async';
 import 'package:audioplayers/audioplayers.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:workmanager/workmanager.dart';
 
 class BreakStartEndPage extends StatefulWidget {
   const BreakStartEndPage({Key? key}) : super(key: key);
@@ -16,15 +20,53 @@ class _BreakStartEndPageState extends State<BreakStartEndPage> {
   bool _isBreakStarted = false;
   bool _isBreakEndedAutomatically = false;
   Timer? _breakTimer;
-  Duration _remainingTime = Duration(minutes: 1); // Mengubah durasi menjadi 1 menit
+  Duration _breakDuration = Duration(hours: 1); // Durasi break menjadi 1 jam
+  Duration _remainingTime = Duration(hours: 1);
   final AudioPlayer _audioPlayer = AudioPlayer();
+  DocumentReference? _currentBreakDocRef;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadBreakStatus();
+  }
 
   @override
   void dispose() {
     _breakTimer?.cancel();
-    Vibration.cancel(); // Pastikan getaran berhenti ketika widget dibuang
-    _audioPlayer.dispose(); // Hentikan dan buang audio player
+    Vibration.cancel();
+    _audioPlayer.dispose();
     super.dispose();
+  }
+
+  Future<void> _loadBreakStatus() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _isBreakStarted = prefs.getBool('isBreakStarted') ?? false;
+      _isBreakEndedAutomatically = prefs.getBool('isBreakEndedAutomatically') ?? false;
+      _startBreakTime = DateTime.tryParse(prefs.getString('startBreakTime') ?? '');
+      _endBreakTime = DateTime.tryParse(prefs.getString('endBreakTime') ?? '');
+    });
+
+    if (_isBreakStarted && _startBreakTime != null) {
+      final elapsedTime = DateTime.now().difference(_startBreakTime!);
+      _remainingTime = _breakDuration - elapsedTime;
+      if (_remainingTime.isNegative) {
+        _remainingTime = Duration.zero;
+        _handleBreakEnd();
+      } else {
+        _startBreakTimer();
+      }
+    }
+  }
+
+  Future<void> _saveBreakStatus() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('isBreakStarted', _isBreakStarted);
+    await prefs.setBool('isBreakEndedAutomatically', _isBreakEndedAutomatically);
+    await prefs.setString('startBreakTime', _startBreakTime?.toIso8601String() ?? '');
+    await prefs.setString('endBreakTime', _endBreakTime?.toIso8601String() ?? '');
+    await prefs.setInt('remainingTime', _remainingTime.inSeconds);
   }
 
   @override
@@ -131,7 +173,10 @@ class _BreakStartEndPageState extends State<BreakStartEndPage> {
                   ),
                   trailing: Icon(Icons.arrow_forward, size: 24, color: Colors.blue),
                   onTap: () {
-                    // Navigasi ke halaman log break
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (context) => BreakHistoryPage()),
+                    );
                   },
                 ),
                 Divider(thickness: 1),
@@ -157,48 +202,89 @@ class _BreakStartEndPageState extends State<BreakStartEndPage> {
     return '${dateTime.day.toString().padLeft(2, '0')}/${dateTime.month.toString().padLeft(2, '0')}/${dateTime.year}';
   }
 
-  void _startBreak() {
+  void _startBreak() async {
     setState(() {
       _startBreakTime = DateTime.now();
       _isBreakStarted = true;
       _isBreakEndedAutomatically = false;
-      _remainingTime = Duration(minutes: 1); // Mengubah durasi menjadi 1 menit
-      _breakTimer = Timer.periodic(Duration(seconds: 1), (timer) {
-        setState(() {
-          if (_remainingTime.inSeconds > 0) {
-            _remainingTime = _remainingTime - Duration(seconds: 1);
-          } else {
-            _handleBreakEnd();
-            timer.cancel();
-          }
-        });
-      });
+      _remainingTime = _breakDuration;
+      _startBreakTimer();
     });
+
+    // Simpan waktu mulai break ke Firestore
+    User? user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      DocumentReference breakDocRef = await FirebaseFirestore.instance.collection('users').doc(user.uid).collection('break_logs').add({
+        'start_break': _startBreakTime,
+        'end_break': null,
+        'break_duration': null,
+      });
+      _currentBreakDocRef = breakDocRef;
+    }
+
+    _saveBreakStatus();
+    Workmanager().registerPeriodicTask(
+      "1",
+      "breakTimer",
+      frequency: Duration(minutes: 15),
+    );
   }
 
-  void _endBreak() {
+  void _endBreak() async {
     setState(() {
       _endBreakTime = DateTime.now();
       _isBreakStarted = false;
       _isBreakEndedAutomatically = false;
       _breakTimer?.cancel();
-      Vibration.cancel(); // Pastikan getaran berhenti ketika break diakhiri
-      _audioPlayer.stop(); // Pastikan suara berhenti ketika break diakhiri
+      Vibration.cancel();
+      _audioPlayer.stop();
+    });
+
+    // Simpan waktu akhir break ke Firestore
+    if (_currentBreakDocRef != null) {
+      await _currentBreakDocRef!.update({
+        'end_break': _endBreakTime,
+        'break_duration': _calculateBreakDuration(),
+      });
+    }
+
+    _saveBreakStatus();
+    Workmanager().cancelAll();
+  }
+
+  void _startBreakTimer() {
+    _breakTimer = Timer.periodic(Duration(seconds: 1), (timer) {
+      setState(() {
+        if (_remainingTime.inSeconds > 0) {
+          _remainingTime = _remainingTime - Duration(seconds: 1);
+        } else {
+          _handleBreakEnd();
+          timer.cancel();
+        }
+      });
     });
   }
 
-  void _handleBreakEnd() {
+  void _handleBreakEnd() async {
     setState(() {
       _isBreakStarted = false;
       _isBreakEndedAutomatically = true;
+      _endBreakTime = DateTime.now();
     });
-    // Membuat perangkat bergetar terus menerus
+
+    // Simpan waktu akhir break ke Firestore ketika break berakhir secara otomatis
+    if (_currentBreakDocRef != null) {
+      await _currentBreakDocRef!.update({
+        'end_break': _endBreakTime,
+        'break_duration': _calculateBreakDuration(),
+      });
+    }
+
     if (Vibration.hasVibrator() != null) {
       Vibration.vibrate(pattern: [0, 1000, 1000], repeat: 0);
     }
-    // Memutar suara secara berulang
     _playSound();
-    print("Break time ended. Device should vibrate continuously until stopped.");
+    _saveBreakStatus();
   }
 
   void _playSound() async {
@@ -238,5 +324,64 @@ class _BreakStartEndPageState extends State<BreakStartEndPage> {
         ],
       ),
     );
+  }
+}
+
+class BreakHistoryPage extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text('Break History'),
+        centerTitle: true,
+      ),
+      body: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: StreamBuilder<QuerySnapshot>(
+          stream: FirebaseFirestore.instance
+              .collection('users')
+              .doc(FirebaseAuth.instance.currentUser?.uid)
+              .collection('break_logs')
+              .snapshots(),
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return Center(child: CircularProgressIndicator());
+            }
+            if (snapshot.hasError) {
+              return Center(child: Text('Error: ${snapshot.error}'));
+            }
+            if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+              return Center(child: Text('No break history found.'));
+            }
+
+            var breakLogs = snapshot.data!.docs;
+
+            return ListView.builder(
+              itemCount: breakLogs.length,
+              itemBuilder: (context, index) {
+                var log = breakLogs[index];
+                var data = log.data() as Map<String, dynamic>;
+                var startBreak = data['start_break'] != null ? (data['start_break'] as Timestamp).toDate() : null;
+                var endBreak = data['end_break'] != null ? (data['end_break'] as Timestamp).toDate() : null;
+                var breakDuration = data['break_duration'] ?? 'Unknown duration';
+
+                return ListTile(
+                  title: Text('Break on ${startBreak != null ? _formatDate(startBreak) : 'Unknown'}'),
+                  subtitle: Text('Duration: $breakDuration'),
+                  trailing: Icon(Icons.more_vert),
+                  onTap: () {
+                    // Implement detail view if needed
+                  },
+                );
+              },
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  String _formatDate(DateTime dateTime) {
+    return '${dateTime.day.toString().padLeft(2, '0')}/${dateTime.month.toString().padLeft(2, '0')}/${dateTime.year}';
   }
 }

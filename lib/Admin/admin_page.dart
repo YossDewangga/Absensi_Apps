@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'admin_absensi.dart';
+import 'admin_break.dart';
 import 'admin_cuti.dart';
 import 'admin_overtime.dart';
 import 'karyawan_list_page.dart';
 import 'admin_visit.dart';
+import 'setting_page.dart';
+
 
 class AdminPage extends StatefulWidget {
   const AdminPage({super.key});
@@ -19,11 +22,11 @@ class _AdminPageState extends State<AdminPage> {
 
   static final List<Widget> _pages = <Widget>[
     const AdminAbsensiPage(),
-    const KaryawanListPage(),
-    AdminVisitPage(),
-    AdminLeavePage(),
     AdminOvertimePage(),
-    const Center(child: Text('Pengaturan Page', style: TextStyle(fontSize: 20))),
+    AdminVisitPage(),
+    AdminBreakPage(), // Tambahkan halaman AdminBreakPage
+    const KaryawanListPage(),
+    const SettingsPage(), // Gunakan halaman pengaturan yang baru
   ];
 
   void _onItemTapped(int index) {
@@ -51,21 +54,21 @@ class _AdminPageState extends State<AdminPage> {
           BottomNavigationBarItem(
             icon: Stack(
               children: [
-                Icon(Icons.access_time),
+                const Icon(Icons.access_time),
                 if (_hasNewLogbookEntry)
                   Positioned(
                     right: 0,
                     child: Container(
-                      padding: EdgeInsets.all(1),
+                      padding: const EdgeInsets.all(1),
                       decoration: BoxDecoration(
                         color: Colors.red,
                         borderRadius: BorderRadius.circular(6),
                       ),
-                      constraints: BoxConstraints(
+                      constraints: const BoxConstraints(
                         minWidth: 12,
                         minHeight: 12,
                       ),
-                      child: Text(
+                      child: const Text(
                         '!',
                         style: TextStyle(
                           color: Colors.white,
@@ -79,23 +82,23 @@ class _AdminPageState extends State<AdminPage> {
             ),
             label: 'Absensi',
           ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.people),
-            label: 'Karyawan',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.report),
-            label: 'Visit',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.beach_access), // Ikon untuk cuti
-            label: 'Cuti', // Label untuk cuti
-          ),
-          BottomNavigationBarItem(
+          const BottomNavigationBarItem(
             icon: Icon(Icons.access_alarm), // Ikon untuk Overtime
             label: 'Overtime', // Label untuk Overtime
           ),
-          BottomNavigationBarItem(
+          const BottomNavigationBarItem(
+            icon: Icon(Icons.report),
+            label: 'Visit',
+          ),
+          const BottomNavigationBarItem(
+            icon: Icon(Icons.coffee), // Ikon untuk Break
+            label: 'Break', // Label untuk Break
+          ),
+          const BottomNavigationBarItem(
+            icon: Icon(Icons.people),
+            label: 'Karyawan',
+          ),
+          const BottomNavigationBarItem(
             icon: Icon(Icons.settings),
             label: 'Pengaturan',
           ),

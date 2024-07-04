@@ -1,9 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:table_calendar/table_calendar.dart';
 
-class HistoryOvertimePage extends StatelessWidget {
+class HistoryOvertimePage extends StatefulWidget {
   const HistoryOvertimePage({Key? key}) : super(key: key);
+
+  @override
+  _HistoryOvertimePageState createState() => _HistoryOvertimePageState();
+}
+
+class _HistoryOvertimePageState extends State<HistoryOvertimePage> {
+  DateTime _selectedDate = DateTime.now();
+  bool _isCalendarExpanded = false;
 
   @override
   Widget build(BuildContext context) {
@@ -11,76 +20,216 @@ class HistoryOvertimePage extends StatelessWidget {
       appBar: AppBar(
         title: Text('Riwayat Lembur'),
       ),
-      body: FutureBuilder<User?>(
-        future: FirebaseAuth.instance.authStateChanges().first,
-        builder: (context, userSnapshot) {
-          if (userSnapshot.connectionState == ConnectionState.waiting) {
-            return Center(child: CircularProgressIndicator());
-          }
-
-          if (userSnapshot.hasError) {
-            return Center(child: Text('Error: ${userSnapshot.error}'));
-          }
-
-          if (!userSnapshot.hasData || userSnapshot.data == null) {
-            return Center(child: Text('Tidak ada pengguna yang login'));
-          }
-
-          final User user = userSnapshot.data!;
-          return StreamBuilder<QuerySnapshot>(
-            stream: FirebaseFirestore.instance
-                .collection('users')
-                .doc(user.uid)
-                .collection('overtime_records')
-                .snapshots(),
-            builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting) {
-                return Center(child: CircularProgressIndicator());
-              }
-
-              if (snapshot.hasError) {
-                return Center(child: Text('Error: ${snapshot.error}'));
-              }
-
-              if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                return Center(child: Text('Belum ada data lembur'));
-              }
-
-              return ListView(
-                children: snapshot.data!.docs.map((doc) {
-                  var data = doc.data() as Map<String, dynamic>;
-                  return Card(
-                    child: ListTile(
-                      title: Text('Overtime In: ${_formatTimestamp(data['overtime_in_time'])}'),
-                      subtitle: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text('Overtime Out: ${_formatTimestamp(data['overtime_out_time'])}'),
-                          Text('Total Overtime: ${_calculateTotalOvertime(data['overtime_in_time'], data['overtime_out_time'])}'),
-                        ],
+      body: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+            child: ExpansionPanelList(
+              expansionCallback: (int index, bool isExpanded) {
+                setState(() {
+                  _isCalendarExpanded = !_isCalendarExpanded;
+                });
+              },
+              children: [
+                ExpansionPanel(
+                  headerBuilder: (BuildContext context, bool isExpanded) {
+                    return ListTile(
+                      title: Text('Select Date', style: TextStyle(fontWeight: FontWeight.bold)),
+                    );
+                  },
+                  body: TableCalendar(
+                    focusedDay: _selectedDate,
+                    firstDay: DateTime(2000),
+                    lastDay: DateTime(2100),
+                    calendarFormat: CalendarFormat.month,
+                    selectedDayPredicate: (day) {
+                      return isSameDay(_selectedDate, day);
+                    },
+                    onDaySelected: (selectedDay, focusedDay) {
+                      setState(() {
+                        _selectedDate = selectedDay;
+                      });
+                    },
+                    calendarStyle: CalendarStyle(
+                      selectedDecoration: BoxDecoration(
+                        color: Colors.blueAccent,
+                        shape: BoxShape.circle,
+                      ),
+                      todayDecoration: BoxDecoration(
+                        color: Colors.orangeAccent,
+                        shape: BoxShape.circle,
                       ),
                     ),
-                  );
-                }).toList(),
-              );
-            },
-          );
-        },
+                  ),
+                  isExpanded: _isCalendarExpanded,
+                ),
+              ],
+            ),
+          ),
+          Expanded(
+            child: FutureBuilder<User?>(
+              future: FirebaseAuth.instance.authStateChanges().first,
+              builder: (context, userSnapshot) {
+                if (userSnapshot.connectionState == ConnectionState.waiting) {
+                  return Center(child: CircularProgressIndicator());
+                }
+
+                if (userSnapshot.hasError) {
+                  return Center(child: Text('Error: ${userSnapshot.error}'));
+                }
+
+                if (!userSnapshot.hasData || userSnapshot.data == null) {
+                  return Center(child: Text('Tidak ada pengguna yang login'));
+                }
+
+                final User user = userSnapshot.data!;
+                return StreamBuilder<QuerySnapshot>(
+                  stream: FirebaseFirestore.instance
+                      .collection('users')
+                      .doc(user.uid)
+                      .collection('overtime_records')
+                      .snapshots(),
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState == ConnectionState.waiting) {
+                      return Center(child: CircularProgressIndicator());
+                    }
+
+                    if (snapshot.hasError) {
+                      return Center(child: Text('Error: ${snapshot.error}'));
+                    }
+
+                    if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                      return Center(child: Text('Belum ada data lembur'));
+                    }
+
+                    var records = snapshot.data!.docs;
+
+                    records = records.where((record) {
+                      var data = record.data() as Map<String, dynamic>;
+                      var overtimeInTime = data['overtime_in_time'] != null
+                          ? (data['overtime_in_time'] as Timestamp).toDate()
+                          : null;
+                      return overtimeInTime != null &&
+                          overtimeInTime.year == _selectedDate.year &&
+                          overtimeInTime.month == _selectedDate.month &&
+                          overtimeInTime.day == _selectedDate.day;
+                    }).toList();
+
+                    if (records.isEmpty) {
+                      return const Center(child: Text('No records found for the selected date.', style: TextStyle(color: Colors.black)));
+                    }
+
+                    return ListView.builder(
+                      itemCount: records.length,
+                      itemBuilder: (context, index) {
+                        var record = records[index];
+                        var data = record.data() as Map<String, dynamic>;
+
+                        var overtimeInTime = data['overtime_in_time'] != null
+                            ? (data['overtime_in_time'] as Timestamp).toDate()
+                            : null;
+                        var overtimeOutTime = data['overtime_out_time'] != null
+                            ? (data['overtime_out_time'] as Timestamp).toDate()
+                            : null;
+                        var totalOvertime = _calculateTotalOvertime(overtimeInTime, overtimeOutTime);
+
+                        return Card(
+                          margin: const EdgeInsets.all(8.0),
+                          elevation: 3.0,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Padding(
+                            padding: const EdgeInsets.all(16.0),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                _buildTable('Overtime In', overtimeInTime),
+                                Divider(thickness: 1),
+                                _buildTable('Overtime Out', overtimeOutTime),
+                                Divider(thickness: 1),
+                                Padding(
+                                  padding: const EdgeInsets.symmetric(vertical: 4.0),
+                                  child: Row(
+                                    children: [
+                                      Expanded(
+                                        flex: 2,
+                                        child: Text(
+                                          'Total Overtime',
+                                          style: TextStyle(fontWeight: FontWeight.bold),
+                                        ),
+                                      ),
+                                      Expanded(
+                                        flex: 3,
+                                        child: Text(totalOvertime),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                    );
+                  },
+                );
+              },
+            ),
+          ),
+        ],
       ),
     );
   }
 
-  String _formatTimestamp(Timestamp? timestamp) {
-    if (timestamp == null) return 'N/A';
-    var dateTime = timestamp.toDate();
+  Widget _buildTable(String title, DateTime? time) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          title,
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+        ),
+        SizedBox(height: 8),
+        Table(
+          border: TableBorder.all(color: Colors.grey),
+          columnWidths: const {
+            0: FlexColumnWidth(1),
+            1: FlexColumnWidth(2),
+          },
+          children: [
+            _buildTableRow('Time', time != null ? _formatTimestamp(time) : 'N/A'),
+          ],
+        ),
+      ],
+    );
+  }
+
+  TableRow _buildTableRow(String key, String value) {
+    return TableRow(
+      children: [
+        Padding(
+          padding: const EdgeInsets.all(8.0),
+          child: Text(
+            key,
+            style: TextStyle(fontWeight: FontWeight.bold),
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.all(8.0),
+          child: Text(value),
+        ),
+      ],
+    );
+  }
+
+  String _formatTimestamp(DateTime dateTime) {
     return "${dateTime.day}-${dateTime.month}-${dateTime.year} ${dateTime.hour}:${dateTime.minute}:${dateTime.second}";
   }
 
-  String _calculateTotalOvertime(Timestamp? inTime, Timestamp? outTime) {
+  String _calculateTotalOvertime(DateTime? inTime, DateTime? outTime) {
     if (inTime == null || outTime == null) return 'N/A';
-    var inDateTime = inTime.toDate();
-    var outDateTime = outTime.toDate();
-    var duration = outDateTime.difference(inDateTime);
+    var duration = outTime.difference(inTime);
     return '${duration.inHours}:${duration.inMinutes % 60}:${duration.inSeconds % 60}';
   }
 }

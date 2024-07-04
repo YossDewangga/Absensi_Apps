@@ -16,9 +16,9 @@ class ClockPage extends StatefulWidget {
   _ClockPageState createState() => _ClockPageState();
 }
 
-class _ClockPageState extends State<ClockPage> {
+class _ClockPageState extends State<ClockPage> with WidgetsBindingObserver {
   String _clockStatus = 'Clock Out';
-  List<Map<String, String>> _logbookEntries = [];
+  List<Map<String, dynamic>> _logbookEntries = [];
   DateTime? _clockInTime;
   Position? _currentPosition;
   bool _isClockInDisabled = false;
@@ -47,9 +47,29 @@ class _ClockPageState extends State<ClockPage> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _checkLocationPermission();
     _getDesignatedStartTime();
     _getUserInfo();
+    _getClockStatus(); // Ambil status tombol saat inisialisasi
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    if (_clockStatus == 'Clock Out') {
+      _logbookEntries.clear(); // Kosongkan logbook saat keluar dari halaman jika sudah clock out
+    }
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.detached || state == AppLifecycleState.paused) {
+      if (_clockStatus == 'Clock Out') {
+        _logbookEntries.clear();
+      }
+    }
   }
 
   void _getDesignatedStartTime() async {
@@ -118,6 +138,41 @@ class _ClockPageState extends State<ClockPage> {
       }
     } catch (e) {
       print("Terjadi kesalahan saat mengambil informasi pengguna: $e");
+    }
+  }
+
+  Future<void> _getClockStatus() async {
+    try {
+      User? user = FirebaseAuth.instance.currentUser;
+      if (user != null) {
+        QuerySnapshot userSnapshot = await _firestore
+            .collection('users')
+            .doc(user.uid)
+            .collection('clockin_records')
+            .orderBy('timestamp', descending: true)
+            .limit(1)
+            .get();
+
+        if (userSnapshot.docs.isNotEmpty) {
+          DocumentSnapshot latestRecord = userSnapshot.docs.first;
+          setState(() {
+            _clockStatus = latestRecord['clock_status'];
+            _currentRecordId = latestRecord.id;
+            _clockInTime = (latestRecord['clock_in_time'] as Timestamp).toDate();
+            _clockInTimeStr = _formattedDateTime(_clockInTime!);
+            _clockOutTimeStr = latestRecord['clock_out_time'] != null
+                ? _formattedDateTime((latestRecord['clock_out_time'] as Timestamp).toDate())
+                : '';
+            _workingHoursStr = latestRecord['total_working_hours'] ?? '';
+            _isClockInDisabled = _clockStatus == 'Clock In';
+            _logbookEntries = _clockStatus == 'Clock Out'
+                ? []
+                : List<Map<String, dynamic>>.from(latestRecord['logbook_entries'] ?? []);
+          });
+        }
+      }
+    } catch (e) {
+      print("Error getting clock status: $e");
     }
   }
 
@@ -292,10 +347,12 @@ class _ClockPageState extends State<ClockPage> {
       'late_duration': _formattedDuration(_lateDuration),
       'late_reason': _lateReason,
       'image_url': imageUrl,
+      'clock_status': _clockStatus,
+      'logbook_entries': _logbookEntries,
     });
+
     setState(() {
       _currentRecordId = docRef.id;
-      print("Clock In ID: $_currentRecordId"); // Logging for debugging
     });
   }
 
@@ -311,7 +368,6 @@ class _ClockPageState extends State<ClockPage> {
     });
 
     if (_currentRecordId != null) {
-      print("Clock Out using ID: $_currentRecordId"); // Logging for debugging
       String imageUrl = await _uploadImage(_image!);
 
       DocumentReference userDocRef = _firestore.collection('users').doc(_userId);
@@ -323,6 +379,7 @@ class _ClockPageState extends State<ClockPage> {
         'total_working_hours': _workingHoursStr,
         'approved': false,
         'clock_out_image_url': imageUrl,
+        'clock_status': _clockStatus
       });
 
       ScaffoldMessenger.of(context).showSnackBar(
@@ -512,7 +569,7 @@ class _ClockPageState extends State<ClockPage> {
                           _showAlertDialog("Silakan isi semua waktu dan aktivitas.");
                         }
                       },
-                      child: Text('Tambah'),
+                      child: Text('Add'),
                     ),
                     ElevatedButton(
                       onPressed: () {
@@ -523,7 +580,7 @@ class _ClockPageState extends State<ClockPage> {
                           _showAlertDialog("Silakan tambahkan setidaknya satu entri logbook.");
                         }
                       },
-                      child: Text('Selesai'),
+                      child: Text('Submit'),
                     ),
                   ],
                 ),
@@ -843,9 +900,9 @@ class _ClockPageState extends State<ClockPage> {
     return "$twoDigitHours:$twoDigitMinutes:$twoDigitSeconds";
   }
 
-  Widget _buildLogBox(String title, String content, double width, double height, Alignment alignment, double textSize, double contentTextSize) {
+  Widget _buildLogBox(String title, String content, double width, double height, double textSize, double contentTextSize) {
     return Container(
-      key: title == 'Total Working Hours' ? _totalHoursKey : null,
+      key: title == 'Total Jam Kerja' ? _totalHoursKey : null,
       width: width,
       height: height,
       padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
@@ -853,9 +910,8 @@ class _ClockPageState extends State<ClockPage> {
       decoration: BoxDecoration(
         color: Colors.grey[200],
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: Colors.grey),
+        border: Border.all(color: Colors.black, width: 1.0),
       ),
-      alignment: alignment,
       child: Column(
         mainAxisAlignment: MainAxisAlignment.start,
         crossAxisAlignment: CrossAxisAlignment.center,
@@ -912,7 +968,7 @@ class _ClockPageState extends State<ClockPage> {
                     onPressed: _isClockInDisabled ? null : _pickImage,
                     child: Text('Clock In'),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.white,
+                      backgroundColor: _isClockInDisabled ? Colors.grey : Colors.white,
                       padding: EdgeInsets.symmetric(horizontal: 30, vertical: 20),
                       textStyle: TextStyle(fontSize: 16),
                       foregroundColor: Colors.black,
@@ -963,21 +1019,21 @@ class _ClockPageState extends State<ClockPage> {
                     Row(
                       children: <Widget>[
                         Expanded(
-                          child: _buildLogBox('Clock In', _clockInTimeStr, double.infinity, 120, Alignment.center, 16, 17),
+                          child: _buildLogBox('Clock In', _clockInTimeStr, double.infinity, 120, 16, 17),
                         ),
                         SizedBox(width: 15),
                         Expanded(
-                          child: _buildLogBox('Clock Out', _clockOutTimeStr, double.infinity, 120, Alignment.center, 16, 17),
+                          child: _buildLogBox('Clock Out', _clockOutTimeStr, double.infinity, 120, 16, 17),
                         ),
                       ],
                     ),
                     Padding(
                       padding: EdgeInsets.symmetric(horizontal: 100, vertical: 0),
-                      child: _buildLogBox('Total Jam Kerja', _workingHoursStr, double.infinity, 80, Alignment.center, 16, 17),
+                      child: _buildLogBox('Total Jam Kerja', _workingHoursStr, double.infinity, 80, 16, 17),
                     ),
                     Padding(
                       padding: EdgeInsets.symmetric(horizontal: 30, vertical: 0),
-                      child: _buildLogBox('Logbook Entry', _logbookEntries.map((entry) => '${entry['time_range']}: ${entry['activity']}').join('\n'), double.infinity, 120, Alignment.center, 16, 17),
+                      child: _buildLogBox('Logbook Entry', _logbookEntries.map((entry) => '${entry['time_range']}: ${entry['activity']}').join('\n'), double.infinity, 120, 16, 17),
                     ),
                     Divider(thickness: 1),
                     ListTile(
