@@ -38,6 +38,7 @@ class _VisitInAndOutPageState extends State<VisitInAndOutPage> {
   String _visitInDateTime = 'Unknown';
   String _nextDestination = '';
   String _visitStatus = 'Not Visited';
+  String? _displayName;
 
   @override
   void initState() {
@@ -51,9 +52,9 @@ class _VisitInAndOutPageState extends State<VisitInAndOutPage> {
     var status = await Permission.location.status;
     if (status.isDenied) {
       if (await Permission.location.request().isGranted) {
-        // Permission granted, no further action needed
+        // Izin diberikan, tidak ada tindakan lebih lanjut yang diperlukan
       } else {
-        _showSnackBar('Location permission is required to access GPS.');
+        _showSnackBar('Izin lokasi diperlukan untuk mengakses GPS.');
       }
     } else if (status.isPermanentlyDenied) {
       openAppSettings();
@@ -65,27 +66,29 @@ class _VisitInAndOutPageState extends State<VisitInAndOutPage> {
     if (user != null) {
       setState(() {
         _userId = user.uid;
+        _displayName = user.displayName; // Ambil displayName dari pengguna
       });
       await _loadVisitStatus();
     } else {
-      _showSnackBar('User not logged in.');
+      _showSnackBar('Pengguna belum masuk.');
     }
   }
 
   Future<void> _loadVisitStatus() async {
     if (_userId != null) {
       DocumentReference userDocRef = FirebaseFirestore.instance.collection('users').doc(_userId);
-      DocumentSnapshot snapshot = await userDocRef.get();
-      if (snapshot.exists && snapshot.data() != null) {
+      QuerySnapshot visitSnapshots = await userDocRef.collection('visits').orderBy('visit_in_time', descending: true).limit(1).get();
+      if (visitSnapshots.docs.isNotEmpty) {
+        DocumentSnapshot visitSnapshot = visitSnapshots.docs.first;
         setState(() {
-          _visitStatus = snapshot['visit_status'] ?? 'Not Visited';
+          _visitStatus = visitSnapshot['visit_status'] ?? 'Not Visited';
           _visitInCompleted = _visitStatus == 'Visit In';
           _visitOutCompleted = _visitStatus == 'Visit Out';
+          _visitInDocumentId = visitSnapshot.id;
+          if (_visitInCompleted) {
+            _loadVisitInDetails();
+          }
         });
-
-        if (_visitInCompleted) {
-          await _loadVisitInDetails();
-        }
       }
     }
   }
@@ -93,11 +96,9 @@ class _VisitInAndOutPageState extends State<VisitInAndOutPage> {
   Future<void> _loadVisitInDetails() async {
     if (_userId != null && _visitStatus == 'Visit In') {
       DocumentReference userDocRef = FirebaseFirestore.instance.collection('users').doc(_userId);
-      QuerySnapshot visitSnapshots = await userDocRef.collection('visits').orderBy('visit_in_time', descending: true).limit(1).get();
-      if (visitSnapshots.docs.isNotEmpty) {
-        DocumentSnapshot visitSnapshot = visitSnapshots.docs.first;
+      DocumentSnapshot visitSnapshot = await userDocRef.collection('visits').doc(_visitInDocumentId).get();
+      if (visitSnapshot.exists) {
         setState(() {
-          _visitInDocumentId = visitSnapshot.id;
           _visitInLocation = visitSnapshot['visit_in_location'];
           _visitInAddress = visitSnapshot['visit_in_address'];
           _visitInTime = (visitSnapshot['visit_in_time'] as Timestamp).toDate();
@@ -107,23 +108,17 @@ class _VisitInAndOutPageState extends State<VisitInAndOutPage> {
           _visitInPosition = Position(
             latitude: double.parse(locationParts[0]),
             longitude: double.parse(locationParts[1]),
-            timestamp: DateTime.now(), // Set a valid timestamp
+            timestamp: DateTime.now(),
             altitude: 0.0,
             accuracy: 0.0,
             altitudeAccuracy: 0.0,
             heading: 0.0,
             speed: 0.0,
-            speedAccuracy: 0.0, headingAccuracy: 0.0,
+            speedAccuracy: 0.0,
+            headingAccuracy: 0.0,
           );
         });
       }
-    }
-  }
-
-  Future<void> _updateVisitStatus(String status) async {
-    if (_userId != null) {
-      DocumentReference userDocRef = FirebaseFirestore.instance.collection('users').doc(_userId);
-      await userDocRef.set({'visit_status': status}, SetOptions(merge: true));
     }
   }
 
@@ -171,7 +166,7 @@ class _VisitInAndOutPageState extends State<VisitInAndOutPage> {
         SizedBox(height: 10),
         Center(
           child: Text(
-            'Please use the buttons below to record your visit in and out times.',
+            'Silakan gunakan tombol di bawah untuk mencatat waktu kunjungan masuk dan keluar Anda.',
             style: TextStyle(fontSize: 16),
             textAlign: TextAlign.center,
           ),
@@ -180,7 +175,7 @@ class _VisitInAndOutPageState extends State<VisitInAndOutPage> {
         Divider(thickness: 2),
         Center(
           child: Text(
-            'Current Status: $_visitStatus',
+            'Status Saat Ini: $_visitStatus',
             style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.blue),
             textAlign: TextAlign.center,
           ),
@@ -241,16 +236,30 @@ class _VisitInAndOutPageState extends State<VisitInAndOutPage> {
         setState(() {
           _visitInCompleted = true;
           _visitInDocumentId = documentId;
+          _visitStatus = 'Visit In'; // Ubah status menjadi Visit In hanya setelah pengguna mengunjungi
         });
 
-        await _updateVisitStatus('Visit In');
         _showDialog('Visit In Completed');
       } catch (e) {
-        _showDialog('Failed to submit: $e');
+        _showDialog('Gagal mengirim: $e');
       }
     } else {
-      _showDialog('Failed to take picture or get location.');
+      _showDialog('Gagal mengambil gambar atau mendapatkan lokasi.');
     }
+  }
+
+  Future<String> _saveVisitInToFirestore(String downloadUrl) async {
+    DocumentReference userDocRef = FirebaseFirestore.instance.collection('users').doc(_userId);
+    DocumentReference visitDocRef = await userDocRef.collection('visits').add({
+      'visit_in_time': _visitInTime,
+      'visit_in_location': _visitInLocation,
+      'visit_in_address': _visitInAddress,
+      'visit_in_imageUrl': downloadUrl,
+      'visit_status': 'Visit In', // Simpan status Visit In
+      'displayName': _displayName, // Simpan displayName
+    });
+
+    return visitDocRef.id;
   }
 
   Future<void> _visitOut() async {
@@ -287,15 +296,40 @@ class _VisitInAndOutPageState extends State<VisitInAndOutPage> {
 
         setState(() {
           _visitOutCompleted = true;
+          _visitStatus = 'Visit Out'; // Ubah status menjadi Visit Out hanya setelah pengguna mengunjungi
         });
 
-        await _updateVisitStatus('Visit Out');
         _showDialog('Visit Out Completed');
       } catch (e) {
-        _showDialog('Failed to submit: $e');
+        _showDialog('Gagal mengirim: $e');
       }
     } else {
-      _showDialog('Failed to take picture or get location.');
+      _showDialog('Gagal mengambil gambar atau mendapatkan lokasi.');
+    }
+  }
+
+  Future<void> _saveVisitOutToFirestore(String downloadUrl) async {
+    DocumentReference userDocRef = FirebaseFirestore.instance.collection('users').doc(_userId);
+    DocumentReference visitDocRef = userDocRef.collection('visits').doc(_visitInDocumentId);
+
+    try {
+      if (_visitOutTime != null && _visitOutLocation.isNotEmpty && _visitOutAddress.isNotEmpty && downloadUrl.isNotEmpty && _nextDestination.isNotEmpty) {
+        await visitDocRef.update({
+          'visit_out_time': _visitOutTime,
+          'visit_out_location': _visitOutLocation,
+          'visit_out_address': _visitOutAddress,
+          'visit_out_imageUrl': downloadUrl,
+          'next_destination': _nextDestination,
+          'visit_status': 'Visit Out', // Simpan status Visit Out
+        });
+
+        print('Data updated successfully');
+      } else {
+        print('One or more fields are null or empty');
+      }
+    } catch (e) {
+      print('Error updating document: $e');
+      _showDialog('Error updating document: $e');
     }
   }
 
@@ -394,36 +428,11 @@ class _VisitInAndOutPageState extends State<VisitInAndOutPage> {
     return downloadUrl;
   }
 
-  Future<String> _saveVisitInToFirestore(String downloadUrl) async {
-    DocumentReference userDocRef = FirebaseFirestore.instance.collection('users').doc(_userId);
-    DocumentReference visitDocRef = await userDocRef.collection('visits').add({
-      'visit_in_time': _visitInTime,
-      'visit_in_location': _visitInLocation,
-      'visit_in_address': _visitInAddress,
-      'visit_in_imageUrl': downloadUrl,
-    });
-
-    return visitDocRef.id;
-  }
-
-  Future<void> _saveVisitOutToFirestore(String downloadUrl) async {
-    DocumentReference userDocRef = FirebaseFirestore.instance.collection('users').doc(_userId);
-    DocumentReference visitDocRef = userDocRef.collection('visits').doc(_visitInDocumentId);
-
-    await visitDocRef.update({
-      'visit_out_time': _visitOutTime,
-      'visit_out_location': _visitOutLocation,
-      'visit_out_address': _visitOutAddress,
-      'visit_out_imageUrl': downloadUrl,
-      'next_destination': _nextDestination,
-    });
-  }
-
   void _showDialog(String message) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text('Notification'),
+        title: Text('Pemberitahuan'),
         content: Text(message),
         actions: [
           TextButton(
@@ -456,7 +465,7 @@ class _VisitInAndOutPageState extends State<VisitInAndOutPage> {
                 onPressed: () {
                   Navigator.of(context).pop();
                 },
-                child: Text('Close'),
+                child: Text('Tutup'),
               ),
             ],
           ),

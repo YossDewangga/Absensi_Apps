@@ -173,7 +173,8 @@ class _AdminOvertimePageState extends State<AdminOvertimePage> {
                             ? overtimeOutTime.difference(overtimeInTime)
                             : null;
 
-                        var approvalStatus = data['approval_status'] ?? 'Disapproved';
+                        var overtimeInImageUrl = data['overtime_in_image_url'] ?? '';
+                        var overtimeOutImageUrl = data['overtime_out_image_url'] ?? '';
 
                         return Card(
                           margin: const EdgeInsets.all(8.0),
@@ -186,19 +187,13 @@ class _AdminOvertimePageState extends State<AdminOvertimePage> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                _buildTable('Overtime In', userName, overtimeInTime, data['overtime_location'] as GeoPoint?),
+                                _buildTable('Overtime In', userName, overtimeInTime, data['overtime_location'] as GeoPoint?, overtimeInImageUrl),
                                 Divider(thickness: 1),
-                                _buildTable('Overtime Out', null, overtimeOutTime, data['overtime_out_location'] as GeoPoint?),
+                                _buildTable('Overtime Out', null, overtimeOutTime, data['overtime_out_location'] as GeoPoint?, overtimeOutImageUrl),
                                 Divider(thickness: 1),
                                 if (totalOvertime != null)
                                   _buildDurationTable('Total Overtime', _formattedDuration(totalOvertime)),
-                                Divider(thickness: 1),
-                                _buildApprovalRow(approvalStatus),
-                                if (_editableRecordId == recordId)
-                                  _buildApprovalButtons(context, userId, recordId, approvalStatus)
-                                else
-                                  _buildEditButton(recordId),
-                              ],
+                              ]
                             ),
                           ),
                         );
@@ -214,7 +209,7 @@ class _AdminOvertimePageState extends State<AdminOvertimePage> {
     );
   }
 
-  Table _buildTable(String timeType, String? userName, DateTime? time, GeoPoint? location) {
+  Table _buildTable(String timeType, String? userName, DateTime? time, GeoPoint? location, String? imageUrl) {
     return Table(
       border: TableBorder.all(color: Colors.grey),
       columnWidths: const {
@@ -224,6 +219,7 @@ class _AdminOvertimePageState extends State<AdminOvertimePage> {
       defaultVerticalAlignment: TableCellVerticalAlignment.middle,
       children: [
         if (userName != null) _buildTableRow('User Name:', userName),
+        if (imageUrl != null) _buildTableRowImage('Image:', imageUrl),
         _buildTableRow('$timeType:', time != null ? _formattedDateTime(time) : 'N/A'),
         _buildTableRow('Location:', location != null ? '${location.latitude}, ${location.longitude}' : 'N/A'),
       ],
@@ -262,78 +258,57 @@ class _AdminOvertimePageState extends State<AdminOvertimePage> {
     );
   }
 
-  Widget _buildApprovalRow(String approvalStatus) {
-    Color textColor = approvalStatus == 'Approved' ? Colors.green : Colors.red;
-    return Row(
+  TableRow _buildTableRowImage(String title, String? imageUrl) {
+    return TableRow(
       children: [
-        Text(
-          'Approval Status: ',
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
+        Container(
+          padding: EdgeInsets.all(8.0),
+          child: Text(
+            title,
+            style: TextStyle(fontWeight: FontWeight.bold),
           ),
         ),
-        Text(
-          approvalStatus,
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-            color: textColor,
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildApprovalButtons(BuildContext context, String userId, String recordId, String currentStatus) {
-    return Column(
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Column(
-              children: [
-                IconButton(
-                  icon: Icon(Icons.check_circle, color: Colors.green),
-                  onPressed: () {
-                    _updateApprovalStatus(context, userId, recordId, 'Approved');
-                  },
-                ),
-                Text('Approve', style: TextStyle(color: Colors.green, fontSize: 12)),
-              ],
-            ),
-            Column(
-              children: [
-                IconButton(
-                  icon: Icon(Icons.cancel, color: Colors.red),
-                  onPressed: () {
-                    _updateApprovalStatus(context, userId, recordId, 'Disapproved');
-                  },
-                ),
-                Text('Reject', style: TextStyle(color: Colors.red, fontSize: 12)),
-              ],
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-
-  Widget _buildEditButton(String recordId) {
-    return Center(
-      child: Column(
-        children: [
-          IconButton(
-            icon: Icon(Icons.edit, color: Colors.black),
-            onPressed: () {
-              setState(() {
-                _editableRecordId = recordId;
-              });
+        Container(
+          padding: EdgeInsets.all(8.0),
+          child: imageUrl != null && imageUrl.isNotEmpty
+              ? GestureDetector(
+            onTap: () {
+              _showFullImage(context, imageUrl);
             },
-          ),
-          Text('Edit', style: TextStyle(color: Colors.black, fontSize: 12)),
-        ],
-      ),
+            child: Center(
+              child: Container(
+                width: 100,
+                height: 100,
+                decoration: BoxDecoration(
+                  border: Border.all(color: Colors.grey),
+                ),
+                child: Image.network(
+                  imageUrl,
+                  loadingBuilder: (BuildContext context, Widget child, ImageChunkEvent? loadingProgress) {
+                    if (loadingProgress == null) {
+                      return child;
+                    } else {
+                      return Center(
+                        child: CircularProgressIndicator(
+                          value: loadingProgress.expectedTotalBytes != null
+                              ? loadingProgress.cumulativeBytesLoaded / (loadingProgress.expectedTotalBytes ?? 1)
+                              : null,
+                        ),
+                      );
+                    }
+                  },
+                  errorBuilder: (context, error, stackTrace) => Icon(Icons.error),
+                  fit: BoxFit.cover,
+                ),
+              ),
+            ),
+          )
+              : Text('No Image'),
+        ),
+      ],
     );
   }
+
 
   void _updateApprovalStatus(BuildContext context, String userId, String recordId, String newStatus) {
     FirebaseFirestore.instance.collection('users').doc(userId)
@@ -409,6 +384,31 @@ class _AdminOvertimePageState extends State<AdminOvertimePage> {
     String twoDigitMinutes = twoDigits(duration.inMinutes.remainder(60));
     String twoDigitSeconds = twoDigits(duration.inSeconds.remainder(60));
     return "${twoDigits(duration.inHours)}:$twoDigitMinutes:$twoDigitSeconds";
+  }
+
+  void _showFullImage(BuildContext context, String imageUrl) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return Dialog(
+          insetPadding: EdgeInsets.all(0),
+          backgroundColor: Colors.black,
+          child: GestureDetector(
+            onTap: () {
+              Navigator.of(context).pop();
+            },
+            child: Container(
+              width: MediaQuery.of(context).size.width,
+              height: MediaQuery.of(context).size.height,
+              child: Image.network(
+                imageUrl,
+                fit: BoxFit.contain,
+              ),
+            ),
+          ),
+        );
+      },
+    );
   }
 
   void _showAlertDialog(String message) {

@@ -2,6 +2,8 @@ import 'package:absensi_apps/Login_Register/login_page.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
+import 'edit_password.dart';
+
 class ProfilePage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
@@ -106,6 +108,25 @@ class ProfilePage extends StatelessWidget {
                         color: Colors.white.withOpacity(0.1),
                         shape: BoxShape.circle,
                       ),
+                      child: Icon(Icons.password, color: Colors.black),
+                    ),
+                    title: Text('Edit Password', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w500)),
+                    trailing: Icon(Icons.arrow_forward_ios),
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => EditPasswordPage()),
+                      );
+                    },
+                  ),
+                  Divider(),
+                  ListTile(
+                    leading: Container(
+                      padding: EdgeInsets.all(6),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.1),
+                        shape: BoxShape.circle,
+                      ),
                       child: Icon(Icons.logout, color: Colors.black),
                     ),
                     title: Text('Logout', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w500)),
@@ -126,7 +147,3 @@ class ProfilePage extends StatelessWidget {
     );
   }
 }
-
-
-
-

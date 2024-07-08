@@ -144,9 +144,9 @@ class _HistoryOvertimePageState extends State<HistoryOvertimePage> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                _buildTable('Overtime In', overtimeInTime),
+                                _buildTable(context, 'Overtime In', data, overtimeInTime, data['overtime_in_image_url']),
                                 Divider(thickness: 1),
-                                _buildTable('Overtime Out', overtimeOutTime),
+                                _buildTable(context, 'Overtime Out', data, overtimeOutTime, data['overtime_out_image_url']),
                                 Divider(thickness: 1),
                                 Padding(
                                   padding: const EdgeInsets.symmetric(vertical: 4.0),
@@ -161,7 +161,10 @@ class _HistoryOvertimePageState extends State<HistoryOvertimePage> {
                                       ),
                                       Expanded(
                                         flex: 3,
-                                        child: Text(totalOvertime),
+                                        child: Text(
+                                          totalOvertime,
+                                          style: TextStyle(fontWeight: FontWeight.bold),
+                                        ),
                                       ),
                                     ],
                                   ),
@@ -182,7 +185,7 @@ class _HistoryOvertimePageState extends State<HistoryOvertimePage> {
     );
   }
 
-  Widget _buildTable(String title, DateTime? time) {
+  Widget _buildTable(BuildContext context, String title, Map<String, dynamic> data, DateTime? time, String? imageUrl) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -198,14 +201,16 @@ class _HistoryOvertimePageState extends State<HistoryOvertimePage> {
             1: FlexColumnWidth(2),
           },
           children: [
-            _buildTableRow('Time', time != null ? _formatTimestamp(time) : 'N/A'),
+            _buildTableRow('Nama User', data['user_name'] ?? 'N/A', isBold: false),
+            _buildTableRow('Time', time != null ? _formattedDateTime(time) : 'N/A', isBold: false),
+            _buildTableRowImage(context, 'Image', imageUrl),
           ],
         ),
       ],
     );
   }
 
-  TableRow _buildTableRow(String key, String value) {
+  TableRow _buildTableRow(String key, String value, {bool isBold = false}) {
     return TableRow(
       children: [
         Padding(
@@ -217,13 +222,67 @@ class _HistoryOvertimePageState extends State<HistoryOvertimePage> {
         ),
         Padding(
           padding: const EdgeInsets.all(8.0),
-          child: Text(value),
+          child: Text(
+            value,
+            style: TextStyle(fontWeight: isBold ? FontWeight.bold : FontWeight.normal),
+          ),
         ),
       ],
     );
   }
 
-  String _formatTimestamp(DateTime dateTime) {
+  TableRow _buildTableRowImage(BuildContext context, String key, String? imageUrl) {
+    return TableRow(
+      children: [
+        Padding(
+          padding: const EdgeInsets.all(8.0),
+          child: Text(
+            key,
+            style: TextStyle(fontWeight: FontWeight.bold),
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.all(8.0),
+          child: imageUrl != null && imageUrl.isNotEmpty
+              ? GestureDetector(
+            onTap: () {
+              _showFullImage(context, imageUrl);
+            },
+            child: Center(
+              child: Container(
+                width: 100,
+                height: 100,
+                decoration: BoxDecoration(
+                  border: Border.all(color: Colors.grey),
+                ),
+                child: Image.network(
+                  imageUrl,
+                  loadingBuilder: (BuildContext context, Widget child, ImageChunkEvent? loadingProgress) {
+                    if (loadingProgress == null) {
+                      return child;
+                    } else {
+                      return Center(
+                        child: CircularProgressIndicator(
+                          value: loadingProgress.expectedTotalBytes != null
+                              ? loadingProgress.cumulativeBytesLoaded / (loadingProgress.expectedTotalBytes ?? 1)
+                              : null,
+                        ),
+                      );
+                    }
+                  },
+                  errorBuilder: (context, error, stackTrace) => Icon(Icons.error),
+                  fit: BoxFit.cover,
+                ),
+              ),
+            ),
+          )
+              : Text('No Image'),
+        ),
+      ],
+    );
+  }
+
+  String _formattedDateTime(DateTime dateTime) {
     return "${dateTime.day}-${dateTime.month}-${dateTime.year} ${dateTime.hour}:${dateTime.minute}:${dateTime.second}";
   }
 
@@ -231,5 +290,30 @@ class _HistoryOvertimePageState extends State<HistoryOvertimePage> {
     if (inTime == null || outTime == null) return 'N/A';
     var duration = outTime.difference(inTime);
     return '${duration.inHours}:${duration.inMinutes % 60}:${duration.inSeconds % 60}';
+  }
+
+  void _showFullImage(BuildContext context, String imageUrl) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return Dialog(
+          insetPadding: EdgeInsets.all(0),
+          backgroundColor: Colors.black,
+          child: GestureDetector(
+            onTap: () {
+              Navigator.of(context).pop();
+            },
+            child: Container(
+              width: MediaQuery.of(context).size.width,
+              height: MediaQuery.of(context).size.height,
+              child: Image.network(
+                imageUrl,
+                fit: BoxFit.contain,
+              ),
+            ),
+          ),
+        );
+      },
+    );
   }
 }

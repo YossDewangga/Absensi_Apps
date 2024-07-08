@@ -1,8 +1,11 @@
 import 'dart:async';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 
 import 'history_overtime_page.dart';
 
@@ -24,11 +27,14 @@ class _OvertimePageState extends State<OvertimePage> {
   String _totalOvertimeStr = '';
   String? _currentRecordId;
   User? _currentUser;
+  File? _image;
 
   final double _officeLat = -6.12333;
   final double _officeLong = 106.79869;
 
   FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  FirebaseStorage _storage = FirebaseStorage.instance;
+  final ImagePicker _picker = ImagePicker();
 
   @override
   void initState() {
@@ -40,6 +46,28 @@ class _OvertimePageState extends State<OvertimePage> {
 
   void _getCurrentUser() {
     _currentUser = FirebaseAuth.instance.currentUser;
+  }
+
+  Future<void> _pickImage() async {
+    final XFile? image = await _picker.pickImage(source: ImageSource.camera);
+    if (image != null) {
+      setState(() {
+        _image = File(image.path);
+      });
+    }
+  }
+
+  Future<String> _uploadImage(File image) async {
+    try {
+      String fileName = DateTime.now().millisecondsSinceEpoch.toString();
+      Reference storageReference = _storage.ref().child("overtime_images/$fileName");
+      UploadTask uploadTask = storageReference.putFile(image);
+      TaskSnapshot snapshot = await uploadTask;
+      return await snapshot.ref.getDownloadURL();
+    } catch (e) {
+      print("Error uploading image: $e");
+      throw e;
+    }
   }
 
   void _checkLocationPermission() async {
@@ -99,24 +127,33 @@ class _OvertimePageState extends State<OvertimePage> {
           _officeLat, _officeLong, _currentPosition!.latitude, _currentPosition!.longitude);
 
       if (distanceInMeters <= 100) {
-        DocumentReference userDocRef = _firestore.collection('users').doc(_currentUser!.uid);
-        DocumentReference docRef = await userDocRef.collection('overtime_records').add({
-          'overtime_location': GeoPoint(_currentPosition!.latitude, _currentPosition!.longitude),
-          'timestamp': Timestamp.now(),
-          'overtime_status': 'Overtime In',
-          'overtime_in_time': DateTime.now(),
-        });
+        await _pickImage();
+        if (_image != null) {
+          String imageUrl = await _uploadImage(_image!);
+          String userName = _currentUser!.displayName ?? 'User';
+          DocumentReference userDocRef = _firestore.collection('users').doc(_currentUser!.uid);
+          DocumentReference docRef = await userDocRef.collection('overtime_records').add({
+            'user_name': userName,
+            'overtime_location': GeoPoint(_currentPosition!.latitude, _currentPosition!.longitude),
+            'timestamp': Timestamp.now(),
+            'overtime_status': 'Overtime In',
+            'overtime_in_time': DateTime.now(),
+            'overtime_in_image_url': imageUrl, // Simpan URL gambar Overtime In
+          });
 
-        setState(() {
-          _overtimeStatus = 'Overtime In';
-          _overtimeInTime = DateTime.now();
-          _overtimeInTimeStr = _formattedDateTime(_overtimeInTime!);
-          _isOvertimeInDisabled = true;
-          _isOvertimeOutDisabled = false;
-          _currentRecordId = docRef.id;
-        });
+          setState(() {
+            _overtimeStatus = 'Overtime In';
+            _overtimeInTime = DateTime.now();
+            _overtimeInTimeStr = _formattedDateTime(_overtimeInTime!);
+            _isOvertimeInDisabled = true;
+            _isOvertimeOutDisabled = false;
+            _currentRecordId = docRef.id;
+          });
 
-        print("Overtime in recorded successfully.");
+          print("Overtime in recorded successfully.");
+        } else {
+          _showAlertDialog("Anda harus mengambil foto untuk Overtime In.");
+        }
       } else {
         _showAlertDialog("Anda berada diluar jangkauan lokasi kantor.");
       }
@@ -131,27 +168,34 @@ class _OvertimePageState extends State<OvertimePage> {
           _officeLat, _officeLong, _currentPosition!.latitude, _currentPosition!.longitude);
 
       if (distanceInMeters <= 100) {
-        DateTime overtimeOutTime = DateTime.now();
-        Duration totalOvertime = overtimeOutTime.difference(_overtimeInTime!);
+        await _pickImage();
+        if (_image != null) {
+          DateTime overtimeOutTime = DateTime.now();
+          Duration totalOvertime = overtimeOutTime.difference(_overtimeInTime!);
+          String imageUrl = await _uploadImage(_image!);
 
-        DocumentReference userDocRef = _firestore.collection('users').doc(_currentUser!.uid);
-        await userDocRef.collection('overtime_records').doc(_currentRecordId).update({
-          'overtime_out_location': GeoPoint(_currentPosition!.latitude, _currentPosition!.longitude),
-          'timestamp': Timestamp.now(),
-          'overtime_status': 'Overtime Out',
-          'overtime_out_time': DateTime.now(),
-          'total_overtime': totalOvertime.inSeconds,
-        });
+          DocumentReference userDocRef = _firestore.collection('users').doc(_currentUser!.uid);
+          await userDocRef.collection('overtime_records').doc(_currentRecordId).update({
+            'overtime_out_location': GeoPoint(_currentPosition!.latitude, _currentPosition!.longitude),
+            'timestamp': Timestamp.now(),
+            'overtime_status': 'Overtime Out',
+            'overtime_out_time': DateTime.now(),
+            'total_overtime': totalOvertime.inSeconds,
+            'overtime_out_image_url': imageUrl, // Simpan URL gambar Overtime Out
+          });
 
-        setState(() {
-          _overtimeStatus = 'Overtime Out';
-          _overtimeOutTimeStr = _formattedDateTime(overtimeOutTime);
-          _totalOvertimeStr = _formattedDuration(totalOvertime);
-          _isOvertimeInDisabled = false;
-          _isOvertimeOutDisabled = true;
-        });
+          setState(() {
+            _overtimeStatus = 'Overtime Out';
+            _overtimeOutTimeStr = _formattedDateTime(overtimeOutTime);
+            _totalOvertimeStr = _formattedDuration(totalOvertime);
+            _isOvertimeInDisabled = false;
+            _isOvertimeOutDisabled = true;
+          });
 
-        _showSuccessDialog("Overtime Out berhasil!");
+          _showSuccessDialog("Overtime Out berhasil!");
+        } else {
+          _showAlertDialog("Anda harus mengambil foto untuk Overtime Out.");
+        }
       } else {
         _showAlertDialog("Anda berada diluar jangkauan lokasi kantor.");
       }
@@ -317,24 +361,6 @@ class _OvertimePageState extends State<OvertimePage> {
                   ],
                 ),
                 SizedBox(height: 15),
-                Divider(thickness: 2),
-                SizedBox(height: 15),
-                Row(
-                  children: <Widget>[
-                    Expanded(
-                      child: _buildLogBox('Overtime In', _overtimeInTimeStr, double.infinity, 120, 16, 17),
-                    ),
-                    SizedBox(width: 15),
-                    Expanded(
-                      child: _buildLogBox('Overtime Out', _overtimeOutTimeStr, double.infinity, 120, 16, 17),
-                    ),
-                  ],
-                ),
-                SizedBox(height: 15),
-                Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 100, vertical: 0),
-                  child: _buildLogBox('Total Overtime', _totalOvertimeStr, double.infinity, 90, 16, 17),
-                ),
                 SizedBox(height: 15),
                 Divider(thickness: 1),
                 ListTile(

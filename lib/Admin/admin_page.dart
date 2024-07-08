@@ -8,7 +8,6 @@ import 'karyawan_list_page.dart';
 import 'admin_visit.dart';
 import 'setting_page.dart';
 
-
 class AdminPage extends StatefulWidget {
   const AdminPage({super.key});
 
@@ -22,18 +21,17 @@ class _AdminPageState extends State<AdminPage> {
 
   static final List<Widget> _pages = <Widget>[
     const AdminAbsensiPage(),
-    AdminOvertimePage(),
-    AdminVisitPage(),
-    AdminBreakPage(), // Tambahkan halaman AdminBreakPage
+    const AdminOvertimePage(),
+    const AdminVisitPage(),
+    const AdminBreakPage(),
     const KaryawanListPage(),
-    const SettingsPage(), // Gunakan halaman pengaturan yang baru
+    ProfilePage(),
   ];
 
   void _onItemTapped(int index) {
     setState(() {
       _selectedIndex = index;
       if (index == 0) {
-        // Reset the notification indicator when the logbook page is selected
         _hasNewLogbookEntry = false;
       }
     });
@@ -83,16 +81,16 @@ class _AdminPageState extends State<AdminPage> {
             label: 'Absensi',
           ),
           const BottomNavigationBarItem(
-            icon: Icon(Icons.access_alarm), // Ikon untuk Overtime
-            label: 'Overtime', // Label untuk Overtime
+            icon: Icon(Icons.access_alarm),
+            label: 'Overtime',
           ),
           const BottomNavigationBarItem(
             icon: Icon(Icons.report),
             label: 'Visit',
           ),
           const BottomNavigationBarItem(
-            icon: Icon(Icons.coffee), // Ikon untuk Break
-            label: 'Break', // Label untuk Break
+            icon: Icon(Icons.coffee),
+            label: 'Break',
           ),
           const BottomNavigationBarItem(
             icon: Icon(Icons.people),

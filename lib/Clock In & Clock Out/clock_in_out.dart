@@ -900,40 +900,6 @@ class _ClockPageState extends State<ClockPage> with WidgetsBindingObserver {
     return "$twoDigitHours:$twoDigitMinutes:$twoDigitSeconds";
   }
 
-  Widget _buildLogBox(String title, String content, double width, double height, double textSize, double contentTextSize) {
-    return Container(
-      key: title == 'Total Jam Kerja' ? _totalHoursKey : null,
-      width: width,
-      height: height,
-      padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
-      margin: const EdgeInsets.symmetric(vertical: 8.0),
-      decoration: BoxDecoration(
-        color: Colors.grey[200],
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: Colors.black, width: 1.0),
-      ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.start,
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: <Widget>[
-          Text(
-            title,
-            style: TextStyle(fontSize: textSize, fontWeight: FontWeight.bold),
-            textAlign: TextAlign.center,
-          ),
-          Divider(thickness: 1),
-          Text(
-            content,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(fontSize: contentTextSize),
-            textAlign: TextAlign.center,
-          ),
-        ],
-      ),
-    );
-  }
-
   void _navigateToHistoryPage() {
     Navigator.push(
       context,
@@ -947,7 +913,6 @@ class _ClockPageState extends State<ClockPage> with WidgetsBindingObserver {
       appBar: AppBar(
         title: Text('Absensi'),
         centerTitle: true,
-        actions: [],
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -965,10 +930,10 @@ class _ClockPageState extends State<ClockPage> with WidgetsBindingObserver {
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                 children: <Widget>[
                   ElevatedButton(
-                    onPressed: _isClockInDisabled ? null : _pickImage,
+                    onPressed: (_clockStatus == 'Clock In') ? null : _pickImage,
                     child: Text('Clock In'),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: _isClockInDisabled ? Colors.grey : Colors.white,
+                      backgroundColor: (_clockStatus == 'Clock In') ? Colors.grey : Colors.white,
                       padding: EdgeInsets.symmetric(horizontal: 30, vertical: 20),
                       textStyle: TextStyle(fontSize: 16),
                       foregroundColor: Colors.black,
@@ -980,7 +945,7 @@ class _ClockPageState extends State<ClockPage> with WidgetsBindingObserver {
                     ),
                   ),
                   ElevatedButton(
-                    onPressed: _clockStatus == 'Clock Out' ? null : _clockOut,
+                    onPressed: (_clockStatus == 'Clock Out') ? null : _clockOut,
                     child: Text('Clock Out'),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.white,
@@ -1016,25 +981,6 @@ class _ClockPageState extends State<ClockPage> with WidgetsBindingObserver {
               Expanded(
                 child: ListView(
                   children: <Widget>[
-                    Row(
-                      children: <Widget>[
-                        Expanded(
-                          child: _buildLogBox('Clock In', _clockInTimeStr, double.infinity, 120, 16, 17),
-                        ),
-                        SizedBox(width: 15),
-                        Expanded(
-                          child: _buildLogBox('Clock Out', _clockOutTimeStr, double.infinity, 120, 16, 17),
-                        ),
-                      ],
-                    ),
-                    Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 100, vertical: 0),
-                      child: _buildLogBox('Total Jam Kerja', _workingHoursStr, double.infinity, 80, 16, 17),
-                    ),
-                    Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 30, vertical: 0),
-                      child: _buildLogBox('Logbook Entry', _logbookEntries.map((entry) => '${entry['time_range']}: ${entry['activity']}').join('\n'), double.infinity, 120, 16, 17),
-                    ),
                     Divider(thickness: 1),
                     ListTile(
                       title: Text(
