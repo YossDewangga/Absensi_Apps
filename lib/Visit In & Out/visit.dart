@@ -10,6 +10,7 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'history_visit_page.dart';
 
@@ -25,6 +26,7 @@ class _VisitInAndOutPageState extends State<VisitInAndOutPage> {
   String _visitOutDateTime = 'Unknown';
   bool _visitInCompleted = false;
   bool _visitOutCompleted = false;
+  bool _approvalRequested = false; // Menambahkan flag untuk permintaan persetujuan
   File? _visitInImage;
   File? _visitOutImage;
   String _visitInLocation = 'Unknown';
@@ -75,22 +77,23 @@ class _VisitInAndOutPageState extends State<VisitInAndOutPage> {
   }
 
   Future<void> _loadVisitStatus() async {
-    if (_userId != null) {
-      DocumentReference userDocRef = FirebaseFirestore.instance.collection('users').doc(_userId);
-      QuerySnapshot visitSnapshots = await userDocRef.collection('visits').orderBy('visit_in_time', descending: true).limit(1).get();
-      if (visitSnapshots.docs.isNotEmpty) {
-        DocumentSnapshot visitSnapshot = visitSnapshots.docs.first;
-        setState(() {
-          _visitStatus = visitSnapshot['visit_status'] ?? 'Not Visited';
-          _visitInCompleted = _visitStatus == 'Visit In';
-          _visitOutCompleted = _visitStatus == 'Visit Out';
-          _visitInDocumentId = visitSnapshot.id;
-          if (_visitInCompleted) {
-            _loadVisitInDetails();
-          }
-        });
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _visitStatus = prefs.getString('visit_status') ?? 'Not Visited';
+      _visitInCompleted = prefs.getBool('visit_in_completed') ?? false;
+      _visitOutCompleted = prefs.getBool('visit_out_completed') ?? false;
+      _approvalRequested = prefs.getBool('approval_requested') ?? false;
+      _visitInDocumentId = prefs.getString('visit_in_document_id') ?? '';
+      _visitInDateTime = prefs.getString('visit_in_date_time') ?? 'Unknown';
+      _visitOutDateTime = prefs.getString('visit_out_date_time') ?? 'Unknown';
+      _visitInLocation = prefs.getString('visit_in_location') ?? 'Unknown';
+      _visitInAddress = prefs.getString('visit_in_address') ?? 'Unknown';
+      _visitOutLocation = prefs.getString('visit_out_location') ?? 'Unknown';
+      _visitOutAddress = prefs.getString('visit_out_address') ?? 'Unknown';
+      if (_visitStatus == 'Visit In' && _visitInCompleted) {
+        _loadVisitInDetails();
       }
-    }
+    });
   }
 
   Future<void> _loadVisitInDetails() async {
@@ -122,103 +125,6 @@ class _VisitInAndOutPageState extends State<VisitInAndOutPage> {
     }
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text('Visit In/Out'),
-        centerTitle: true,
-      ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: <Widget>[
-              _buildHeader(),
-              SizedBox(height: 20),
-              _buildButtons(),
-              Divider(thickness: 1),
-              ListTile(
-                title: Text(
-                  'Lihat Log Kunjungan',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.blue),
-                ),
-                trailing: Icon(Icons.arrow_forward, size: 24, color: Colors.blue),
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (context) => VisitHistoryPage(userId: _userId)),
-                  );
-                },
-              ),
-              Divider(thickness: 1),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildHeader() {
-    return Column(
-      children: [
-        SizedBox(height: 10),
-        Center(
-          child: Text(
-            'Silakan gunakan tombol di bawah untuk mencatat waktu kunjungan masuk dan keluar Anda.',
-            style: TextStyle(fontSize: 16),
-            textAlign: TextAlign.center,
-          ),
-        ),
-        SizedBox(height: 20),
-        Divider(thickness: 2),
-        Center(
-          child: Text(
-            'Status Saat Ini: $_visitStatus',
-            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.blue),
-            textAlign: TextAlign.center,
-          ),
-        ),
-        Divider(thickness: 2),
-      ],
-    );
-  }
-
-  Widget _buildButtons() {
-    return Column(
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-          children: [
-            ElevatedButton.icon(
-              onPressed: _visitInCompleted ? null : _visitIn,
-              icon: Icon(Icons.login),
-              label: Text('Visit In'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: _visitInCompleted ? Colors.grey : Colors.blue,
-                padding: EdgeInsets.symmetric(horizontal: 30, vertical: 20),
-                textStyle: TextStyle(fontSize: 16),
-                foregroundColor: Colors.white,
-              ),
-            ),
-            ElevatedButton.icon(
-              onPressed: !_visitInCompleted || _visitOutCompleted ? null : _visitOut,
-              icon: Icon(Icons.logout),
-              label: Text('Visit Out'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: !_visitInCompleted || _visitOutCompleted ? Colors.grey : Colors.red,
-                padding: EdgeInsets.symmetric(horizontal: 30, vertical: 20),
-                textStyle: TextStyle(fontSize: 16),
-                foregroundColor: Colors.white,
-              ),
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-
   Future<void> _visitIn() async {
     await _takePicture(true);
     await _getCurrentPosition(true);
@@ -236,8 +142,11 @@ class _VisitInAndOutPageState extends State<VisitInAndOutPage> {
         setState(() {
           _visitInCompleted = true;
           _visitInDocumentId = documentId;
-          _visitStatus = 'Visit In'; // Ubah status menjadi Visit In hanya setelah pengguna mengunjungi
+          _visitStatus = 'Visit In';
+          _visitOutCompleted = false; // Reset status visit out
         });
+
+        await _saveVisitStatus();
 
         _showDialog('Visit In Completed');
       } catch (e) {
@@ -257,9 +166,43 @@ class _VisitInAndOutPageState extends State<VisitInAndOutPage> {
       'visit_in_imageUrl': downloadUrl,
       'visit_status': 'Visit In', // Simpan status Visit In
       'displayName': _displayName, // Simpan displayName
+      'approval_requested': false, // Status permintaan persetujuan awalnya false
     });
 
     return visitDocRef.id;
+  }
+
+  Future<void> _saveVisitStatus() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    prefs.setString('visit_status', _visitStatus);
+    prefs.setBool('visit_in_completed', _visitInCompleted);
+    prefs.setBool('visit_out_completed', _visitOutCompleted);
+    prefs.setBool('approval_requested', _approvalRequested);
+    prefs.setString('visit_in_document_id', _visitInDocumentId);
+    prefs.setString('visit_in_date_time', _visitInDateTime);
+    prefs.setString('visit_out_date_time', _visitOutDateTime);
+    prefs.setString('visit_in_location', _visitInLocation);
+    prefs.setString('visit_in_address', _visitInAddress);
+    prefs.setString('visit_out_location', _visitOutLocation);
+    prefs.setString('visit_out_address', _visitOutAddress);
+  }
+
+  Future<void> _requestApproval() async {
+    if (_userId != null && _visitInDocumentId.isNotEmpty) {
+      DocumentReference visitDocRef = FirebaseFirestore.instance.collection('users').doc(_userId).collection('visits').doc(_visitInDocumentId);
+      await visitDocRef.update({
+        'approval_requested': true,
+      });
+      setState(() {
+        _approvalRequested = true;
+      });
+
+      await _saveVisitStatus();
+
+      _showDialog('Permintaan persetujuan telah dikirim ke admin.');
+    } else {
+      _showDialog('Gagal mengirim permintaan persetujuan.');
+    }
   }
 
   Future<void> _visitOut() async {
@@ -297,7 +240,10 @@ class _VisitInAndOutPageState extends State<VisitInAndOutPage> {
         setState(() {
           _visitOutCompleted = true;
           _visitStatus = 'Visit Out'; // Ubah status menjadi Visit Out hanya setelah pengguna mengunjungi
+          _visitInCompleted = false; // Reset status visit in
         });
+
+        await _saveVisitStatus();
 
         _showDialog('Visit Out Completed');
       } catch (e) {
@@ -398,6 +344,8 @@ class _VisitInAndOutPageState extends State<VisitInAndOutPage> {
           _visitOutLocation = '${position.latitude}, ${position.longitude}';
           _visitOutAddress = '${placemark.street}, ${placemark.subLocality}, ${placemark.locality}, ${placemark.subAdministrativeArea}';
         });
+        print('Visit Out Location: $_visitOutLocation');
+        print('Visit Out Address: $_visitOutAddress');
       }
     } catch (e) {
       print('Error getting location: $e');
@@ -470,6 +418,118 @@ class _VisitInAndOutPageState extends State<VisitInAndOutPage> {
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text('Visit In/Out'),
+        centerTitle: true,
+      ),
+      body: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: <Widget>[
+              _buildHeader(),
+              SizedBox(height: 20),
+              _buildButtons(),
+              Divider(thickness: 1),
+              ListTile(
+                title: Text(
+                  'Lihat Log Kunjungan',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.blue),
+                ),
+                trailing: Icon(Icons.arrow_forward, size: 24, color: Colors.blue),
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => VisitHistoryPage(userId: _userId)),
+                  );
+                },
+              ),
+              Divider(thickness: 1),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHeader() {
+    return Column(
+      children: [
+        SizedBox(height: 10),
+        Center(
+          child: Text(
+            'Silakan gunakan tombol di bawah untuk mencatat waktu kunjungan masuk dan keluar Anda.',
+            style: TextStyle(fontSize: 16),
+            textAlign: TextAlign.center,
+          ),
+        ),
+        SizedBox(height: 20),
+        Divider(thickness: 2),
+        Center(
+          child: Text(
+            'Status Saat Ini: $_visitStatus',
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.blue),
+            textAlign: TextAlign.center,
+          ),
+        ),
+        Divider(thickness: 2),
+      ],
+    );
+  }
+
+  Widget _buildButtons() {
+    return Column(
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          children: [
+            ElevatedButton.icon(
+              onPressed: _visitInCompleted && !_visitOutCompleted ? null : _visitIn,
+              icon: Icon(Icons.login),
+              label: Text('Visit In'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: _visitInCompleted && !_visitOutCompleted ? Colors.grey : Colors.blue,
+                padding: EdgeInsets.symmetric(horizontal: 30, vertical: 20),
+                textStyle: TextStyle(fontSize: 16),
+                foregroundColor: Colors.white,
+              ),
+            ),
+            ElevatedButton.icon(
+              onPressed: !_visitInCompleted || _visitOutCompleted ? null : _visitOut,
+              icon: Icon(Icons.logout),
+              label: Text('Visit Out'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: !_visitInCompleted || _visitOutCompleted ? Colors.grey : Colors.red,
+                padding: EdgeInsets.symmetric(horizontal: 30, vertical: 20),
+                textStyle: TextStyle(fontSize: 16),
+                foregroundColor: Colors.white,
+              ),
+            ),
+          ],
+        ),
+        SizedBox(height: 20),
+        _visitInCompleted && !_visitOutCompleted ? _buildRequestApprovalButton() : Container(), // Tampilkan tombol permintaan persetujuan jika visit in sudah dilakukan tetapi belum visit out
+      ],
+    );
+  }
+
+  Widget _buildRequestApprovalButton() {
+    return ElevatedButton.icon(
+      onPressed: _requestApproval,
+      icon: Icon(Icons.admin_panel_settings),
+      label: Text('Minta Persetujuan Admin'),
+      style: ElevatedButton.styleFrom(
+        padding: EdgeInsets.symmetric(horizontal: 30, vertical: 20),
+        textStyle: TextStyle(fontSize: 16),
+        foregroundColor: Colors.white,
       ),
     );
   }

@@ -22,7 +22,7 @@ class _AdminPageState extends State<AdminPage> {
   static final List<Widget> _pages = <Widget>[
     const AdminAbsensiPage(),
     const AdminOvertimePage(),
-    const AdminVisitPage(),
+    AdminApprovalPage(),
     const AdminBreakPage(),
     const KaryawanListPage(),
     ProfilePage(),

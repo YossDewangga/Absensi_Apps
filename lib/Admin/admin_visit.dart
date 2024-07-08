@@ -3,14 +3,14 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:table_calendar/table_calendar.dart';
 
-class AdminVisitPage extends StatefulWidget {
-  const AdminVisitPage({Key? key}) : super(key: key);
+class AdminApprovalPage extends StatefulWidget {
+  const AdminApprovalPage({Key? key}) : super(key: key);
 
   @override
-  _AdminVisitPageState createState() => _AdminVisitPageState();
+  _AdminApprovalPageState createState() => _AdminApprovalPageState();
 }
 
-class _AdminVisitPageState extends State<AdminVisitPage> {
+class _AdminApprovalPageState extends State<AdminApprovalPage> {
   DateTime _selectedDate = DateTime.now();
   bool _isCalendarExpanded = false;
   String? _editableVisitId;
@@ -153,6 +153,7 @@ class _AdminVisitPageState extends State<AdminVisitPage> {
                           var nextDestination = data['next_destination'] ?? 'N/A';
 
                           var approvalStatus = data['visit_out_isApproved'] as bool? ?? null;
+                          var approvalRequested = data['visit_out_approvalRequested'] as bool? ?? false;
 
                           return Card(
                             margin: const EdgeInsets.all(8.0),
@@ -186,11 +187,12 @@ class _AdminVisitPageState extends State<AdminVisitPage> {
                                     nextDestination,
                                   ),
                                   const Divider(thickness: 1),
-                                  _buildApprovalRow(approvalStatus),
-                                  if (_editableVisitId == visitId)
-                                    _buildApprovalButtons(context, visitId, userId, approvalStatus)
-                                  else
-                                    _buildEditButton(visitId),
+                                  if (approvalRequested) _buildApprovalRow(approvalStatus),
+                                  if (approvalRequested)
+                                    if (_editableVisitId == visitId)
+                                      _buildApprovalButtons(context, visitId, userId, approvalStatus)
+                                    else
+                                      _buildEditButton(visitId),
                                 ],
                               ),
                             ),
@@ -348,7 +350,10 @@ class _AdminVisitPageState extends State<AdminVisitPage> {
         .doc(userId)
         .collection('visits')
         .doc(visitId)
-        .update({'visit_out_isApproved': isApproved}).then((_) {
+        .update({
+      'visit_out_isApproved': isApproved,
+      if (isApproved) 'visit_status': 'Not Visited', // Ubah status menjadi Not Visited jika disetujui
+    }).then((_) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(isApproved ? 'Visit Approved' : 'Visit Rejected')),
       );

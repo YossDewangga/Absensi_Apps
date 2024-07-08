@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:table_calendar/table_calendar.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class AdminBreakPage extends StatefulWidget {
   const AdminBreakPage({Key? key}) : super(key: key);
@@ -13,6 +14,47 @@ class AdminBreakPage extends StatefulWidget {
 class _AdminBreakPageState extends State<AdminBreakPage> {
   DateTime _selectedDate = DateTime.now();
   bool _isCalendarExpanded = false;
+  DateTime? _adminStartBreakTime;
+  DateTime? _adminEndBreakTime;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadAdminBreakTimes();
+  }
+
+  Future<void> _loadAdminBreakTimes() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _adminStartBreakTime = DateTime.tryParse(prefs.getString('adminStartBreakTime') ?? '');
+      _adminEndBreakTime = DateTime.tryParse(prefs.getString('adminEndBreakTime') ?? '');
+    });
+  }
+
+  Future<void> _saveAdminBreakTimes() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('adminStartBreakTime', _adminStartBreakTime?.toIso8601String() ?? '');
+    await prefs.setString('adminEndBreakTime', _adminEndBreakTime?.toIso8601String() ?? '');
+  }
+
+  Future<void> _pickTime(BuildContext context, bool isStart) async {
+    final TimeOfDay? timeOfDay = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay.fromDateTime(isStart ? _adminStartBreakTime ?? DateTime.now() : _adminEndBreakTime ?? DateTime.now()),
+    );
+
+    if (timeOfDay != null) {
+      setState(() {
+        final now = DateTime.now();
+        if (isStart) {
+          _adminStartBreakTime = DateTime(now.year, now.month, now.day, timeOfDay.hour, timeOfDay.minute);
+        } else {
+          _adminEndBreakTime = DateTime(now.year, now.month, now.day, timeOfDay.hour, timeOfDay.minute);
+        }
+        _saveAdminBreakTimes();
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -259,19 +301,35 @@ class _AdminBreakPageState extends State<AdminBreakPage> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 ListTile(
-                  title: Text('Setting 1'),
-                  trailing: Icon(Icons.settings),
+                  title: Text('Set Start Break Time'),
+                  trailing: Icon(Icons.access_time),
                   onTap: () {
-                    // Add your setting functionality here
+                    _pickTime(context, true);
                   },
                 ),
                 ListTile(
-                  title: Text('Setting 2'),
-                  trailing: Icon(Icons.settings),
+                  title: Text('Set End Break Time'),
+                  trailing: Icon(Icons.access_time),
                   onTap: () {
-                    // Add your setting functionality here
+                    _pickTime(context, false);
                   },
                 ),
+                if (_adminStartBreakTime != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8.0),
+                    child: Text(
+                      'Start Break Time: ${_formattedDateTime(_adminStartBreakTime!)}',
+                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                if (_adminEndBreakTime != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8.0),
+                    child: Text(
+                      'End Break Time: ${_formattedDateTime(_adminEndBreakTime!)}',
+                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                    ),
+                  ),
               ],
             ),
           ),

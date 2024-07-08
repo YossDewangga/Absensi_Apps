@@ -19,19 +19,23 @@ class BreakStartEndPage extends StatefulWidget {
 class _BreakStartEndPageState extends State<BreakStartEndPage> {
   DateTime? _startBreakTime;
   DateTime? _endBreakTime;
+  DateTime? _adminStartBreakTime;
+  DateTime? _adminEndBreakTime;
   bool _isBreakStarted = false;
   bool _isBreakEndedAutomatically = false;
+  bool _isAdmin = false;
   Timer? _breakTimer;
   Duration _breakDuration = Duration(hours: 1); // Durasi break menjadi 1 jam
   Duration _remainingTime = Duration(hours: 1);
   final AudioPlayer _audioPlayer = AudioPlayer();
   DocumentReference? _currentBreakDocRef;
-  final TextEditingController _logController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
     _loadBreakStatus();
+    _loadAdminBreakTimes();
+    _checkIfAdmin();
   }
 
   @override
@@ -39,7 +43,6 @@ class _BreakStartEndPageState extends State<BreakStartEndPage> {
     _breakTimer?.cancel();
     Vibration.cancel();
     _audioPlayer.dispose();
-    _logController.dispose();
     super.dispose();
   }
 
@@ -73,16 +76,49 @@ class _BreakStartEndPageState extends State<BreakStartEndPage> {
     await prefs.setInt('remainingTime', _remainingTime.inSeconds);
   }
 
-  void _startBreak() async {
+  Future<void> _loadAdminBreakTimes() async {
+    final prefs = await SharedPreferences.getInstance();
     setState(() {
-      _startBreakTime = DateTime.now();
+      _adminStartBreakTime = DateTime.tryParse(prefs.getString('adminStartBreakTime') ?? '');
+      _adminEndBreakTime = DateTime.tryParse(prefs.getString('adminEndBreakTime') ?? '');
+    });
+  }
+
+  Future<void> _saveAdminBreakTimes() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('adminStartBreakTime', _adminStartBreakTime?.toIso8601String() ?? '');
+    await prefs.setString('adminEndBreakTime', _adminEndBreakTime?.toIso8601String() ?? '');
+  }
+
+  Future<void> _checkIfAdmin() async {
+    User? user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      DocumentSnapshot userDoc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
+      setState(() {
+        _isAdmin = userDoc['role'] == 'admin';
+      });
+    }
+  }
+
+  void _startBreak([DateTime? startTime]) async {
+    final now = DateTime.now();
+
+    if (_adminStartBreakTime != null && _adminEndBreakTime != null) {
+      if (now.isBefore(_adminStartBreakTime!) || now.isAfter(_adminEndBreakTime!)) {
+        _showInvalidTimeDialog();
+        return;
+      }
+    }
+
+    setState(() {
+      _startBreakTime = startTime ?? now;
       _isBreakStarted = true;
       _isBreakEndedAutomatically = false;
-      _remainingTime = _breakDuration;
+      _endBreakTime = _adminEndBreakTime ?? _startBreakTime!.add(_breakDuration);
+      _remainingTime = _endBreakTime!.difference(DateTime.now());
       _startBreakTimer();
     });
 
-    // Simpan waktu mulai break ke Firestore
     User? user = FirebaseAuth.instance.currentUser;
     if (user != null) {
       String displayName = user.displayName ?? 'Unknown';
@@ -94,7 +130,7 @@ class _BreakStartEndPageState extends State<BreakStartEndPage> {
         'start_break': _startBreakTime,
         'end_break': null,
         'break_duration': null,
-        'display_name': displayName, // Menyimpan nama pengguna
+        'display_name': displayName,
       });
       _currentBreakDocRef = breakDocRef;
     }
@@ -117,7 +153,6 @@ class _BreakStartEndPageState extends State<BreakStartEndPage> {
       _audioPlayer.stop();
     });
 
-    // Simpan waktu akhir break ke Firestore
     if (_currentBreakDocRef != null) {
       await _currentBreakDocRef!.update({
         'end_break': _endBreakTime,
@@ -132,8 +167,13 @@ class _BreakStartEndPageState extends State<BreakStartEndPage> {
   void _startBreakTimer() {
     _breakTimer = Timer.periodic(Duration(seconds: 1), (timer) {
       setState(() {
-        if (_remainingTime.inSeconds > 0) {
-          _remainingTime = _remainingTime - Duration(seconds: 1);
+        final now = DateTime.now();
+        if (_endBreakTime != null && now.isBefore(_endBreakTime!)) {
+          _remainingTime = _endBreakTime!.difference(now);
+          if (_remainingTime.isNegative) {
+            _handleBreakEnd();
+            timer.cancel();
+          }
         } else {
           _handleBreakEnd();
           timer.cancel();
@@ -149,7 +189,6 @@ class _BreakStartEndPageState extends State<BreakStartEndPage> {
       _endBreakTime = DateTime.now();
     });
 
-    // Simpan waktu akhir break ke Firestore ketika break berakhir secara otomatis
     if (_currentBreakDocRef != null) {
       await _currentBreakDocRef!.update({
         'end_break': _endBreakTime,
@@ -179,8 +218,47 @@ class _BreakStartEndPageState extends State<BreakStartEndPage> {
     return 'Not calculated';
   }
 
-  String _formatDate(DateTime dateTime) {
-    return '${dateTime.day.toString().padLeft(2, '0')}/${dateTime.month.toString().padLeft(2, '0')}/${dateTime.year}';
+  String _formatTime(DateTime dateTime) {
+    return '${dateTime.hour.toString().padLeft(2, '0')}:${dateTime.minute.toString().padLeft(2, '0')}';
+  }
+
+  Future<void> _pickTime(BuildContext context, bool isStart) async {
+    final TimeOfDay? timeOfDay = await showTimePicker(
+      context: context,
+      initialTime: isStart ? TimeOfDay.fromDateTime(_adminStartBreakTime ?? DateTime.now()) : TimeOfDay.fromDateTime(_adminEndBreakTime ?? DateTime.now()),
+    );
+
+    if (timeOfDay != null) {
+      setState(() {
+        final now = DateTime.now();
+        if (isStart) {
+          _adminStartBreakTime = DateTime(now.year, now.month, now.day, timeOfDay.hour, timeOfDay.minute);
+        } else {
+          _adminEndBreakTime = DateTime(now.year, now.month, now.day, timeOfDay.hour, timeOfDay.minute);
+        }
+        _saveAdminBreakTimes();
+      });
+    }
+  }
+
+  void _showInvalidTimeDialog() {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text('Invalid Break Time'),
+          content: Text('Break can only be started within the time set.'),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+              child: Text('OK'),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   Widget _buildLogBox(String title, String content, double width, double height, double textSize, double contentTextSize) {
@@ -233,6 +311,16 @@ class _BreakStartEndPageState extends State<BreakStartEndPage> {
       appBar: AppBar(
         title: Text('Break Start/End'),
         centerTitle: true,
+        actions: _isAdmin
+            ? [
+          IconButton(
+            icon: Icon(Icons.settings),
+            onPressed: () {
+              _showAdminSettingsDialog(context);
+            },
+          ),
+        ]
+            : null,
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -241,7 +329,24 @@ class _BreakStartEndPageState extends State<BreakStartEndPage> {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.start,
               children: <Widget>[
-                SizedBox(height: 20),
+                if (_adminStartBreakTime != null && _adminEndBreakTime != null)
+                  Column(
+                    children: [
+                      Text(
+                        'Break Time Set :',
+                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                      ),
+                      Text(
+                        'Start: ${_formatTime(_adminStartBreakTime!)}',
+                        style: TextStyle(fontSize: 16),
+                      ),
+                      Text(
+                        'End: ${_formatTime(_adminEndBreakTime!)}',
+                        style: TextStyle(fontSize: 16),
+                      ),
+                      SizedBox(height: 20),
+                    ],
+                  ),
                 Text(
                   'Break Status: ${_isBreakStarted ? 'Started' : 'Not Started'}',
                   style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
@@ -297,11 +402,71 @@ class _BreakStartEndPageState extends State<BreakStartEndPage> {
                   },
                 ),
                 Divider(thickness: 1),
+                if (_isAdmin) ...[
+                  SizedBox(height: 20),
+                  _buildLogBox(
+                    'Admin Start Break Time',
+                    _adminStartBreakTime != null ? _formatTime(_adminStartBreakTime!) : 'Not Set',
+                    300,
+                    60,
+                    18,
+                    18,
+                  ),
+                  ElevatedButton(
+                    onPressed: () => _pickTime(context, true),
+                    child: Text('Set Start Time'),
+                  ),
+                  SizedBox(height: 15),
+                  _buildLogBox(
+                    'Admin End Break Time',
+                    _adminEndBreakTime != null ? _formatTime(_adminEndBreakTime!) : 'Not Set',
+                    300,
+                    60,
+                    18,
+                    18,
+                  ),
+                  ElevatedButton(
+                    onPressed: () => _pickTime(context, false),
+                    child: Text('Set End Time'),
+                  ),
+                ],
               ],
             ),
           ),
         ),
       ),
+    );
+  }
+
+  void _showAdminSettingsDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return Dialog(
+          child: Container(
+            padding: EdgeInsets.all(16.0),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                ListTile(
+                  title: Text('Set Start Break Time'),
+                  trailing: Icon(Icons.access_time),
+                  onTap: () {
+                    _pickTime(context, true);
+                  },
+                ),
+                ListTile(
+                  title: Text('Set End Break Time'),
+                  trailing: Icon(Icons.access_time),
+                  onTap: () {
+                    _pickTime(context, false);
+                  },
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 }
