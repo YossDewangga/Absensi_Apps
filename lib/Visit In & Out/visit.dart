@@ -26,7 +26,7 @@ class _VisitInAndOutPageState extends State<VisitInAndOutPage> {
   String _visitOutDateTime = 'Unknown';
   bool _visitInCompleted = false;
   bool _visitOutCompleted = false;
-  bool _approvalRequested = false; // Menambahkan flag untuk permintaan persetujuan
+  bool _approvalRequested = false;
   File? _visitInImage;
   File? _visitOutImage;
   String _visitInLocation = 'Unknown';
@@ -68,7 +68,7 @@ class _VisitInAndOutPageState extends State<VisitInAndOutPage> {
     if (user != null) {
       setState(() {
         _userId = user.uid;
-        _displayName = user.displayName; // Ambil displayName dari pengguna
+        _displayName = user.displayName;
       });
       await _loadVisitStatus();
     } else {
@@ -93,7 +93,27 @@ class _VisitInAndOutPageState extends State<VisitInAndOutPage> {
       if (_visitStatus == 'Visit In' && _visitInCompleted) {
         _loadVisitInDetails();
       }
+      _checkVisitOutApproval(); // Check approval status and handle accordingly
     });
+  }
+
+  Future<void> _checkVisitOutApproval() async {
+    if (_userId != null && _visitInDocumentId.isNotEmpty) {
+      DocumentReference visitDocRef = FirebaseFirestore.instance.collection('users').doc(_userId).collection('visits').doc(_visitInDocumentId);
+      DocumentSnapshot visitSnapshot = await visitDocRef.get();
+      if (visitSnapshot.exists) {
+        bool isApproved = visitSnapshot['visit_out_isApproved'] ?? false;
+        if (isApproved) {
+          setState(() {
+            _visitInCompleted = false;
+            _visitOutCompleted = true;
+            _visitStatus = 'Not Visited'; // Reset status
+          });
+          await _saveVisitStatus();
+          _showSnackBar('Visit Out approved, you can now check-in again.');
+        }
+      }
+    }
   }
 
   Future<void> _loadVisitInDetails() async {
@@ -143,7 +163,7 @@ class _VisitInAndOutPageState extends State<VisitInAndOutPage> {
           _visitInCompleted = true;
           _visitInDocumentId = documentId;
           _visitStatus = 'Visit In';
-          _visitOutCompleted = false; // Reset status visit out
+          _visitOutCompleted = false;
         });
 
         await _saveVisitStatus();
@@ -164,9 +184,10 @@ class _VisitInAndOutPageState extends State<VisitInAndOutPage> {
       'visit_in_location': _visitInLocation,
       'visit_in_address': _visitInAddress,
       'visit_in_imageUrl': downloadUrl,
-      'visit_status': 'Visit In', // Simpan status Visit In
-      'displayName': _displayName, // Simpan displayName
-      'approval_requested': false, // Status permintaan persetujuan awalnya false
+      'visit_status': 'Visit In',
+      'displayName': _displayName,
+      'approval_requested': false,
+      'visit_out_isApproved': false,
     });
 
     return visitDocRef.id;
@@ -239,8 +260,8 @@ class _VisitInAndOutPageState extends State<VisitInAndOutPage> {
 
         setState(() {
           _visitOutCompleted = true;
-          _visitStatus = 'Visit Out'; // Ubah status menjadi Visit Out hanya setelah pengguna mengunjungi
-          _visitInCompleted = false; // Reset status visit in
+          _visitStatus = 'Visit Out';
+          _visitInCompleted = false;
         });
 
         await _saveVisitStatus();
@@ -266,7 +287,8 @@ class _VisitInAndOutPageState extends State<VisitInAndOutPage> {
           'visit_out_address': _visitOutAddress,
           'visit_out_imageUrl': downloadUrl,
           'next_destination': _nextDestination,
-          'visit_status': 'Visit Out', // Simpan status Visit Out
+          'visit_status': 'Visit Out',
+          'approval_requested': true,
         });
 
         print('Data updated successfully');
@@ -516,7 +538,7 @@ class _VisitInAndOutPageState extends State<VisitInAndOutPage> {
           ],
         ),
         SizedBox(height: 20),
-        _visitInCompleted && !_visitOutCompleted ? _buildRequestApprovalButton() : Container(), // Tampilkan tombol permintaan persetujuan jika visit in sudah dilakukan tetapi belum visit out
+        _visitInCompleted && !_visitOutCompleted ? _buildRequestApprovalButton() : Container(),
       ],
     );
   }

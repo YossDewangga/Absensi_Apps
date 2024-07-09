@@ -129,7 +129,7 @@ class _ClockHistoryPageState extends State<ClockHistoryPage> {
                 ExpansionPanel(
                   headerBuilder: (BuildContext context, bool isExpanded) {
                     return ListTile(
-                      title: Text('Select Date', style: TextStyle(fontWeight: FontWeight.bold)),
+                      title: Text('Pilih Tanggal', style: TextStyle(fontWeight: FontWeight.bold)),
                     );
                   },
                   body: TableCalendar(
@@ -237,9 +237,9 @@ class _ClockHistoryPageState extends State<ClockHistoryPage> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            _buildTable(context, 'Clock In', clockInTime, data['clockin_location'] as GeoPoint?, imageUrl, lateReason),
+                            _buildTable(context, 'Clock In', clockInTime, imageUrl, lateReason, lateDuration),
                             Divider(thickness: 1),
-                            _buildTable(context, 'Clock Out', clockOutTime, data['clockout_location'] as GeoPoint?, clockOutImageUrl, null, logbookEntries),
+                            _buildTable(context, 'Clock Out', clockOutTime, clockOutImageUrl, null, null, logbookEntries),
                           ],
                         ),
                       ),
@@ -254,7 +254,7 @@ class _ClockHistoryPageState extends State<ClockHistoryPage> {
     );
   }
 
-  Widget _buildTable(BuildContext context, String title, DateTime? time, GeoPoint? location, String? imageUrl, [String? lateReason, List<Map<String, dynamic>>? logbookEntries]) {
+  Widget _buildTable(BuildContext context, String title, DateTime? time, String? imageUrl, [String? lateReason, Duration? lateDuration, List<Map<String, dynamic>>? logbookEntries]) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -271,13 +271,14 @@ class _ClockHistoryPageState extends State<ClockHistoryPage> {
           },
           children: [
             _buildTableRow('Time', time != null ? _formattedDateTime(time) : 'N/A'),
-            _buildTableRow('Location', location != null ? '${location.latitude}, ${location.longitude}' : 'N/A'),
             if (title == 'Clock In' && imageUrl != null)
               _buildTableRowImage(context, 'Image', imageUrl),
             if (title == 'Clock Out' && imageUrl != null)
               _buildTableRowImage(context, 'Image', imageUrl),
             if (title == 'Clock In' && lateReason != null)
               _buildTableRow('Late Reason', lateReason),
+            if (title == 'Clock In' && lateDuration != null)
+              _buildTableRow('Late Duration', _formattedDuration(lateDuration)),
             if (title == 'Clock Out' && logbookEntries != null)
               ..._buildLogbookEntriesTable(logbookEntries),
           ],

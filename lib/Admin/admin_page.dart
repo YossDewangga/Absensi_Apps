@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'admin_absensi.dart';
 import 'admin_break.dart';
-import 'admin_cuti.dart';
+import 'admin_cuti.dart'; // Import AdminLeavePage
 import 'admin_overtime.dart';
 import 'karyawan_list_page.dart';
 import 'admin_visit.dart';
@@ -24,6 +24,7 @@ class _AdminPageState extends State<AdminPage> {
     const AdminOvertimePage(),
     AdminApprovalPage(),
     const AdminBreakPage(),
+    AdminLeavePage(), // Add AdminLeavePage to the list
     const KaryawanListPage(),
     ProfilePage(),
   ];
@@ -91,6 +92,10 @@ class _AdminPageState extends State<AdminPage> {
           const BottomNavigationBarItem(
             icon: Icon(Icons.coffee),
             label: 'Break',
+          ),
+          const BottomNavigationBarItem(
+            icon: Icon(Icons.beach_access), // Icon for Cuti
+            label: 'Cuti',
           ),
           const BottomNavigationBarItem(
             icon: Icon(Icons.people),

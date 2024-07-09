@@ -460,6 +460,9 @@ class _AdminAbsensiPageState extends State<AdminAbsensiPage> {
       context: context,
       builder: (BuildContext context) {
         return Dialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20.0),
+          ),
           child: Container(
             padding: EdgeInsets.all(16.0),
             child: Column(
@@ -467,26 +470,86 @@ class _AdminAbsensiPageState extends State<AdminAbsensiPage> {
               children: [
                 ListTile(
                   title: Text('Set Start Time'),
-                  subtitle: _designatedStartTime != null
-                      ? Text('Current: ${_designatedStartTime!.format(context)}')
-                      : null,
                   trailing: Icon(Icons.access_time),
                   onTap: () {
-                    Navigator.pop(context);
                     _selectTime(context, 'designatedStartTime');
                   },
                 ),
                 ListTile(
                   title: Text('Set End Time'),
-                  subtitle: _designatedEndTime != null
-                      ? Text('Current: ${_designatedEndTime!.format(context)}')
-                      : null,
                   trailing: Icon(Icons.access_time),
                   onTap: () {
-                    Navigator.pop(context);
                     _selectTime(context, 'designatedEndTime');
                   },
                 ),
+                if (_designatedStartTime != null || _designatedEndTime != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 16.0),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Expanded(
+                          child: SizedBox(
+                            height: 100.0,
+                            child: Card(
+                              color: Colors.blue[50],
+                              elevation: 2.0,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8.0),
+                              ),
+                              child: Padding(
+                                padding: const EdgeInsets.all(12.0),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Start Time',
+                                      style: TextStyle(fontWeight: FontWeight.bold, color: Colors.blue),
+                                    ),
+                                    SizedBox(height: 4.0),
+                                    Text(
+                                      _designatedStartTime != null ? _designatedStartTime!.format(context) : 'N/A',
+                                      style: TextStyle(color: Colors.blue),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                        SizedBox(width: 8.0),
+                        Expanded(
+                          child: SizedBox(
+                            height: 100.0,
+                            child: Card(
+                              color: Colors.red[50],
+                              elevation: 2.0,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8.0),
+                              ),
+                              child: Padding(
+                                padding: const EdgeInsets.all(12.0),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'End Time',
+                                      style: TextStyle(fontWeight: FontWeight.bold, color: Colors.red),
+                                    ),
+                                    SizedBox(height: 4.0),
+                                    Text(
+                                      _designatedEndTime != null ? _designatedEndTime!.format(context) : 'N/A',
+                                      style: TextStyle(color: Colors.red),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
               ],
             ),
           ),

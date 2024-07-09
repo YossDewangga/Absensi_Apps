@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:table_calendar/table_calendar.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class VisitHistoryPage extends StatefulWidget {
   final String? userId;
@@ -126,6 +127,7 @@ class _VisitHistoryPageState extends State<VisitHistoryPage> {
                     var record = records[index];
                     var data = record.data() as Map<String, dynamic>;
                     var approvalStatus = data['visit_out_isApproved'] as bool?;
+                    var approvalRequested = data['approval_requested'] as bool? ?? false;
                     var statusText = 'Pending';
                     var statusColor = Colors.black;
 
@@ -164,14 +166,16 @@ class _VisitHistoryPageState extends State<VisitHistoryPage> {
                                 data['visit_out_imageUrl'] as String?,
                                 data['next_destination'] as String?,
                               ),
-                            const Divider(thickness: 1),
-                            Text(
-                              'Approval Status: $statusText',
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                color: statusColor,
+                            if (approvalRequested) ...[
+                              const Divider(thickness: 1),
+                              Text(
+                                'Approval Status: $statusText',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  color: statusColor,
+                                ),
                               ),
-                            ),
+                            ],
                           ],
                         ),
                       ),
@@ -203,7 +207,7 @@ class _VisitHistoryPageState extends State<VisitHistoryPage> {
           },
           children: [
             _buildTableRow('Time', time ?? 'N/A'),
-            _buildTableRow('Location', location ?? 'N/A'),
+            _buildLocationRow(context, 'Location', location ?? 'N/A'),
             _buildTableRow('Address', address ?? 'N/A'),
             if (title == 'Visit Out' && nextDestination != null)
               _buildTableRow('Next Destination', nextDestination),
@@ -228,6 +232,29 @@ class _VisitHistoryPageState extends State<VisitHistoryPage> {
           padding: const EdgeInsets.all(8.0),
           child: Text(
             value,
+          ),
+        ),
+      ],
+    );
+  }
+
+  TableRow _buildLocationRow(BuildContext context, String key, String location) {
+    return TableRow(
+      children: [
+        Padding(
+          padding: const EdgeInsets.all(8.0),
+          child: Text(
+            key,
+            style: TextStyle(fontWeight: FontWeight.bold),
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.all(8.0),
+          child: GestureDetector(
+            onTap: () {
+              _openLocationInMaps(location);
+            },
+            child: Icon(Icons.location_on, color: Colors.blue),
           ),
         ),
       ],
@@ -283,6 +310,19 @@ class _VisitHistoryPageState extends State<VisitHistoryPage> {
         ),
       ],
     );
+  }
+
+  void _openLocationInMaps(String location) async {
+    var coordinates = location.split(',').map((coord) => coord.trim()).toList();
+    var latitude = coordinates[0];
+    var longitude = coordinates[1];
+    var googleMapsUrl = 'https://www.google.com/maps/search/?api=1&query=$latitude,$longitude';
+
+    if (await canLaunch(googleMapsUrl)) {
+      await launch(googleMapsUrl);
+    } else {
+      throw 'Could not open the map.';
+    }
   }
 
   void _showFullImage(BuildContext context, String imageUrl) {

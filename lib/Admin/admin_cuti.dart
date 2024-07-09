@@ -73,14 +73,6 @@ class _AdminLeavePageState extends State<AdminLeavePage> {
                 backgroundColor: Colors.transparent,
                 elevation: 0,
                 iconTheme: const IconThemeData(color: Colors.black),
-                actions: [
-                  IconButton(
-                    icon: FaIcon(FontAwesomeIcons.cog, color: Colors.black),
-                    onPressed: () {
-                      _showSettingsDialog(context);
-                    },
-                  ),
-                ],
               ),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),

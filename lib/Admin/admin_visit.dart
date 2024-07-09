@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:table_calendar/table_calendar.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class AdminApprovalPage extends StatefulWidget {
   const AdminApprovalPage({Key? key}) : super(key: key);
@@ -20,6 +21,36 @@ class _AdminApprovalPageState extends State<AdminApprovalPage> {
     super.initState();
   }
 
+  Future<String> _getUserDisplayName(String userId) async {
+    DocumentSnapshot userSnapshot = await FirebaseFirestore.instance.collection('users').doc(userId).get();
+    var data = userSnapshot.data() as Map<String, dynamic>?;
+    return data?['displayName'] ?? 'Unknown';
+  }
+
+  Future<void> _openMap(double latitude, double longitude) async {
+    String googleMapsUrl = "https://www.google.com/maps/search/?api=1&query=$latitude,$longitude";
+    if (await canLaunch(googleMapsUrl)) {
+      await launch(googleMapsUrl);
+    } else {
+      throw 'Could not open the map.';
+    }
+  }
+
+  Future<void> _openLocation(String location) async {
+    var parts = location.split(',');
+    if (parts.length == 2) {
+      var latitude = double.tryParse(parts[0]);
+      var longitude = double.tryParse(parts[1]);
+      if (latitude != null && longitude != null) {
+        await _openMap(latitude, longitude);
+      } else {
+        throw 'Invalid coordinates.';
+      }
+    } else {
+      throw 'Invalid location format.';
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return WillPopScope(
@@ -33,14 +64,6 @@ class _AdminApprovalPageState extends State<AdminApprovalPage> {
           backgroundColor: Colors.transparent,
           elevation: 0,
           iconTheme: const IconThemeData(color: Colors.black),
-          actions: [
-            IconButton(
-              icon: FaIcon(FontAwesomeIcons.cog, color: Colors.black),
-              onPressed: () {
-                _showSettingsDialog(context);
-              },
-            ),
-          ],
         ),
         body: Stack(
           children: [
@@ -140,62 +163,75 @@ class _AdminApprovalPageState extends State<AdminApprovalPage> {
                           var visitInTimestamp = data['visit_in_time'] != null
                               ? (data['visit_in_time'] as Timestamp).toDate()
                               : null;
-                          var visitInLocation = data['visit_in_location'] ?? 'Unknown';
+                          var visitInLocation = data['visit_in_location'];
                           var visitInAddress = data['visit_in_address'] ?? 'Unknown';
                           var visitInImageUrl = data['visit_in_imageUrl'] ?? '';
 
                           var visitOutTimestamp = data['visit_out_time'] != null
                               ? (data['visit_out_time'] as Timestamp).toDate()
                               : null;
-                          var visitOutLocation = data['visit_out_location'] ?? 'Unknown';
+                          var visitOutLocation = data['visit_out_location'];
                           var visitOutAddress = data['visit_out_address'] ?? 'Unknown';
                           var visitOutImageUrl = data['visit_out_imageUrl'] ?? '';
                           var nextDestination = data['next_destination'] ?? 'N/A';
 
                           var approvalStatus = data['visit_out_isApproved'] as bool? ?? null;
-                          var approvalRequested = data['visit_out_approvalRequested'] as bool? ?? false;
+                          var approvalRequested = data['approval_requested'] as bool? ?? false;
 
-                          return Card(
-                            margin: const EdgeInsets.all(8.0),
-                            elevation: 3.0,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: Padding(
-                              padding: const EdgeInsets.all(16.0),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text('Visit In', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                                  _buildVisitLog(
-                                    context,
-                                    'Visit In',
-                                    visitInTimestamp,
-                                    visitInLocation,
-                                    visitInAddress,
-                                    visitInImageUrl,
+                          return FutureBuilder<String>(
+                            future: _getUserDisplayName(userId),
+                            builder: (context, snapshot) {
+                              if (!snapshot.hasData) {
+                                return const Center(child: CircularProgressIndicator());
+                              }
+
+                              var displayName = snapshot.data ?? 'Unknown';
+
+                              return Card(
+                                margin: const EdgeInsets.all(8.0),
+                                elevation: 3.0,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: Padding(
+                                  padding: const EdgeInsets.all(16.0),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      _buildUserTable('Nama User', displayName),
+                                      const Divider(thickness: 1),
+                                      Text('Visit In', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                                      _buildVisitLog(
+                                        context,
+                                        'Visit In',
+                                        visitInTimestamp,
+                                        visitInLocation,
+                                        visitInAddress,
+                                        visitInImageUrl,
+                                      ),
+                                      const Divider(thickness: 1),
+                                      Text('Visit Out', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                                      _buildVisitLog(
+                                        context,
+                                        'Visit Out',
+                                        visitOutTimestamp,
+                                        visitOutLocation,
+                                        visitOutAddress,
+                                        visitOutImageUrl,
+                                        nextDestination,
+                                      ),
+                                      const Divider(thickness: 1),
+                                      if (approvalRequested) _buildApprovalRow(approvalStatus),
+                                      if (approvalRequested || approvalStatus != null)
+                                        if (_editableVisitId == visitId)
+                                          _buildApprovalButtons(context, visitId, userId, approvalStatus)
+                                        else
+                                          _buildEditButton(visitId),
+                                    ],
                                   ),
-                                  const Divider(thickness: 1),
-                                  Text('Visit Out', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                                  _buildVisitLog(
-                                    context,
-                                    'Visit Out',
-                                    visitOutTimestamp,
-                                    visitOutLocation,
-                                    visitOutAddress,
-                                    visitOutImageUrl,
-                                    nextDestination,
-                                  ),
-                                  const Divider(thickness: 1),
-                                  if (approvalRequested) _buildApprovalRow(approvalStatus),
-                                  if (approvalRequested)
-                                    if (_editableVisitId == visitId)
-                                      _buildApprovalButtons(context, visitId, userId, approvalStatus)
-                                    else
-                                      _buildEditButton(visitId),
-                                ],
-                              ),
-                            ),
+                                ),
+                              );
+                            },
                           );
                         },
                       );
@@ -210,7 +246,7 @@ class _AdminApprovalPageState extends State<AdminApprovalPage> {
     );
   }
 
-  Table _buildVisitLog(BuildContext context, String visitType, DateTime? timestamp, String location, String address, String imageUrl, [String? nextDestination]) {
+  Table _buildVisitLog(BuildContext context, String visitType, DateTime? timestamp, dynamic location, String address, String imageUrl, [String? nextDestination]) {
     return Table(
       border: TableBorder.all(color: Colors.grey),
       columnWidths: const {
@@ -220,7 +256,35 @@ class _AdminApprovalPageState extends State<AdminApprovalPage> {
       defaultVerticalAlignment: TableCellVerticalAlignment.middle,
       children: [
         _buildTableRow('$visitType Time:', timestamp != null ? _formattedDateTime(timestamp) : 'N/A'),
-        _buildTableRow('Location:', location),
+        TableRow(
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(8.0),
+              child: const Text(
+                'Location:',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(8.0),
+              child: location is GeoPoint
+                  ? IconButton(
+                icon: Icon(Icons.location_on, color: Colors.blue),
+                onPressed: () {
+                  _openMap(location.latitude, location.longitude);
+                },
+              )
+                  : location is String && location.contains(',')
+                  ? IconButton(
+                icon: Icon(Icons.location_on, color: Colors.blue),
+                onPressed: () {
+                  _openLocation(location);
+                },
+              )
+                  : Text(location?.toString() ?? 'N/A'),
+            ),
+          ],
+        ),
         _buildTableRow('Address:', address),
         if (visitType == 'Visit Out' && nextDestination != null)
           _buildTableRow('Next Destination:', nextDestination),
@@ -248,6 +312,20 @@ class _AdminApprovalPageState extends State<AdminApprovalPage> {
               ),
             ],
           ),
+      ],
+    );
+  }
+
+  Table _buildUserTable(String title, String userName) {
+    return Table(
+      border: TableBorder.all(color: Colors.grey),
+      columnWidths: const {
+        0: FixedColumnWidth(150),
+        1: FlexColumnWidth(),
+      },
+      defaultVerticalAlignment: TableCellVerticalAlignment.middle,
+      children: [
+        _buildTableRow(title, userName),
       ],
     );
   }
@@ -352,6 +430,7 @@ class _AdminApprovalPageState extends State<AdminApprovalPage> {
         .doc(visitId)
         .update({
       'visit_out_isApproved': isApproved,
+      'approval_requested': false, // Reset approval requested to false
       if (isApproved) 'visit_status': 'Not Visited', // Ubah status menjadi Not Visited jika disetujui
     }).then((_) {
       ScaffoldMessenger.of(context).showSnackBar(

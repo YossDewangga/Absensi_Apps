@@ -200,6 +200,7 @@ class _AdminBreakPageState extends State<AdminBreakPage> {
                         var log = breakLogs[index];
                         var data = log.data() as Map<String, dynamic>;
                         var userName = data['user_name'] ?? 'Unknown';
+                        var displayName = data['display_name'] ?? 'Unknown';
                         var startBreak = data['start_break'] != null
                             ? (data['start_break'] as Timestamp).toDate()
                             : null;
@@ -219,7 +220,7 @@ class _AdminBreakPageState extends State<AdminBreakPage> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                _buildTable('Break Log', userName, startBreak, endBreak, breakDuration),
+                                _buildTable('Break Log', userName, displayName, startBreak, endBreak, breakDuration),
                               ],
                             ),
                           ),
@@ -236,7 +237,7 @@ class _AdminBreakPageState extends State<AdminBreakPage> {
     );
   }
 
-  Table _buildTable(String title, String userName, DateTime? startBreak, DateTime? endBreak, String breakDuration) {
+  Table _buildTable(String title, String userName, String displayName, DateTime? startBreak, DateTime? endBreak, String breakDuration) {
     return Table(
       border: TableBorder.all(color: Colors.grey),
       columnWidths: const {
@@ -245,7 +246,8 @@ class _AdminBreakPageState extends State<AdminBreakPage> {
       },
       defaultVerticalAlignment: TableCellVerticalAlignment.middle,
       children: [
-        _buildTableRow('User Name:', userName),
+
+        _buildTableRow('User Name:', displayName),
         _buildTableRow('Start Break:', startBreak != null ? _formattedDateTime(startBreak) : 'N/A'),
         _buildTableRow('End Break:', endBreak != null ? _formattedDateTime(endBreak) : 'N/A'),
         _buildTableRow('Break Duration:', breakDuration),
@@ -295,6 +297,9 @@ class _AdminBreakPageState extends State<AdminBreakPage> {
       context: context,
       builder: (BuildContext context) {
         return Dialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20.0),
+          ),
           child: Container(
             padding: EdgeInsets.all(16.0),
             child: Column(
@@ -314,20 +319,72 @@ class _AdminBreakPageState extends State<AdminBreakPage> {
                     _pickTime(context, false);
                   },
                 ),
-                if (_adminStartBreakTime != null)
+                if (_adminStartBreakTime != null || _adminEndBreakTime != null)
                   Padding(
-                    padding: const EdgeInsets.only(top: 8.0),
-                    child: Text(
-                      'Start Break Time: ${_formattedDateTime(_adminStartBreakTime!)}',
-                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                    ),
-                  ),
-                if (_adminEndBreakTime != null)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 8.0),
-                    child: Text(
-                      'End Break Time: ${_formattedDateTime(_adminEndBreakTime!)}',
-                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                    padding: const EdgeInsets.only(top: 16.0),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Expanded(
+                          child: SizedBox(
+                            height: 100.0,
+                            child: Card(
+                              color: Colors.blue[50],
+                              elevation: 2.0,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8.0),
+                              ),
+                              child: Padding(
+                                padding: const EdgeInsets.all(12.0),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Start Break Time',
+                                      style: TextStyle(fontWeight: FontWeight.bold, color: Colors.blue),
+                                    ),
+                                    SizedBox(height: 4.0),
+                                    Text(
+                                      _adminStartBreakTime != null ? _formattedDateTime(_adminStartBreakTime!) : 'N/A',
+                                      style: TextStyle(color: Colors.blue),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                        SizedBox(width: 8.0),
+                        Expanded(
+                          child: SizedBox(
+                            height: 100.0,
+                            child: Card(
+                              color: Colors.red[50],
+                              elevation: 2.0,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8.0),
+                              ),
+                              child: Padding(
+                                padding: const EdgeInsets.all(12.0),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'End Break Time',
+                                      style: TextStyle(fontWeight: FontWeight.bold, color: Colors.red),
+                                    ),
+                                    SizedBox(height: 4.0),
+                                    Text(
+                                      _adminEndBreakTime != null ? _formattedDateTime(_adminEndBreakTime!) : 'N/A',
+                                      style: TextStyle(color: Colors.red),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
               ],
