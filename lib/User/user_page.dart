@@ -29,6 +29,15 @@ class _UserPageState extends State<UserPage> {
       greeting = 'Good Evening,';
     }
 
+
+    String displayName = user?.displayName ?? 'User';
+    List<String> nameParts = displayName.split(' ');
+
+
+    String firstName = nameParts.isNotEmpty? nameParts[0] : '';
+    String lastName = nameParts.length > 1 ? nameParts.sublist(1).join(' ') :'';
+    String formattedName ='$firstName$lastName';
+
     return Scaffold(
       body: Stack(
         children: [
@@ -73,7 +82,7 @@ class _UserPageState extends State<UserPage> {
                     Text(
                       greeting,
                       style: TextStyle(
-                        fontSize: 15,
+                        fontSize: 16,
                         fontWeight: FontWeight.w600,
                         letterSpacing: 1,
                         wordSpacing: 2,
@@ -84,12 +93,10 @@ class _UserPageState extends State<UserPage> {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text(
-                          user?.displayName ?? 'User',
+                          formattedName,
                           style: TextStyle(
-                            fontSize: 23,
+                            fontSize: 18,
                             fontWeight: FontWeight.normal,
-                            letterSpacing: 1,
-                            wordSpacing: 2,
                             color: Colors.black,
                           ),
                         ),
