@@ -24,30 +24,28 @@ class _AdminAbsensiPageState extends State<AdminAbsensiPage> {
 
   void _loadDesignatedTimes() async {
     try {
-      DocumentSnapshot startSnapshot = await FirebaseFirestore.instance
+      DocumentSnapshot settingsSnapshot = await FirebaseFirestore.instance
           .collection('settings')
-          .doc('designatedStartTime')
+          .doc('absensi_times')
           .get();
 
-      DocumentSnapshot endSnapshot = await FirebaseFirestore.instance
-          .collection('settings')
-          .doc('designatedEndTime')
-          .get();
+      if (settingsSnapshot.exists) {
+        var data = settingsSnapshot.data() as Map<String, dynamic>;
+        if (data.containsKey('designatedStartTime')) {
+          Timestamp startTimestamp = data['designatedStartTime'];
+          DateTime startDateTime = startTimestamp.toDate();
+          setState(() {
+            _designatedStartTime = TimeOfDay(hour: startDateTime.hour, minute: startDateTime.minute);
+          });
+        }
 
-      if (startSnapshot.exists) {
-        Timestamp timestamp = startSnapshot['time'];
-        DateTime dateTime = timestamp.toDate();
-        setState(() {
-          _designatedStartTime = TimeOfDay(hour: dateTime.hour, minute: dateTime.minute);
-        });
-      }
-
-      if (endSnapshot.exists) {
-        Timestamp timestamp = endSnapshot['time'];
-        DateTime dateTime = timestamp.toDate();
-        setState(() {
-          _designatedEndTime = TimeOfDay(hour: dateTime.hour, minute: dateTime.minute);
-        });
+        if (data.containsKey('designatedEndTime')) {
+          Timestamp endTimestamp = data['designatedEndTime'];
+          DateTime endDateTime = endTimestamp.toDate();
+          setState(() {
+            _designatedEndTime = TimeOfDay(hour: endDateTime.hour, minute: endDateTime.minute);
+          });
+        }
       }
     } catch (e) {
       print('Error loading designated times: $e');
@@ -55,33 +53,34 @@ class _AdminAbsensiPageState extends State<AdminAbsensiPage> {
     }
   }
 
-  void _saveDesignatedTime(TimeOfDay time, String docId) {
+  void _saveDesignatedTime(TimeOfDay time, String key) {
     DateTime now = DateTime.now();
     DateTime designatedTime = DateTime(now.year, now.month, now.day, time.hour, time.minute);
-    FirebaseFirestore.instance.collection('settings').doc(docId).set({
-      'time': Timestamp.fromDate(designatedTime),
-    }).catchError((error) {
+
+    FirebaseFirestore.instance.collection('settings').doc('absensi_times').set({
+      key: Timestamp.fromDate(designatedTime),
+    }, SetOptions(merge: true)).catchError((error) {
       print('Error saving designated time: $error');
       _showAlertDialog('Error saving designated time: $error');
     });
   }
 
-  Future<void> _selectTime(BuildContext context, String docId) async {
-    String timeType = docId == 'designatedStartTime' ? 'start' : 'end';
+  Future<void> _selectTime(BuildContext context, String key) async {
+    String timeType = key == 'designatedStartTime' ? 'start' : 'end';
     final TimeOfDay? picked = await showTimePicker(
       context: context,
-      initialTime: docId == 'designatedStartTime'
+      initialTime: key == 'designatedStartTime'
           ? (_designatedStartTime ?? TimeOfDay.now())
           : (_designatedEndTime ?? TimeOfDay.now()),
     );
     if (picked != null) {
       setState(() {
-        if (docId == 'designatedStartTime') {
+        if (key == 'designatedStartTime') {
           _designatedStartTime = picked;
         } else {
           _designatedEndTime = picked;
         }
-        _saveDesignatedTime(picked, docId);
+        _saveDesignatedTime(picked, key);
         _showAlertDialog('You selected the $timeType time: ${picked.format(context)}');
       });
     }
@@ -230,9 +229,6 @@ class _AdminAbsensiPageState extends State<AdminAbsensiPage> {
                       itemBuilder: (context, index) {
                         var record = records[index];
                         var data = record.data() as Map<String, dynamic>;
-                        var recordId = record.id;
-                        var userId = record.reference.parent.parent!.id; // Mengambil userId dari parent
-
                         var userName = data['user_name'] ?? 'Unknown';
                         var clockInTime = data['clock_in_time'] != null
                             ? (data['clock_in_time'] as Timestamp).toDate()

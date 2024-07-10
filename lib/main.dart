@@ -67,7 +67,7 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       theme: ThemeData(),
-      home:CheckAuth(), // Ganti dengan halaman login atau halaman sesuai peran
+      home: AdminPage(), // Ganti dengan halaman login atau halaman sesuai peran
     );
   }
 }

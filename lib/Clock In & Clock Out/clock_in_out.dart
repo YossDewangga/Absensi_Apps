@@ -27,6 +27,7 @@ class _ClockPageState extends State<ClockPage> with WidgetsBindingObserver {
   String _workingHoursStr = '';
   String? _currentRecordId;
   TimeOfDay? _designatedStartTime;
+  TimeOfDay? _designatedEndTime;
   Duration _lateDuration = Duration.zero;
   String? _lateReason;
   File? _image;
@@ -49,7 +50,7 @@ class _ClockPageState extends State<ClockPage> with WidgetsBindingObserver {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _checkLocationPermission();
-    _getDesignatedStartTime();
+    _getDesignatedTimes();
     _getUserInfo();
     _getClockStatus(); // Ambil status tombol saat inisialisasi
   }
@@ -72,18 +73,31 @@ class _ClockPageState extends State<ClockPage> with WidgetsBindingObserver {
     }
   }
 
-  void _getDesignatedStartTime() async {
-    DocumentSnapshot snapshot = await FirebaseFirestore.instance
-        .collection('settings')
-        .doc('designatedStartTime')
-        .get();
+  void _getDesignatedTimes() async {
+    try {
+      DocumentSnapshot startSnapshot = await FirebaseFirestore.instance
+          .collection('settings')
+          .doc('absensi_times')
+          .get();
 
-    if (snapshot.exists) {
-      Timestamp timestamp = snapshot['time'];
-      DateTime dateTime = timestamp.toDate();
-      setState(() {
-        _designatedStartTime = TimeOfDay(hour: dateTime.hour, minute: dateTime.minute);
-      });
+      if (startSnapshot.exists) {
+        Timestamp startTimestamp = startSnapshot['designatedStartTime'];
+        DateTime startDateTime = startTimestamp.toDate();
+        setState(() {
+          _designatedStartTime = TimeOfDay(hour: startDateTime.hour, minute: startDateTime.minute);
+        });
+
+        Timestamp endTimestamp = startSnapshot['designatedEndTime'];
+        DateTime endDateTime = endTimestamp.toDate();
+        setState(() {
+          _designatedEndTime = TimeOfDay(hour: endDateTime.hour, minute: endDateTime.minute);
+        });
+      } else {
+        print("Designated times document does not exist");
+      }
+    } catch (e) {
+      print('Error loading designated times: $e');
+      _showAlertDialog('Error loading designated times: $e');
     }
   }
 
@@ -921,6 +935,24 @@ class _ClockPageState extends State<ClockPage> with WidgetsBindingObserver {
             mainAxisAlignment: MainAxisAlignment.start,
             children: <Widget>[
               SizedBox(height: 20),
+              if (_designatedStartTime != null && _designatedEndTime != null)
+                Column(
+                  children: [
+                    Text(
+                      'Working Hours:',
+                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                    ),
+                    Text(
+                      'Start: ${_designatedStartTime!.format(context)}',
+                      style: TextStyle(fontSize: 16),
+                    ),
+                    Text(
+                      'End: ${_designatedEndTime!.format(context)}',
+                      style: TextStyle(fontSize: 16),
+                    ),
+                    SizedBox(height: 20),
+                  ],
+                ),
               Text(
                 'Status: $_clockStatus',
                 style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
