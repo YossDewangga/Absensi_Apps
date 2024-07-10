@@ -1,6 +1,7 @@
 import 'dart:developer';
 import 'package:absensi_apps/Admin/admin_page.dart';
 import 'package:absensi_apps/Login_Register/login_page.dart';
+import 'package:absensi_apps/Trash/auth_page.dart';
 import 'package:absensi_apps/User/user_page.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -66,7 +67,7 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       theme: ThemeData(),
-      home:UserPage(), // Ganti dengan halaman login atau halaman sesuai peran
+      home:CheckAuth(), // Ganti dengan halaman login atau halaman sesuai peran
     );
   }
 }
