@@ -248,7 +248,7 @@ class _LeaveApplicationPageState extends State<LeaveApplicationPage> {
                 onTap: () {
                   Navigator.push(
                     context,
-                    MaterialPageRoute(builder: (context) => LeaveHistoryPage(userId: _userId)),
+                    MaterialPageRoute(builder: (context) => VisitHistoryPage(userId: _userId)),
                   );
                 },
               ),

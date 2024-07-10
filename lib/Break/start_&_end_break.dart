@@ -1,11 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:vibration/vibration.dart';
-import 'dart:async';
-import 'package:audioplayers/audioplayers.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:workmanager/workmanager.dart';
+import 'dart:async';  // Tambahkan ini untuk Timer
+import 'package:audioplayers/audioplayers.dart';  // Tambahkan ini untuk AudioPlayer
 
 import 'history_break_page.dart';
 
@@ -41,7 +40,6 @@ class _BreakStartEndPageState extends State<BreakStartEndPage> {
   @override
   void dispose() {
     _breakTimer?.cancel();
-    Vibration.cancel();
     _audioPlayer.dispose();
     super.dispose();
   }
@@ -77,17 +75,21 @@ class _BreakStartEndPageState extends State<BreakStartEndPage> {
   }
 
   Future<void> _loadAdminBreakTimes() async {
-    final prefs = await SharedPreferences.getInstance();
-    setState(() {
-      _adminStartBreakTime = DateTime.tryParse(prefs.getString('adminStartBreakTime') ?? '');
-      _adminEndBreakTime = DateTime.tryParse(prefs.getString('adminEndBreakTime') ?? '');
-    });
+    DocumentSnapshot settingsDoc = await FirebaseFirestore.instance.collection('settings').doc('break_times').get();
+    if (settingsDoc.exists) {
+      setState(() {
+        _adminStartBreakTime = (settingsDoc['adminStartBreakTime'] as Timestamp).toDate();
+        _adminEndBreakTime = (settingsDoc['adminEndBreakTime'] as Timestamp).toDate();
+      });
+    }
   }
 
-  Future<void> _saveAdminBreakTimes() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('adminStartBreakTime', _adminStartBreakTime?.toIso8601String() ?? '');
-    await prefs.setString('adminEndBreakTime', _adminEndBreakTime?.toIso8601String() ?? '');
+  Future<void> _saveAdminBreakTimesToFirestore() async {
+    await FirebaseFirestore.instance.collection('settings').doc('break_times').set({
+      'adminStartBreakTime': _adminStartBreakTime,
+      'adminEndBreakTime': _adminEndBreakTime,
+    });
+    _loadAdminBreakTimes();
   }
 
   Future<void> _checkIfAdmin() async {
@@ -149,7 +151,6 @@ class _BreakStartEndPageState extends State<BreakStartEndPage> {
       _isBreakStarted = false;
       _isBreakEndedAutomatically = false;
       _breakTimer?.cancel();
-      Vibration.cancel();
       _audioPlayer.stop();
     });
 
@@ -196,16 +197,7 @@ class _BreakStartEndPageState extends State<BreakStartEndPage> {
       });
     }
 
-    if (Vibration.hasVibrator() != null) {
-      Vibration.vibrate(pattern: [0, 1000, 1000], repeat: 0);
-    }
-    _playSound();
     _saveBreakStatus();
-  }
-
-  void _playSound() async {
-    await _audioPlayer.setReleaseMode(ReleaseMode.loop);
-    await _audioPlayer.play(AssetSource('sounds/alarm.mp3'));
   }
 
   String _calculateBreakDuration() {
@@ -225,7 +217,7 @@ class _BreakStartEndPageState extends State<BreakStartEndPage> {
   Future<void> _pickTime(BuildContext context, bool isStart) async {
     final TimeOfDay? timeOfDay = await showTimePicker(
       context: context,
-      initialTime: isStart ? TimeOfDay.fromDateTime(_adminStartBreakTime ?? DateTime.now()) : TimeOfDay.fromDateTime(_adminEndBreakTime ?? DateTime.now()),
+      initialTime: TimeOfDay.fromDateTime(isStart ? _adminStartBreakTime ?? DateTime.now() : _adminEndBreakTime ?? DateTime.now()),
     );
 
     if (timeOfDay != null) {
@@ -236,7 +228,7 @@ class _BreakStartEndPageState extends State<BreakStartEndPage> {
         } else {
           _adminEndBreakTime = DateTime(now.year, now.month, now.day, timeOfDay.hour, timeOfDay.minute);
         }
-        _saveAdminBreakTimes();
+        _saveAdminBreakTimesToFirestore();
       });
     }
   }
@@ -307,134 +299,147 @@ class _BreakStartEndPageState extends State<BreakStartEndPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text('Break Start/End'),
-        centerTitle: true,
-        actions: _isAdmin
-            ? [
-          IconButton(
-            icon: Icon(Icons.settings),
-            onPressed: () {
-              _showAdminSettingsDialog(context);
-            },
+    return StreamBuilder<DocumentSnapshot>(
+      stream: FirebaseFirestore.instance.collection('settings').doc('break_times').snapshots(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.active) {
+          if (snapshot.hasData && snapshot.data != null && snapshot.data!.data() != null) {
+            var data = snapshot.data!.data() as Map<String, dynamic>;
+            _adminStartBreakTime = (data['adminStartBreakTime'] as Timestamp).toDate();
+            _adminEndBreakTime = (data['adminEndBreakTime'] as Timestamp).toDate();
+          }
+        }
+
+        return Scaffold(
+          appBar: AppBar(
+            title: Text('Break Start/End'),
+            centerTitle: true,
+            actions: _isAdmin
+                ? [
+              IconButton(
+                icon: Icon(Icons.settings),
+                onPressed: () {
+                  _showAdminSettingsDialog(context);
+                },
+              ),
+            ]
+                : null,
           ),
-        ]
-            : null,
-      ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: SingleChildScrollView(
-          child: Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.start,
-              children: <Widget>[
-                if (_adminStartBreakTime != null && _adminEndBreakTime != null)
-                  Column(
-                    children: [
-                      Text(
-                        'Break Time Set :',
-                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                      ),
-                      Text(
-                        'Start: ${_formatTime(_adminStartBreakTime!)}',
-                        style: TextStyle(fontSize: 16),
-                      ),
-                      Text(
-                        'End: ${_formatTime(_adminEndBreakTime!)}',
-                        style: TextStyle(fontSize: 16),
-                      ),
-                      SizedBox(height: 20),
-                    ],
-                  ),
-                Text(
-                  'Break Status: ${_isBreakStarted ? 'Started' : 'Not Started'}',
-                  style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-                ),
-                SizedBox(height: 20),
-                if (_isBreakStarted)
-                  Text(
-                    'Remaining Time: ${_remainingTime.inMinutes.toString().padLeft(2, '0')}:${_remainingTime.inSeconds.remainder(60).toString().padLeft(2, '0')}',
-                    style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-                  ),
-                SizedBox(height: 30),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          body: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: SingleChildScrollView(
+              child: Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.start,
                   children: <Widget>[
-                    ElevatedButton(
-                      onPressed: (!_isBreakStarted && !_isBreakEndedAutomatically) ? _startBreak : null,
-                      child: Text('Start Break'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.white,
-                        padding: EdgeInsets.symmetric(horizontal: 30, vertical: 20),
-                        textStyle: TextStyle(fontSize: 16),
-                        foregroundColor: Colors.black,
+                    if (_adminStartBreakTime != null && _adminEndBreakTime != null)
+                      Column(
+                        children: [
+                          Text(
+                            'Break Time Set :',
+                            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                          ),
+                          Text(
+                            'Start: ${_formatTime(_adminStartBreakTime!)}',
+                            style: TextStyle(fontSize: 16),
+                          ),
+                          Text(
+                            'End: ${_formatTime(_adminEndBreakTime!)}',
+                            style: TextStyle(fontSize: 16),
+                          ),
+                          SizedBox(height: 20),
+                        ],
                       ),
+                    Text(
+                      'Break Status: ${_isBreakStarted ? 'Started' : 'Not Started'}',
+                      style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
                     ),
-                    ElevatedButton(
-                      onPressed: (_isBreakStarted || _isBreakEndedAutomatically) ? _endBreak : null,
-                      child: Text('End Break'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.white,
-                        padding: EdgeInsets.symmetric(horizontal: 30, vertical: 20),
-                        textStyle: TextStyle(fontSize: 16),
-                        foregroundColor: Colors.black,
+                    SizedBox(height: 20),
+                    if (_isBreakStarted)
+                      Text(
+                        'Remaining Time: ${_remainingTime.inMinutes.toString().padLeft(2, '0')}:${_remainingTime.inSeconds.remainder(60).toString().padLeft(2, '0')}',
+                        style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
                       ),
+                    SizedBox(height: 30),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                      children: <Widget>[
+                        ElevatedButton(
+                          onPressed: (!_isBreakStarted && !_isBreakEndedAutomatically) ? _startBreak : null,
+                          child: Text('Start Break'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.white,
+                            padding: EdgeInsets.symmetric(horizontal: 30, vertical: 20),
+                            textStyle: TextStyle(fontSize: 16),
+                            foregroundColor: Colors.black,
+                          ),
+                        ),
+                        ElevatedButton(
+                          onPressed: (_isBreakStarted || _isBreakEndedAutomatically) ? _endBreak : null,
+                          child: Text('End Break'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.white,
+                            padding: EdgeInsets.symmetric(horizontal: 30, vertical: 20),
+                            textStyle: TextStyle(fontSize: 16),
+                            foregroundColor: Colors.black,
+                          ),
+                        ),
+                      ],
                     ),
+                    SizedBox(height: 15),
+                    Divider(thickness: 2),
+                    SizedBox(height: 5),
+                    SizedBox(height: 15),
+                    Divider(thickness: 1),
+                    ListTile(
+                      title: Text(
+                        'Lihat Log Break',
+                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.blue),
+                      ),
+                      trailing: Icon(Icons.arrow_forward, size: 24, color: Colors.blue),
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (context) => BreakHistoryPage()),
+                        );
+                      },
+                    ),
+                    Divider(thickness: 1),
+                    if (_isAdmin) ...[
+                      SizedBox(height: 20),
+                      _buildLogBox(
+                        'Admin Start Break Time',
+                        _adminStartBreakTime != null ? _formatTime(_adminStartBreakTime!) : 'Not Set',
+                        300,
+                        60,
+                        18,
+                        18,
+                      ),
+                      ElevatedButton(
+                        onPressed: () => _pickTime(context, true),
+                        child: Text('Set Start Time'),
+                      ),
+                      SizedBox(height: 15),
+                      _buildLogBox(
+                        'Admin End Break Time',
+                        _adminEndBreakTime != null ? _formatTime(_adminEndBreakTime!) : 'Not Set',
+                        300,
+                        60,
+                        18,
+                        18,
+                      ),
+                      ElevatedButton(
+                        onPressed: () => _pickTime(context, false),
+                        child: Text('Set End Time'),
+                      ),
+                    ],
                   ],
                 ),
-                SizedBox(height: 15),
-                Divider(thickness: 2),
-                SizedBox(height: 5),
-                SizedBox(height: 15),
-                Divider(thickness: 1),
-                ListTile(
-                  title: Text(
-                    'Lihat Log Break',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.blue),
-                  ),
-                  trailing: Icon(Icons.arrow_forward, size: 24, color: Colors.blue),
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (context) => BreakHistoryPage()),
-                    );
-                  },
-                ),
-                Divider(thickness: 1),
-                if (_isAdmin) ...[
-                  SizedBox(height: 20),
-                  _buildLogBox(
-                    'Admin Start Break Time',
-                    _adminStartBreakTime != null ? _formatTime(_adminStartBreakTime!) : 'Not Set',
-                    300,
-                    60,
-                    18,
-                    18,
-                  ),
-                  ElevatedButton(
-                    onPressed: () => _pickTime(context, true),
-                    child: Text('Set Start Time'),
-                  ),
-                  SizedBox(height: 15),
-                  _buildLogBox(
-                    'Admin End Break Time',
-                    _adminEndBreakTime != null ? _formatTime(_adminEndBreakTime!) : 'Not Set',
-                    300,
-                    60,
-                    18,
-                    18,
-                  ),
-                  ElevatedButton(
-                    onPressed: () => _pickTime(context, false),
-                    child: Text('Set End Time'),
-                  ),
-                ],
-              ],
+              ),
             ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 

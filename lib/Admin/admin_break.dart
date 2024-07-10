@@ -24,17 +24,21 @@ class _AdminBreakPageState extends State<AdminBreakPage> {
   }
 
   Future<void> _loadAdminBreakTimes() async {
-    final prefs = await SharedPreferences.getInstance();
-    setState(() {
-      _adminStartBreakTime = DateTime.tryParse(prefs.getString('adminStartBreakTime') ?? '');
-      _adminEndBreakTime = DateTime.tryParse(prefs.getString('adminEndBreakTime') ?? '');
-    });
+    DocumentSnapshot settingsDoc = await FirebaseFirestore.instance.collection('settings').doc('break_times').get();
+    if (settingsDoc.exists) {
+      setState(() {
+        _adminStartBreakTime = (settingsDoc['adminStartBreakTime'] as Timestamp).toDate();
+        _adminEndBreakTime = (settingsDoc['adminEndBreakTime'] as Timestamp).toDate();
+      });
+    }
   }
 
-  Future<void> _saveAdminBreakTimes() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('adminStartBreakTime', _adminStartBreakTime?.toIso8601String() ?? '');
-    await prefs.setString('adminEndBreakTime', _adminEndBreakTime?.toIso8601String() ?? '');
+  Future<void> _saveAdminBreakTimesToFirestore() async {
+    await FirebaseFirestore.instance.collection('settings').doc('break_times').set({
+      'adminStartBreakTime': _adminStartBreakTime,
+      'adminEndBreakTime': _adminEndBreakTime,
+    });
+    _loadAdminBreakTimes();
   }
 
   Future<void> _pickTime(BuildContext context, bool isStart) async {
@@ -51,7 +55,7 @@ class _AdminBreakPageState extends State<AdminBreakPage> {
         } else {
           _adminEndBreakTime = DateTime(now.year, now.month, now.day, timeOfDay.hour, timeOfDay.minute);
         }
-        _saveAdminBreakTimes();
+        _saveAdminBreakTimesToFirestore();
       });
     }
   }
