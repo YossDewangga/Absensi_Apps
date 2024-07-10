@@ -27,6 +27,7 @@ class LeaveHistoryPage extends StatelessWidget {
             .collection('users')
             .doc(userId)
             .collection('leave_applications')
+            .orderBy('submitted_at', descending: true) // Mengurutkan berdasarkan tanggal pengajuan terbaru ke terlama
             .snapshots(),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
@@ -44,13 +45,6 @@ class LeaveHistoryPage extends StatelessWidget {
           return ListView(
             children: snapshot.data!.docs.map((doc) {
               var data = doc.data() as Map<String, dynamic>;
-
-              // Handling GeoPoint correctly
-              String location = 'Lokasi tidak tersedia';
-              if (data.containsKey('location') && data['location'] is GeoPoint) {
-                GeoPoint geoPoint = data['location'];
-                location = 'Lat: ${geoPoint.latitude}, Lon: ${geoPoint.longitude}';
-              }
 
               return Card(
                 margin: const EdgeInsets.all(8.0),

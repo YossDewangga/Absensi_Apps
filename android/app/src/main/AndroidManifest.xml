@@ -14,10 +14,8 @@
 
 
 
-
-
     <application
-        android:label="absensi_apps"
+        android:label="Absensi TPI"
         android:name="${applicationName}"
         android:icon="@mipmap/launcher_icon"
         android:enableOnBackInvokedCallback="true">

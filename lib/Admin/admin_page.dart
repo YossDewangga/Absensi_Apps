@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'admin_absensi.dart';
 import 'admin_break.dart';
-import 'admin_cuti.dart'; // Import AdminLeavePage
+import 'admin_cuti.dart';
 import 'admin_overtime.dart';
 import 'karyawan_list_page.dart';
 import 'admin_visit.dart';
@@ -17,7 +18,6 @@ class AdminPage extends StatefulWidget {
 
 class _AdminPageState extends State<AdminPage> {
   int _selectedIndex = 0;
-  bool _hasNewLogbookEntry = false;
 
   static final List<Widget> _pages = <Widget>[
     const AdminAbsensiPage(),
@@ -32,14 +32,21 @@ class _AdminPageState extends State<AdminPage> {
   void _onItemTapped(int index) {
     setState(() {
       _selectedIndex = index;
-      if (index == 0) {
-        _hasNewLogbookEntry = false;
-      }
     });
   }
 
   void signUserOut() {
     FirebaseAuth.instance.signOut();
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _listenForNewLogs();
+  }
+
+  void _listenForNewLogs() {
+    // Add your listeners here if needed
   }
 
   @override
@@ -49,59 +56,32 @@ class _AdminPageState extends State<AdminPage> {
         child: _pages.elementAt(_selectedIndex),
       ),
       bottomNavigationBar: BottomNavigationBar(
-        items: [
+        items: const [
           BottomNavigationBarItem(
-            icon: Stack(
-              children: [
-                const Icon(Icons.access_time),
-                if (_hasNewLogbookEntry)
-                  Positioned(
-                    right: 0,
-                    child: Container(
-                      padding: const EdgeInsets.all(1),
-                      decoration: BoxDecoration(
-                        color: Colors.red,
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      constraints: const BoxConstraints(
-                        minWidth: 12,
-                        minHeight: 12,
-                      ),
-                      child: const Text(
-                        '!',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 8,
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-                    ),
-                  ),
-              ],
-            ),
+            icon: Icon(Icons.access_time),
             label: 'Absensi',
           ),
-          const BottomNavigationBarItem(
+          BottomNavigationBarItem(
             icon: Icon(Icons.access_alarm),
             label: 'Overtime',
           ),
-          const BottomNavigationBarItem(
+          BottomNavigationBarItem(
             icon: Icon(Icons.report),
             label: 'Visit',
           ),
-          const BottomNavigationBarItem(
+          BottomNavigationBarItem(
             icon: Icon(Icons.coffee),
             label: 'Break',
           ),
-          const BottomNavigationBarItem(
+          BottomNavigationBarItem(
             icon: Icon(Icons.beach_access), // Icon for Cuti
             label: 'Cuti',
           ),
-          const BottomNavigationBarItem(
+          BottomNavigationBarItem(
             icon: Icon(Icons.people),
             label: 'Karyawan',
           ),
-          const BottomNavigationBarItem(
+          BottomNavigationBarItem(
             icon: Icon(Icons.settings),
             label: 'Pengaturan',
           ),

@@ -13,10 +13,12 @@ class _AdminLeavePageState extends State<AdminLeavePage> {
   DateTime _selectedDate = DateTime.now();
   bool _isCalendarExpanded = false;
   String? _editableRecordId;
+  Map<DateTime, List> _leaveEvents = {};
 
   @override
   void initState() {
     super.initState();
+    _loadLeaveApplications();
     _checkAndResetLeaveQuota();
   }
 
@@ -33,6 +35,27 @@ class _AdminLeavePageState extends State<AdminLeavePage> {
         SnackBar(content: Text('Leave quota has been reset for all users.')),
       );
     }
+  }
+
+  Future<void> _loadLeaveApplications() async {
+    QuerySnapshot leaveDocs = await FirebaseFirestore.instance.collectionGroup('leave_applications').get();
+    Map<DateTime, List> events = {};
+    for (var doc in leaveDocs.docs) {
+      var data = doc.data() as Map<String, dynamic>;
+      DateTime submittedAt = (data['submitted_at'] as Timestamp).toDate();
+      DateTime eventDate = DateTime(submittedAt.year, submittedAt.month, submittedAt.day);
+      if (!events.containsKey(eventDate)) {
+        events[eventDate] = [];
+      }
+      events[eventDate]!.add('Pengajuan Cuti');
+    }
+    setState(() {
+      _leaveEvents = events;
+    });
+  }
+
+  List _getEventsForDay(DateTime day) {
+    return _leaveEvents[day] ?? [];
   }
 
   @override
@@ -94,6 +117,7 @@ class _AdminLeavePageState extends State<AdminLeavePage> {
                         firstDay: DateTime(2000),
                         lastDay: DateTime(2100),
                         calendarFormat: CalendarFormat.month,
+                        eventLoader: _getEventsForDay,
                         selectedDayPredicate: (day) {
                           return isSameDay(_selectedDate, day);
                         },
@@ -111,6 +135,11 @@ class _AdminLeavePageState extends State<AdminLeavePage> {
                             color: Colors.orangeAccent,
                             shape: BoxShape.circle,
                           ),
+                          markersMaxCount: 1,
+                          markerDecoration: BoxDecoration(
+                            color: Colors.red,
+                            shape: BoxShape.circle,
+                          ),
                         ),
                       ),
                       isExpanded: _isCalendarExpanded,
@@ -126,7 +155,11 @@ class _AdminLeavePageState extends State<AdminLeavePage> {
                       return Center(child: CircularProgressIndicator());
                     }
 
-                    var records = snapshot.data!.docs;
+                    var records = snapshot.data!.docs.where((record) {
+                      var data = record.data() as Map<String, dynamic>;
+                      DateTime submittedAt = (data['submitted_at'] as Timestamp).toDate();
+                      return isSameDay(submittedAt, _selectedDate);
+                    }).toList();
 
                     if (records.isEmpty) {
                       return const Center(child: Text('Tidak ada pengajuan cuti.', style: TextStyle(color: Colors.black)));

@@ -549,9 +549,12 @@ class _VisitInAndOutPageState extends State<VisitInAndOutPage> {
       icon: Icon(Icons.admin_panel_settings),
       label: Text('Minta Persetujuan Admin'),
       style: ElevatedButton.styleFrom(
-        padding: EdgeInsets.symmetric(horizontal: 30, vertical: 20),
-        textStyle: TextStyle(fontSize: 16),
-        foregroundColor: Colors.white,
+        padding: EdgeInsets.symmetric(horizontal: 13, vertical: 10),
+        textStyle: TextStyle(
+          fontSize: 15,
+          fontWeight: FontWeight.bold,
+        ),
+        foregroundColor: Colors.red,
       ),
     );
   }
