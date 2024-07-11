@@ -2,10 +2,7 @@ import 'package:absensi_apps/Admin/admin_page.dart';
 import 'package:absensi_apps/Login_Register/login_page.dart';
 import 'package:absensi_apps/User/user_page.dart';
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-
 
 class CheckAuth extends StatefulWidget {
   @override

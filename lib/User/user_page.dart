@@ -31,11 +31,11 @@ class _UserPageState extends State<UserPage> {
 
 
     String displayName = user?.displayName ?? 'User';
-    List<String> nameParts = displayName.split(' ');
+    List<String> nameParts = displayName.split('');
 
 
     String firstName = nameParts.isNotEmpty? nameParts[0] : '';
-    String lastName = nameParts.length > 1 ? nameParts.sublist(1).join(' ') :'';
+    String lastName = nameParts.length > 1 ? nameParts.sublist(1).join('') :'';
     String formattedName ='$firstName$lastName';
 
     return Scaffold(
