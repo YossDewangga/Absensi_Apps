@@ -1,4 +1,5 @@
 import 'package:absensi_apps/Admin/admin_page.dart';
+import 'package:absensi_apps/Trash/auth_page.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
@@ -63,7 +64,7 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       theme: ThemeData(),
-      home: AdminPage(), // Ganti dengan halaman login atau halaman sesuai peran
+      home: CheckLoginStatus(), // Ganti dengan halaman login atau halaman sesuai peran
     );
   }
 }
