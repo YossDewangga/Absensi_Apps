@@ -1,7 +1,8 @@
 import 'package:absensi_apps/Login_Register/login_page.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'edit_password.dart';
 
 class ProfilePage extends StatelessWidget {
@@ -132,10 +133,31 @@ class ProfilePage extends StatelessWidget {
                     title: Text('Logout', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w500)),
                     trailing: Icon(Icons.arrow_forward_ios),
                     onTap: () async {
-                      await FirebaseAuth.instance.signOut();
-                      Navigator.of(context).pushReplacement(
-                        MaterialPageRoute(builder: (context) => LoginPage()),
-                      );
+                      final user = FirebaseAuth.instance.currentUser;
+
+                      if (user != null) {
+                        print('User ID: ${user.uid}'); // Logging user ID
+                        // Update Firestore and wait for it to complete
+                        await FirebaseFirestore.instance.collection('users').doc(user.uid).update({
+                          'isLoggedIn': false,
+                        }).then((value) async {
+                          print('isLoggedIn set to false'); // Logging success
+                          await FirebaseAuth.instance.signOut();
+                          SharedPreferences prefs = await SharedPreferences.getInstance();
+                          await prefs.clear();
+                          Navigator.of(context).pushReplacement(
+                            MaterialPageRoute(builder: (context) => LoginPage()),
+                          );
+                        }).catchError((error) {
+                          // Handle the error, maybe show a Snackbar or Dialog
+                          print('Failed to update isLoggedIn: $error'); // Logging error
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('Logout failed: $error')),
+                          );
+                        });
+                      } else {
+                        print('No user signed in'); // Logging if no user is signed in
+                      }
                     },
                   ),
                 ],

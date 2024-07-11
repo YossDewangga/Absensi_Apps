@@ -58,6 +58,9 @@ class _LoginPageState extends State<LoginPage> {
         if (userData.exists) {
           String role = userData.data()!['role'];
           _saveLoginStatus(true, role);
+          await FirebaseFirestore.instance.collection('users').doc(user.uid).update({
+            'isLoggedIn': true,
+          });
 
           if (role == 'Admin') {
             Navigator.pushReplacement(

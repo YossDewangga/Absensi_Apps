@@ -1,9 +1,10 @@
+import 'package:absensi_apps/Cuti/history_leave_page.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
-import 'history_leave_page.dart';
+
 
 class LeaveApplicationPage extends StatefulWidget {
   @override
@@ -25,44 +26,34 @@ class _LeaveApplicationPageState extends State<LeaveApplicationPage> {
   @override
   void initState() {
     super.initState();
-    _loadFormTemplate();
     _getUserInfo();
   }
 
   Future<void> _getUserInfo() async {
-    User? user = FirebaseAuth.instance.currentUser;
-    if (user != null) {
-      _userId = user.uid;
-      DocumentSnapshot userDoc = await FirebaseFirestore.instance.collection('users').doc(_userId).get();
-      if (userDoc.exists) {
-        setState(() {
-          _displayName = userDoc['displayName'];
-          _leaveQuota = userDoc['leave_quota'];
-        });
-      } else {
-        _showSnackBar('User not found in Firestore.');
-      }
-    } else {
-      _showSnackBar('User not logged in.');
-    }
-  }
-
-  Future<void> _loadFormTemplate() async {
     try {
-      DocumentSnapshot doc = await FirebaseFirestore.instance.collection('leave_forms').doc('form_template').get();
-      if (doc.exists) {
-        setState(() {
-          _keteranganController.text = doc['Keterangan'] ?? '';
-          _startDate = (doc['start_date'] as Timestamp).toDate();
-          _endDate = (doc['end_date'] as Timestamp).toDate();
-          _startDateString = DateFormat('yyyy-MM-dd').format(_startDate!);
-          _endDateString = DateFormat('yyyy-MM-dd').format(_endDate!);
-        });
+      User? user = FirebaseAuth.instance.currentUser;
+      if (user != null) {
+        _userId = user.uid;
+        DocumentSnapshot userDoc = await FirebaseFirestore.instance.collection('users').doc(_userId).get();
+        if (userDoc.exists) {
+          Map<String, dynamic>? userData = userDoc.data() as Map<String, dynamic>?;
+          if (userData != null && !userData.containsKey('leave_quota')) {
+            // Initialize leave_quota if not present
+            await userDoc.reference.update({'leave_quota': 12});
+          }
+
+          setState(() {
+            _displayName = userData?['displayName'];
+            _leaveQuota = userData?['leave_quota'] ?? 12; // Default to 12 if not set
+          });
+        } else {
+          _showSnackBar('User not found in Firestore.');
+        }
       } else {
-        print('Dokumen tidak ada');
+        _showSnackBar('User not logged in.');
       }
     } catch (e) {
-      print('Gagal memuat template form: $e');
+      _showSnackBar('Failed to load user info: $e');
     } finally {
       setState(() {
         _isLoading = false;
@@ -248,7 +239,7 @@ class _LeaveApplicationPageState extends State<LeaveApplicationPage> {
                 onTap: () {
                   Navigator.push(
                     context,
-                    MaterialPageRoute(builder: (context) => VisitHistoryPage(userId: _userId)),
+                    MaterialPageRoute(builder: (context) => HistoryLeavePage(userId: _userId)),
                   );
                 },
               ),

@@ -1,8 +1,8 @@
+import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:absensi_apps/Admin/setting_page.dart';
 import 'package:absensi_apps/Break/start_&_end_break.dart';
 import 'package:absensi_apps/Cuti/leave_page.dart';
-import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import '../Clock In & Clock Out/clock_in_out.dart';
 import '../Overtime/overtime.dart';
 import '../Visit In & Out/visit.dart';
@@ -29,14 +29,11 @@ class _UserPageState extends State<UserPage> {
       greeting = 'Good Evening,';
     }
 
-
     String displayName = user?.displayName ?? 'User';
     List<String> nameParts = displayName.split('');
-
-
-    String firstName = nameParts.isNotEmpty? nameParts[0] : '';
-    String lastName = nameParts.length > 1 ? nameParts.sublist(1).join('') :'';
-    String formattedName ='$firstName$lastName';
+    String firstName = nameParts.isNotEmpty ? nameParts[0] : '';
+    String lastName = nameParts.length > 1 ? nameParts.sublist(1).join('') : '';
+    String formattedName = '$firstName$lastName';
 
     return Scaffold(
       body: Stack(
@@ -53,70 +50,73 @@ class _UserPageState extends State<UserPage> {
               ),
             ),
           ),
-          Column(
-            children: [
-              Container(
-                padding: EdgeInsets.only(top: 70, left: 15, right: 30, bottom: 15),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.only(
-                    bottomLeft: Radius.circular(20),
-                    bottomRight: Radius.circular(30),
-                  ),
-                  gradient: LinearGradient(
-                    colors: [Colors.white, Colors.white],
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.2),
-                      spreadRadius: 5,
-                      blurRadius: 7,
-                      offset: Offset(0, 3),
+          SingleChildScrollView(
+            child: Column(
+              children: [
+                Container(
+                  padding: EdgeInsets.only(
+                      top: 70, left: 15, right: 30, bottom: 15),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.only(
+                      bottomLeft: Radius.circular(20),
+                      bottomRight: Radius.circular(30),
                     ),
-                  ],
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      greeting,
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                        letterSpacing: 1,
-                        wordSpacing: 2,
-                        color: Colors.black,
+                    gradient: LinearGradient(
+                      colors: [Colors.white, Colors.white],
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.2),
+                        spreadRadius: 5,
+                        blurRadius: 7,
+                        offset: Offset(0, 3),
                       ),
-                    ),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          formattedName,
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.normal,
-                            color: Colors.black,
+                    ],
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        greeting,
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          letterSpacing: 1,
+                          wordSpacing: 2,
+                          color: Colors.black,
+                        ),
+                      ),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            formattedName,
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.normal,
+                              color: Colors.black,
+                            ),
                           ),
-                        ),
-                        IconButton(
-                          icon: Icon(Icons.person, size: 30, color: Colors.black),
-                          onPressed: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(builder: (context) => ProfilePage()),
-                            );
-                          },
-                        ),
-                      ],
-                    ),
-                  ],
+                          IconButton(
+                            icon: Icon(Icons.person,
+                                size: 30, color: Colors.black),
+                            onPressed: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                    builder: (context) => ProfilePage()),
+                              );
+                            },
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-              SizedBox(height: 20),
-              Expanded(
-                child: Padding(
+                SizedBox(height: 20),
+                Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 20.0),
                   child: Column(
                     children: [
@@ -125,12 +125,14 @@ class _UserPageState extends State<UserPage> {
                         crossAxisSpacing: 20,
                         mainAxisSpacing: 20,
                         shrinkWrap: true,
+                        physics: NeverScrollableScrollPhysics(),
                         children: [
                           GestureDetector(
                             onTap: () {
                               Navigator.push(
                                 context,
-                                MaterialPageRoute(builder: (context) => ClockPage()),
+                                MaterialPageRoute(
+                                    builder: (context) => ClockPage()),
                               );
                             },
                             child: Card(
@@ -159,7 +161,8 @@ class _UserPageState extends State<UserPage> {
                             onTap: () {
                               Navigator.push(
                                 context,
-                                MaterialPageRoute(builder: (context) => OvertimePage()),
+                                MaterialPageRoute(
+                                    builder: (context) => OvertimePage()),
                               );
                             },
                             child: Card(
@@ -190,7 +193,9 @@ class _UserPageState extends State<UserPage> {
                             onTap: () {
                               Navigator.push(
                                 context,
-                                MaterialPageRoute(builder: (context) => BreakStartEndPage()),
+                                MaterialPageRoute(
+                                    builder: (context) =>
+                                        BreakStartEndPage()),
                               );
                             },
                             child: Card(
@@ -219,7 +224,9 @@ class _UserPageState extends State<UserPage> {
                             onTap: () {
                               Navigator.push(
                                 context,
-                                MaterialPageRoute(builder: (context) => VisitInAndOutPage()),
+                                MaterialPageRoute(
+                                    builder: (context) =>
+                                        VisitInAndOutPage()),
                               );
                             },
                             child: Card(
@@ -251,7 +258,9 @@ class _UserPageState extends State<UserPage> {
                         onTap: () {
                           Navigator.push(
                             context,
-                            MaterialPageRoute(builder: (context) => LeaveApplicationPage()),
+                            MaterialPageRoute(
+                                builder: (context) =>
+                                    LeaveApplicationPage()),
                           );
                         },
                         child: Card(
@@ -284,8 +293,8 @@ class _UserPageState extends State<UserPage> {
                     ],
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ],
       ),

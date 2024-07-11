@@ -1,15 +1,18 @@
 import 'package:absensi_apps/Admin/admin_page.dart';
 import 'package:absensi_apps/Login_Register/login_page.dart';
 import 'package:absensi_apps/User/user_page.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-class CheckAuth extends StatefulWidget {
+class CheckLoginStatus extends StatefulWidget {
   @override
-  _CheckAuthState createState() => _CheckAuthState();
+  _CheckLoginStatusState createState() => _CheckLoginStatusState();
 }
 
-class _CheckAuthState extends State<CheckAuth> {
+class _CheckLoginStatusState extends State<CheckLoginStatus> {
   @override
   void initState() {
     super.initState();
@@ -18,19 +21,30 @@ class _CheckAuthState extends State<CheckAuth> {
 
   void _checkLoginStatus() async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
-    bool? isLoggedIn = prefs.getBool('isLoggedIn');
-    String? role = prefs.getString('role');
+    bool isLoggedIn = prefs.getBool('isLoggedIn') ?? false;
+    String role = prefs.getString('role') ?? '';
+    User? user = FirebaseAuth.instance.currentUser;
 
-    if (isLoggedIn == true && role != null) {
-      if (role == 'Admin') {
+    if (isLoggedIn && user != null) {
+      DocumentSnapshot<Map<String, dynamic>> userData =
+      await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
+
+      if (userData.exists && userData.data()!['isLoggedIn'] == true) {
+        if (role == 'Admin') {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => AdminPage()),
+          );
+        } else if (role == 'Karyawan') {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => UserPage()),
+          );
+        }
+      } else {
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(builder: (context) => AdminPage()),
-        );
-      } else if (role == 'Karyawan') {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (context) => UserPage()),
+          MaterialPageRoute(builder: (context) => LoginPage()),
         );
       }
     } else {

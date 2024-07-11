@@ -25,33 +25,47 @@ class _AdminLeavePageState extends State<AdminLeavePage> {
   Future<void> _checkAndResetLeaveQuota() async {
     DateTime now = DateTime.now();
     if (now.month == 1 && now.day == 1) { // Misal reset setiap awal tahun
-      QuerySnapshot userDocs = await FirebaseFirestore.instance.collection('users').get();
-      for (var doc in userDocs.docs) {
-        await doc.reference.update({
-          'leave_quota': 12, // Reset ke 12 hari
-        });
+      try {
+        QuerySnapshot userDocs = await FirebaseFirestore.instance.collection('users').get();
+        for (var doc in userDocs.docs) {
+          await doc.reference.update({
+            'leave_quota': 12, // Reset ke 12 hari
+          });
+        }
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Leave quota has been reset for all users.')),
+        );
+      } catch (e) {
+        print('Failed to reset leave quota: $e'); // Log for debugging
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to reset leave quota: $e')),
+        );
       }
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Leave quota has been reset for all users.')),
-      );
     }
   }
 
   Future<void> _loadLeaveApplications() async {
-    QuerySnapshot leaveDocs = await FirebaseFirestore.instance.collectionGroup('leave_applications').get();
-    Map<DateTime, List> events = {};
-    for (var doc in leaveDocs.docs) {
-      var data = doc.data() as Map<String, dynamic>;
-      DateTime submittedAt = (data['submitted_at'] as Timestamp).toDate();
-      DateTime eventDate = DateTime(submittedAt.year, submittedAt.month, submittedAt.day);
-      if (!events.containsKey(eventDate)) {
-        events[eventDate] = [];
+    try {
+      QuerySnapshot leaveDocs = await FirebaseFirestore.instance.collectionGroup('leave_applications').get();
+      Map<DateTime, List> events = {};
+      for (var doc in leaveDocs.docs) {
+        var data = doc.data() as Map<String, dynamic>;
+        DateTime submittedAt = (data['submitted_at'] as Timestamp).toDate();
+        DateTime eventDate = DateTime(submittedAt.year, submittedAt.month, submittedAt.day);
+        if (!events.containsKey(eventDate)) {
+          events[eventDate] = [];
+        }
+        events[eventDate]!.add('Pengajuan Cuti');
       }
-      events[eventDate]!.add('Pengajuan Cuti');
+      setState(() {
+        _leaveEvents = events;
+      });
+    } catch (e) {
+      print('Failed to load leave applications: $e'); // Log for debugging
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to load leave applications: $e')),
+      );
     }
-    setState(() {
-      _leaveEvents = events;
-    });
   }
 
   List _getEventsForDay(DateTime day) {
