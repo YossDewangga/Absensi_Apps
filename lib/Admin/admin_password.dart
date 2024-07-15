@@ -111,7 +111,7 @@ class _EditPasswordPageState extends State<EditPasswordPage> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Ubah Kata Sandi'),
-        backgroundColor: Colors.blue[500],
+        backgroundColor: Colors.white,
       ),
       body: SingleChildScrollView(
         child: Padding(
@@ -178,7 +178,7 @@ class _EditPasswordPageState extends State<EditPasswordPage> {
                   onPressed: _changePassword,
                   child: const Text('Perbarui Kata Sandi'),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.blue[500],
+                    backgroundColor: Colors.white,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(20),
                     ),

@@ -3,8 +3,10 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:workmanager/workmanager.dart';
-import 'dart:async';  // Tambahkan ini untuk Timer
-import 'package:audioplayers/audioplayers.dart';  // Tambahkan ini untuk AudioPlayer
+import 'dart:async';
+import 'package:audioplayers/audioplayers.dart';
+import 'package:vibration/vibration.dart';
+import 'package:audioplayers/src/source.dart';
 
 import 'history_break_page.dart';
 
@@ -24,7 +26,9 @@ class _BreakStartEndPageState extends State<BreakStartEndPage> {
   bool _isBreakEndedAutomatically = false;
   bool _isAdmin = false;
   Timer? _breakTimer;
-  Duration _breakDuration = Duration(hours: 1); // Durasi break menjadi 1 jam
+  Timer? _vibrationTimer;
+  Timer? _audioTimer;
+  Duration _breakDuration = Duration(hours: 1);
   Duration _remainingTime = Duration(hours: 1);
   final AudioPlayer _audioPlayer = AudioPlayer();
   DocumentReference? _currentBreakDocRef;
@@ -40,6 +44,8 @@ class _BreakStartEndPageState extends State<BreakStartEndPage> {
   @override
   void dispose() {
     _breakTimer?.cancel();
+    _vibrationTimer?.cancel();
+    _audioTimer?.cancel();
     _audioPlayer.dispose();
     super.dispose();
   }
@@ -151,6 +157,8 @@ class _BreakStartEndPageState extends State<BreakStartEndPage> {
       _isBreakStarted = false;
       _isBreakEndedAutomatically = false;
       _breakTimer?.cancel();
+      _vibrationTimer?.cancel();
+      _audioTimer?.cancel();
       _audioPlayer.stop();
     });
 
@@ -190,6 +198,8 @@ class _BreakStartEndPageState extends State<BreakStartEndPage> {
       _endBreakTime = DateTime.now();
     });
 
+    _startVibrationAndAlarm();
+
     if (_currentBreakDocRef != null) {
       await _currentBreakDocRef!.update({
         'end_break': _endBreakTime,
@@ -198,6 +208,26 @@ class _BreakStartEndPageState extends State<BreakStartEndPage> {
     }
 
     _saveBreakStatus();
+  }
+
+  void _startVibrationAndAlarm() {
+    _vibrationTimer = Timer.periodic(Duration(seconds: 1), (timer) {
+      _vibratePhone();
+    });
+
+    _audioTimer = Timer.periodic(Duration(seconds: 10), (timer) {
+      _playAlarm();
+    });
+  }
+
+  void _playAlarm() async {
+    await _audioPlayer.play(AssetSource('sounds/alarm.mp3'));  // Gunakan AssetSource untuk file lokal
+  }
+
+  void _vibratePhone() {
+    if (Vibration.hasVibrator() != null) {
+      Vibration.vibrate();
+    }
   }
 
   String _calculateBreakDuration() {
