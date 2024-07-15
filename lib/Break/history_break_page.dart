@@ -136,16 +136,21 @@ class _BreakHistoryPageState extends State<BreakHistoryPage> {
                       ),
                       child: Padding(
                         padding: const EdgeInsets.all(16.0),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+                        child: Table(
+                          border: TableBorder.all(color: Colors.grey),
+                          columnWidths: const {
+                            0: FlexColumnWidth(1),
+                            1: FlexColumnWidth(2),
+                          },
                           children: [
-                            _buildTable('Nama User', userName),
-                            Divider(thickness: 1),
-                            _buildTable('Start Break', _formattedDateTime(startBreak), data['start_image_url']),
-                            Divider(thickness: 1),
-                            _buildTable('End Break', _formattedDateTime(endBreak), data['end_image_url']),
-                            Divider(thickness: 1),
-                            _buildDurationRow('Duration', breakDuration),
+                            _buildTableRow('Nama User', userName),
+                            _buildTableRow('Start Break', _formattedDateTime(startBreak)),
+                            if (data['start_image_url'] != null)
+                              _buildTableRowImage(context, 'Start Break Image', data['start_image_url']),
+                            _buildTableRow('End Break', _formattedDateTime(endBreak)),
+                            if (data['end_image_url'] != null)
+                              _buildTableRowImage(context, 'End Break Image', data['end_image_url']),
+                            _buildTableRow('Duration', breakDuration),
                           ],
                         ),
                       ),
@@ -157,31 +162,6 @@ class _BreakHistoryPageState extends State<BreakHistoryPage> {
           ),
         ],
       ),
-    );
-  }
-
-  Widget _buildTable(String title, String content, [String? imageUrl]) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          title,
-          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-        ),
-        SizedBox(height: 8),
-        Table(
-          border: TableBorder.all(color: Colors.grey),
-          columnWidths: const {
-            0: FlexColumnWidth(1),
-            1: FlexColumnWidth(2),
-          },
-          children: [
-            _buildTableRow(title, content),
-            if (imageUrl != null && imageUrl.isNotEmpty)
-              _buildTableRowImage(context, 'Image', imageUrl),
-          ],
-        ),
-      ],
     );
   }
 
@@ -203,22 +183,6 @@ class _BreakHistoryPageState extends State<BreakHistoryPage> {
     );
   }
 
-  Widget _buildDurationRow(String key, String value) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8.0),
-      child: Table(
-        border: TableBorder.all(color: Colors.grey),
-        columnWidths: const {
-          0: FlexColumnWidth(1),
-          1: FlexColumnWidth(2),
-        },
-        children: [
-          _buildTableRow(key, value),
-        ],
-      ),
-    );
-  }
-
   TableRow _buildTableRowImage(BuildContext context, String key, String imageUrl) {
     return TableRow(
       children: [
@@ -235,31 +199,28 @@ class _BreakHistoryPageState extends State<BreakHistoryPage> {
             onTap: () {
               _showFullImage(context, imageUrl);
             },
-            child: Center(
-              child: Container(
-                width: 100,
-                height: 100,
-                decoration: BoxDecoration(
-                  border: Border.all(color: Colors.grey),
-                ),
-                child: Image.network(
-                  imageUrl,
-                  loadingBuilder: (BuildContext context, Widget child, ImageChunkEvent? loadingProgress) {
-                    if (loadingProgress == null) {
-                      return child;
-                    } else {
-                      return Center(
-                        child: CircularProgressIndicator(
-                          value: loadingProgress.expectedTotalBytes != null
-                              ? loadingProgress.cumulativeBytesLoaded / (loadingProgress.expectedTotalBytes ?? 1)
-                              : null,
-                        ),
-                      );
-                    }
-                  },
-                  errorBuilder: (context, error, stackTrace) => Icon(Icons.error),
-                  fit: BoxFit.cover,
-                ),
+            child: Container(
+              height: 100,
+              decoration: BoxDecoration(
+                border: Border.all(color: Colors.grey),
+              ),
+              child: Image.network(
+                imageUrl,
+                loadingBuilder: (BuildContext context, Widget child, ImageChunkEvent? loadingProgress) {
+                  if (loadingProgress == null) {
+                    return child;
+                  } else {
+                    return Center(
+                      child: CircularProgressIndicator(
+                        value: loadingProgress.expectedTotalBytes != null
+                            ? loadingProgress.cumulativeBytesLoaded / (loadingProgress.expectedTotalBytes ?? 1)
+                            : null,
+                      ),
+                    );
+                  }
+                },
+                errorBuilder: (context, error, stackTrace) => Icon(Icons.error),
+                fit: BoxFit.cover,
               ),
             ),
           ),
