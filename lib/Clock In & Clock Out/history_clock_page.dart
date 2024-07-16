@@ -55,6 +55,39 @@ class _ClockHistoryPageState extends State<ClockHistoryPage> {
     }
   }
 
+  void _clockOut() async {
+    try {
+      var now = DateTime.now();
+      var userId = widget.userId;
+      var recordSnapshot = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(userId)
+          .collection('clockin_records')
+          .where('clock_in_time', isLessThanOrEqualTo: now)
+          .orderBy('clock_in_time', descending: true)
+          .limit(1)
+          .get();
+
+      if (recordSnapshot.docs.isNotEmpty) {
+        var record = recordSnapshot.docs.first;
+        var clockInTime = (record['clock_in_time'] as Timestamp).toDate();
+        var workingHours = now.difference(clockInTime);
+
+        Duration lateDuration = _calculateLateDuration(clockInTime, _designatedStartTime!);
+
+        await record.reference.update({
+          'clock_out_time': now,
+          'working_hours': workingHours.inMinutes, // Store working hours in minutes
+          'late_duration': lateDuration.inMinutes,
+        });
+
+        print('Clock out successful');
+      }
+    } catch (e) {
+      print('Error during clock out: $e');
+    }
+  }
+
   String _formattedDateTime(DateTime dateTime) {
     return "${dateTime.day}-${dateTime.month}-${dateTime.year} ${dateTime.hour}:${dateTime.minute}:${dateTime.second}";
   }
@@ -213,17 +246,17 @@ class _ClockHistoryPageState extends State<ClockHistoryPage> {
                     var clockOutTime = data['clock_out_time'] != null
                         ? (data['clock_out_time'] as Timestamp).toDate()
                         : null;
-                    var workingHours = clockInTime != null && clockOutTime != null
-                        ? clockOutTime.difference(clockInTime)
-                        : null;
+                    var workingHours = data['total_working_hours'] != null
+                        ? data['total_working_hours']
+                        : 'N/A';
+                    var lateDuration = data['late_duration'] != null
+                        ? data['late_duration']
+                        : 'N/A';
                     var logbookEntries = data['logbook_entries'] != null
                         ? List<Map<String, dynamic>>.from(data['logbook_entries'])
                         : <Map<String, dynamic>>[];
                     var imageUrl = data['image_url'] ?? '';
                     var clockOutImageUrl = data['clock_out_image_url'] ?? '';
-                    var lateDuration = clockInTime != null && _designatedStartTime != null
-                        ? _calculateLateDuration(clockInTime, _designatedStartTime!)
-                        : null;
                     var lateReason = data['late_reason'] ?? 'N/A';
 
                     return Card(
@@ -240,6 +273,11 @@ class _ClockHistoryPageState extends State<ClockHistoryPage> {
                             _buildTable(context, 'Clock In', clockInTime, imageUrl, lateReason, lateDuration),
                             Divider(thickness: 1),
                             _buildTable(context, 'Clock Out', clockOutTime, clockOutImageUrl, null, null, logbookEntries),
+                            if (workingHours != 'N/A')
+                              Padding(
+                                padding: const EdgeInsets.only(top: 8.0),
+                                child: _buildWorkingHoursRow('Total Working Hours', workingHours),
+                              ),
                           ],
                         ),
                       ),
@@ -254,7 +292,7 @@ class _ClockHistoryPageState extends State<ClockHistoryPage> {
     );
   }
 
-  Widget _buildTable(BuildContext context, String title, DateTime? time, String? imageUrl, [String? lateReason, Duration? lateDuration, List<Map<String, dynamic>>? logbookEntries]) {
+  Widget _buildTable(BuildContext context, String title, DateTime? time, String? imageUrl, [String? lateReason, String? lateDuration, List<Map<String, dynamic>>? logbookEntries]) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -278,7 +316,7 @@ class _ClockHistoryPageState extends State<ClockHistoryPage> {
             if (title == 'Clock In' && lateReason != null)
               _buildTableRow('Late Reason', lateReason),
             if (title == 'Clock In' && lateDuration != null)
-              _buildTableRow('Late Duration', _formattedDuration(lateDuration)),
+              _buildTableRow('Late Duration', lateDuration, isHighlight: true),
             if (title == 'Clock Out' && logbookEntries != null)
               ..._buildLogbookEntriesTable(logbookEntries),
           ],
@@ -330,7 +368,7 @@ class _ClockHistoryPageState extends State<ClockHistoryPage> {
     return rows;
   }
 
-  TableRow _buildTableRow(String key, String value) {
+  TableRow _buildTableRow(String key, String value, {bool isHighlight = false}) {
     return TableRow(
       children: [
         Padding(
@@ -342,7 +380,12 @@ class _ClockHistoryPageState extends State<ClockHistoryPage> {
         ),
         Padding(
           padding: const EdgeInsets.all(8.0),
-          child: Text(value),
+          child: Text(
+            value,
+            style: isHighlight
+                ? TextStyle(color: Colors.red, fontWeight: FontWeight.bold)
+                : TextStyle(),
+          ),
         ),
       ],
     );
@@ -394,6 +437,21 @@ class _ClockHistoryPageState extends State<ClockHistoryPage> {
             ),
           )
               : Text('No Image'),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildWorkingHoursRow(String key, String value) {
+    return Row(
+      children: [
+        Text(
+          '$key: ',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
+        Text(
+          value,
+          style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
         ),
       ],
     );

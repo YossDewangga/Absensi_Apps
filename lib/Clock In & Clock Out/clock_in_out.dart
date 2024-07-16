@@ -402,6 +402,11 @@ class _ClockPageState extends State<ClockPage> with WidgetsBindingObserver {
           backgroundColor: Colors.green,
         ),
       );
+
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => ClockHistoryPage(userId: _userId)),
+      );
     } else {
       _showAlertDialog("No current record ID found for updating clock out.");
     }
@@ -586,10 +591,16 @@ class _ClockPageState extends State<ClockPage> with WidgetsBindingObserver {
                       child: Text('Add'),
                     ),
                     ElevatedButton(
-                      onPressed: () {
+                      onPressed: () async {
                         if (_logbookEntries.isNotEmpty) {
                           Navigator.of(context).pop();
-                          _performClockOut();
+                          await _showLoadingDialog();
+                          await _performClockOut();
+                          Navigator.of(context).pop(); // close loading dialog
+                          Navigator.pushReplacement(
+                            context,
+                            MaterialPageRoute(builder: (context) => ClockHistoryPage(userId: _userId)),
+                          );
                         } else {
                           _showAlertDialog("Silakan tambahkan setidaknya satu entri logbook.");
                         }
@@ -601,6 +612,18 @@ class _ClockPageState extends State<ClockPage> with WidgetsBindingObserver {
               ],
             ),
           ),
+        );
+      },
+    );
+  }
+
+  Future<void> _showLoadingDialog() async {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return Center(
+          child: CircularProgressIndicator(),
         );
       },
     );

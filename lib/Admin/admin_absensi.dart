@@ -328,7 +328,6 @@ class _AdminAbsensiPageState extends State<AdminAbsensiPage> {
       children: [
         if (userName != null) _buildTableRow('User Name:', userName),
         _buildTableRow('$timeType:', time != null ? _formattedDateTime(time) : 'N/A'),
-        _buildTableRow('Location:', location != null ? '${location.latitude}, ${location.longitude}' : 'N/A'),
         if (imageUrl != null && imageUrl.isNotEmpty)
           TableRow(
             children: [
