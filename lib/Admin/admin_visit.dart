@@ -174,7 +174,8 @@ class _AdminApprovalPageState extends State<AdminApprovalPage> {
                           var visitOutImageUrl = data['visit_out_imageUrl'] ?? '';
                           var nextDestination = data['next_destination'] ?? 'N/A';
 
-                          var approvalStatus = data['visit_out_isApproved'] as bool? ?? null;
+                          // Jika visit out sudah ada, set approval status menjadi approved
+                          var approvalStatus = visitOutTimestamp != null ? true : null;
                           var approvalRequested = data['approval_requested'] as bool? ?? false;
 
                           return FutureBuilder<String>(

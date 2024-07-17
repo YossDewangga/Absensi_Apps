@@ -64,7 +64,7 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       theme: ThemeData(),
-      home: CheckLoginStatus(),
+      home: AdminPage(),
     );
   }
 }
