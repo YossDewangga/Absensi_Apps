@@ -110,12 +110,14 @@ class _EditPasswordPageState extends State<EditPasswordPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Ubah Kata Sandi'),
+        title: const Text('Ubah Kata Sandi', style: TextStyle(color: Colors.black)),
         backgroundColor: Colors.white,
+        elevation: 1,
+        iconTheme: const IconThemeData(color: Colors.black),
       ),
       body: SingleChildScrollView(
         child: Padding(
-          padding: const EdgeInsets.all(16.0),
+          padding: const EdgeInsets.all(20.0),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -123,9 +125,15 @@ class _EditPasswordPageState extends State<EditPasswordPage> {
                 controller: _currentPasswordController,
                 decoration: InputDecoration(
                   labelText: 'Kata Sandi Saat Ini',
+                  labelStyle: const TextStyle(color: Colors.black),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10.0),
+                    borderSide: const BorderSide(color: Colors.black),
+                  ),
                   suffixIcon: IconButton(
                     icon: Icon(
                       _currentPasswordVisible ? Icons.visibility : Icons.visibility_off,
+                      color: Colors.black,
                     ),
                     onPressed: () {
                       setState(() {
@@ -136,14 +144,20 @@ class _EditPasswordPageState extends State<EditPasswordPage> {
                 ),
                 obscureText: !_currentPasswordVisible,
               ),
-              const SizedBox(height: 10),
+              const SizedBox(height: 20),
               TextField(
                 controller: _newPasswordController,
                 decoration: InputDecoration(
                   labelText: 'Kata Sandi Baru',
+                  labelStyle: const TextStyle(color: Colors.black),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10.0),
+                    borderSide: const BorderSide(color: Colors.black),
+                  ),
                   suffixIcon: IconButton(
                     icon: Icon(
                       _newPasswordVisible ? Icons.visibility : Icons.visibility_off,
+                      color: Colors.black,
                     ),
                     onPressed: () {
                       setState(() {
@@ -154,14 +168,20 @@ class _EditPasswordPageState extends State<EditPasswordPage> {
                 ),
                 obscureText: !_newPasswordVisible,
               ),
-              const SizedBox(height: 10),
+              const SizedBox(height: 20),
               TextField(
                 controller: _confirmPasswordController,
                 decoration: InputDecoration(
                   labelText: 'Konfirmasi Kata Sandi Baru',
+                  labelStyle: const TextStyle(color: Colors.black),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10.0),
+                    borderSide: const BorderSide(color: Colors.black),
+                  ),
                   suffixIcon: IconButton(
                     icon: Icon(
                       _confirmPasswordVisible ? Icons.visibility : Icons.visibility_off,
+                      color: Colors.black,
                     ),
                     onPressed: () {
                       setState(() {
@@ -172,15 +192,19 @@ class _EditPasswordPageState extends State<EditPasswordPage> {
                 ),
                 obscureText: !_confirmPasswordVisible,
               ),
-              const SizedBox(height: 20),
+              const SizedBox(height: 30),
               Center(
                 child: ElevatedButton(
                   onPressed: _changePassword,
-                  child: const Text('Perbarui Kata Sandi'),
+                  child: const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 10.0, horizontal: 15.0),
+                    child: Text('Perbarui Kata Sandi', style: TextStyle(fontSize: 16)),
+                  ),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.white,
+                    foregroundColor: Colors.white,
+                    backgroundColor: Colors.blueAccent,
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(20),
+                      borderRadius: BorderRadius.circular(50),
                     ),
                   ),
                 ),

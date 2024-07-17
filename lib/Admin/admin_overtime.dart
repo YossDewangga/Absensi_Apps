@@ -185,15 +185,15 @@ class _AdminOvertimePageState extends State<AdminOvertimePage> {
                           child: Padding(
                             padding: const EdgeInsets.all(16.0),
                             child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                _buildTable('Overtime In', userName, overtimeInTime, data['overtime_location'] as GeoPoint?, overtimeInImageUrl),
-                                Divider(thickness: 1),
-                                _buildTable('Overtime Out', null, overtimeOutTime, data['overtime_out_location'] as GeoPoint?, overtimeOutImageUrl),
-                                Divider(thickness: 1),
-                                if (totalOvertime != null)
-                                  _buildDurationTable('Total Overtime', _formattedDuration(totalOvertime)),
-                              ]
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  _buildTable('Overtime In', userName, overtimeInTime, overtimeInImageUrl),
+                                  Divider(thickness: 1),
+                                  _buildTable('Overtime Out', null, overtimeOutTime, overtimeOutImageUrl),
+                                  Divider(thickness: 1),
+                                  if (totalOvertime != null)
+                                    _buildDurationTable('Total Overtime', _formattedDuration(totalOvertime)),
+                                ]
                             ),
                           ),
                         );
@@ -209,7 +209,7 @@ class _AdminOvertimePageState extends State<AdminOvertimePage> {
     );
   }
 
-  Table _buildTable(String timeType, String? userName, DateTime? time, GeoPoint? location, String? imageUrl) {
+  Table _buildTable(String timeType, String? userName, DateTime? time, String? imageUrl) {
     return Table(
       border: TableBorder.all(color: Colors.grey),
       columnWidths: const {
@@ -219,9 +219,8 @@ class _AdminOvertimePageState extends State<AdminOvertimePage> {
       defaultVerticalAlignment: TableCellVerticalAlignment.middle,
       children: [
         if (userName != null) _buildTableRow('User Name:', userName),
-        if (imageUrl != null) _buildTableRowImage('Image:', imageUrl),
         _buildTableRow('$timeType:', time != null ? _formattedDateTime(time) : 'N/A'),
-        _buildTableRow('Location:', location != null ? '${location.latitude}, ${location.longitude}' : 'N/A'),
+        if (imageUrl != null && imageUrl.isNotEmpty) _buildTableRowImage('Image:', imageUrl),
       ],
     );
   }
@@ -308,7 +307,6 @@ class _AdminOvertimePageState extends State<AdminOvertimePage> {
       ],
     );
   }
-
 
   void _updateApprovalStatus(BuildContext context, String userId, String recordId, String newStatus) {
     FirebaseFirestore.instance.collection('users').doc(userId)

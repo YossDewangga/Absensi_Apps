@@ -224,7 +224,7 @@ class _AdminApprovalPageState extends State<AdminApprovalPage> {
                                       if (approvalRequested || approvalStatus != null)
                                         if (_editableVisitId == visitId)
                                           _buildApprovalButtons(context, visitId, userId, approvalStatus)
-                                        else if (approvalRequested)
+                                        else if (approvalRequested && visitOutTimestamp == null)
                                           _buildEditButton(visitId),
                                     ],
                                   ),

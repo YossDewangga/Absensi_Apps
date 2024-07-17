@@ -166,16 +166,6 @@ class _VisitHistoryPageState extends State<VisitHistoryPage> {
                                 data['visit_out_imageUrl'] as String?,
                                 data['next_destination'] as String?,
                               ),
-                            if (approvalRequested) ...[
-                              const Divider(thickness: 1),
-                              Text(
-                                'Approval Status: $statusText',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  color: statusColor,
-                                ),
-                              ),
-                            ],
                           ],
                         ),
                       ),
