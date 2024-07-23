@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'package:absensi_apps/User/user_page.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:geolocator/geolocator.dart';
@@ -368,6 +369,11 @@ class _ClockPageState extends State<ClockPage> with WidgetsBindingObserver {
     setState(() {
       _currentRecordId = docRef.id;
     });
+
+    // Tampilkan dialog sukses clock in
+    if (mounted) {
+      _showSuccessDialog("Clock in sukses");
+    }
   }
 
   Future<void> _performClockOut() async {
@@ -396,17 +402,11 @@ class _ClockPageState extends State<ClockPage> with WidgetsBindingObserver {
         'clock_status': _clockStatus
       });
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Success submit'),
-          backgroundColor: Colors.green,
-        ),
-      );
-
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (context) => ClockHistoryPage(userId: _userId)),
-      );
+      // Tampilkan dialog sukses clock out
+      if (mounted) {
+        Navigator.of(context, rootNavigator: true).pop(); // Tutup dialog loading
+        _showSuccessDialog("Clock out sukses");
+      }
     } else {
       _showAlertDialog("No current record ID found for updating clock out.");
     }
@@ -596,11 +596,10 @@ class _ClockPageState extends State<ClockPage> with WidgetsBindingObserver {
                           Navigator.of(context).pop();
                           await _showLoadingDialog();
                           await _performClockOut();
-                          Navigator.of(context).pop(); // close loading dialog
-                          Navigator.pushReplacement(
-                            context,
-                            MaterialPageRoute(builder: (context) => ClockHistoryPage(userId: _userId)),
-                          );
+                          if (mounted) {
+                            Navigator.of(context, rootNavigator: true).pop(); // close loading dialog
+                            _showSuccessDialog("Clock out sukses");
+                          }
                         } else {
                           _showAlertDialog("Silakan tambahkan setidaknya satu entri logbook.");
                         }
@@ -836,11 +835,15 @@ class _ClockPageState extends State<ClockPage> with WidgetsBindingObserver {
             TextButton(
               child: Text("Simpan"),
               onPressed: () {
-                setState(() {
-                  _lateReason = reasonController.text;
-                  Navigator.of(context).pop();
-                  _processClockIn();
-                });
+                if (reasonController.text.isNotEmpty) {
+                  setState(() {
+                    _lateReason = reasonController.text;
+                    Navigator.of(context).pop();
+                    _processClockIn();
+                  });
+                } else {
+                  _showAlertDialog("Alasan keterlambatan wajib diisi.");
+                }
               },
             ),
           ],
@@ -861,6 +864,37 @@ class _ClockPageState extends State<ClockPage> with WidgetsBindingObserver {
               child: Text("OK"),
               onPressed: () {
                 Navigator.of(context).pop();
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  // Tambahkan metode ini untuk menampilkan dialog sukses dengan ikon centang hijau
+  void _showSuccessDialog(String message) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Row(
+            children: [
+              Icon(Icons.check_circle, color: Colors.green),
+              SizedBox(width: 10),
+              Text("Sukses"),
+            ],
+          ),
+          content: Text(message),
+          actions: <Widget>[
+            TextButton(
+              child: Text("OK"),
+              onPressed: () {
+                Navigator.of(context).pop();
+                Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(builder: (context) => ClockPage()),
+                );
               },
             ),
           ],
@@ -944,12 +978,23 @@ class _ClockPageState extends State<ClockPage> with WidgetsBindingObserver {
     );
   }
 
+  void _navigateToUserPage() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => UserPage()), // Navigasi ke UserPage
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: Text('Absensi'),
         centerTitle: true,
+        leading: IconButton(
+          icon: Icon(Icons.arrow_back),
+          onPressed: _navigateToUserPage,
+        ),
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),

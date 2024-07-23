@@ -4,12 +4,12 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:table_calendar/table_calendar.dart';
 import 'package:intl/intl.dart';
 
-class BreakHistoryPage extends StatefulWidget {
+class BreakPage extends StatefulWidget {
   @override
-  _BreakHistoryPageState createState() => _BreakHistoryPageState();
+  _BreakPageState createState() => _BreakPageState();
 }
 
-class _BreakHistoryPageState extends State<BreakHistoryPage> {
+class _BreakPageState extends State<BreakPage> {
   DateTime _selectedDate = DateTime.now();
   bool _isCalendarExpanded = false;
 
@@ -52,6 +52,7 @@ class _BreakHistoryPageState extends State<BreakHistoryPage> {
                     firstDay: DateTime(2000),
                     lastDay: DateTime(2100),
                     calendarFormat: CalendarFormat.month,
+                    availableCalendarFormats: const { CalendarFormat.month: 'Month' },
                     selectedDayPredicate: (day) {
                       return isSameDay(_selectedDate, day);
                     },
@@ -126,9 +127,7 @@ class _BreakHistoryPageState extends State<BreakHistoryPage> {
                     var endBreak = data['end_break'] != null
                         ? (data['end_break'] as Timestamp).toDate()
                         : null;
-                    var breakDuration = data['break_duration'] != null
-                        ? _formattedDuration(data['break_duration'])
-                        : 'Unknown duration';
+                    var breakDuration = data['break_duration'] ?? 'Unknown duration';
 
                     return Card(
                       margin: const EdgeInsets.all(8.0),
@@ -259,15 +258,5 @@ class _BreakHistoryPageState extends State<BreakHistoryPage> {
   String _formattedDateTime(DateTime? dateTime) {
     if (dateTime == null) return 'N/A';
     return DateFormat('dd-MM-yyyy HH:mm:ss').format(dateTime);
-  }
-
-  String _formattedDuration(dynamic duration) {
-    if (duration is String) return duration;
-
-    final Duration dur = duration is int ? Duration(seconds: duration) : duration as Duration;
-    String twoDigits(int n) => n.toString().padLeft(2, "0");
-    String twoDigitMinutes = twoDigits(dur.inMinutes.remainder(60));
-    String twoDigitSeconds = twoDigits(dur.inSeconds.remainder(60));
-    return "${twoDigits(dur.inHours)}:$twoDigitMinutes:$twoDigitSeconds";
   }
 }

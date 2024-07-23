@@ -1,6 +1,8 @@
-import 'package:absensi_apps/Login_Register/register_page.dart';
+import 'package:absensi_apps/Admin/History%20Karyawan/history_karyawan_page.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:absensi_apps/Login_Register/register_page.dart';
+
 
 class KaryawanListPage extends StatefulWidget {
   const KaryawanListPage({super.key});
@@ -159,6 +161,7 @@ class _KaryawanListPageState extends State<KaryawanListPage> {
                 style: const TextStyle(fontWeight: FontWeight.bold),
               ),
               subtitle: Text(role),
+              onTap: () => _navigateToEmployeeHistoryPage(employee.id, displayName),
             ),
           );
         },
@@ -175,5 +178,17 @@ class _KaryawanListPageState extends State<KaryawanListPage> {
       default:
         return Colors.grey; // Default color
     }
+  }
+
+  void _navigateToEmployeeHistoryPage(String employeeId, String displayName) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => EmployeeHistoryPage(
+          employeeId: employeeId,
+          displayName: displayName,
+        ),
+      ),
+    );
   }
 }

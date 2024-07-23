@@ -5,7 +5,7 @@ import 'admin_absensi.dart';
 import 'admin_break.dart';
 import 'admin_cuti.dart';
 import 'admin_overtime.dart';
-import 'karyawan_list_page.dart';
+import 'History Karyawan/karyawan_list_page.dart';
 import 'admin_visit.dart';
 import 'setting_page.dart';
 

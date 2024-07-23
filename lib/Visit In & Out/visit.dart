@@ -168,7 +168,7 @@ class _VisitInAndOutPageState extends State<VisitInAndOutPage> {
 
         await _saveVisitStatus();
 
-        _showDialog('Visit In Completed');
+        _showSuccessDialog('Visit In Completed');
       } catch (e) {
         _showDialog('Gagal mengirim: $e');
       }
@@ -266,7 +266,7 @@ class _VisitInAndOutPageState extends State<VisitInAndOutPage> {
 
         await _saveVisitStatus();
 
-        _showDialog('Visit Out Completed');
+        _showSuccessDialog('Visit Out Completed');
       } catch (e) {
         _showDialog('Gagal mengirim: $e');
       }
@@ -416,6 +416,30 @@ class _VisitInAndOutPageState extends State<VisitInAndOutPage> {
     );
   }
 
+  void _showSuccessDialog(String message) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Row(
+          children: [
+            Icon(Icons.check_circle, color: Colors.green),
+            SizedBox(width: 10),
+            Text('Sukses'),
+          ],
+        ),
+        content: Text(message),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+            },
+            child: Text('OK'),
+          ),
+        ],
+      ),
+    );
+  }
+
   void _showSnackBar(String message) {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
   }
@@ -488,7 +512,7 @@ class _VisitInAndOutPageState extends State<VisitInAndOutPage> {
         SizedBox(height: 10),
         Center(
           child: Text(
-            'Silakan gunakan tombol di bawah untuk mencatat waktu kunjungan masuk dan keluar Anda.',
+            'Silakan gunakan tombol di bawah untuk mencatat waktu kunjungan masuk dan keluar.',
             style: TextStyle(fontSize: 16),
             textAlign: TextAlign.center,
           ),

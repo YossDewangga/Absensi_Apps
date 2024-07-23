@@ -238,7 +238,7 @@ class _RegisterPageState extends State<RegisterPage> {
                           ? Icons.visibility
                           : Icons.visibility_off,
                     ),
-                    onPressed: () {
+                    onPressed: () { 
                       setState(() {
                         _isPasswordVisible = !_isPasswordVisible;
                       });
