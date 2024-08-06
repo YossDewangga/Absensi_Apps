@@ -48,7 +48,7 @@ class _VisitInAndOutPageState extends State<VisitInAndOutPage> {
   Duration _lateDuration = Duration.zero;
   String? _lateReason;
 
-  final double _radius = 100; // Ubah radius menjadi 100 meter
+  final double _radius = 2000; // Ubah radius menjadi 100 meter
   bool isLoading = false;
   bool _isOutsideDesignatedArea = false;
 
