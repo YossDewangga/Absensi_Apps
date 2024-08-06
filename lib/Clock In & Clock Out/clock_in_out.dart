@@ -32,7 +32,7 @@ class _ClockPageState extends State<ClockPage> with WidgetsBindingObserver {
   String? _userName;
   String? _userId;
 
-  final double _officeLat = -666.12333; // Koordinat latitude kantor
+  final double _officeLat = -6.12333; // Koordinat latitude kantor
   final double _officeLong = 106.79869; // Koordinat longitude kantor
   final double _radius = 100; // Radius dalam meter
 
