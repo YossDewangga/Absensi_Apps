@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'dart:io';
 import 'package:absensi_apps/User/user_page.dart';
 import 'package:flutter/material.dart';
@@ -8,6 +7,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:intl/intl.dart';
 import 'history_clock_page.dart';
 
 class ClockPage extends StatefulWidget {
@@ -22,10 +22,6 @@ class _ClockPageState extends State<ClockPage> with WidgetsBindingObserver {
   List<Map<String, dynamic>> _logbookEntries = [];
   DateTime? _clockInTime;
   Position? _currentPosition;
-  bool _isClockInDisabled = false;
-  String _clockInTimeStr = '';
-  String _clockOutTimeStr = '';
-  String _workingHoursStr = '';
   String? _currentRecordId;
   TimeOfDay? _designatedStartTime;
   TimeOfDay? _designatedEndTime;
@@ -36,15 +32,14 @@ class _ClockPageState extends State<ClockPage> with WidgetsBindingObserver {
   String? _userName;
   String? _userId;
 
-  final double _officeLat = -6.12333;
-  final double _officeLong = 106.79869;
+  final double _officeLat = -666.12333; // Koordinat latitude kantor
+  final double _officeLong = 106.79869; // Koordinat longitude kantor
+  final double _radius = 100; // Radius dalam meter
 
   FirebaseFirestore _firestore = FirebaseFirestore.instance;
   FirebaseStorage _storage = FirebaseStorage.instance;
 
   final ImagePicker _picker = ImagePicker();
-
-  final GlobalKey _totalHoursKey = GlobalKey();
 
   @override
   void initState() {
@@ -171,18 +166,12 @@ class _ClockPageState extends State<ClockPage> with WidgetsBindingObserver {
         if (userSnapshot.docs.isNotEmpty) {
           DocumentSnapshot latestRecord = userSnapshot.docs.first;
           setState(() {
-            _clockStatus = latestRecord['clock_status'];
+            _clockStatus = latestRecord['clock_status'] ?? 'Clock Out';
             _currentRecordId = latestRecord.id;
             _clockInTime = (latestRecord['clock_in_time'] as Timestamp).toDate();
-            _clockInTimeStr = _formattedDateTime(_clockInTime!);
-            _clockOutTimeStr = latestRecord['clock_out_time'] != null
-                ? _formattedDateTime((latestRecord['clock_out_time'] as Timestamp).toDate())
-                : '';
-            _workingHoursStr = latestRecord['total_working_hours'] ?? '';
-            _isClockInDisabled = _clockStatus == 'Clock In';
-            _logbookEntries = _clockStatus == 'Clock Out'
-                ? []
-                : List<Map<String, dynamic>>.from(latestRecord['logbook_entries'] ?? []);
+            if (latestRecord['is_late'] == true) {
+              _lateDuration = _parseDuration(latestRecord['late_duration']);
+            }
           });
         }
       }
@@ -191,31 +180,12 @@ class _ClockPageState extends State<ClockPage> with WidgetsBindingObserver {
     }
   }
 
-  bool _canClockIn() {
-    if (_designatedStartTime == null) {
-      return false;
-    }
-
-    final now = TimeOfDay.now();
-    final startDateTime = DateTime(
-      DateTime.now().year,
-      DateTime.now().month,
-      DateTime.now().day,
-      _designatedStartTime!.hour,
-      _designatedStartTime!.minute,
-    );
-
-    final allowedClockInTime = startDateTime.subtract(Duration(minutes: 30));
-
-    final nowDateTime = DateTime(
-      DateTime.now().year,
-      DateTime.now().month,
-      DateTime.now().day,
-      now.hour,
-      now.minute,
-    );
-
-    return nowDateTime.isAfter(allowedClockInTime);
+  Duration _parseDuration(String duration) {
+    List<String> parts = duration.split(':');
+    int hours = int.parse(parts[0]);
+    int minutes = int.parse(parts[1]);
+    int seconds = int.parse(parts[2]);
+    return Duration(hours: hours, minutes: minutes, seconds: seconds);
   }
 
   Future<void> _pickImage() async {
@@ -238,7 +208,7 @@ class _ClockPageState extends State<ClockPage> with WidgetsBindingObserver {
       setState(() {
         _image = File(pickedFile.path);
       });
-      _showLogbookDialog();
+      _performClockOut();
     } else {
       _showAlertDialog("Anda harus mengambil foto untuk Clock Out.");
     }
@@ -294,23 +264,21 @@ class _ClockPageState extends State<ClockPage> with WidgetsBindingObserver {
       now.minute,
     );
 
-    if (!_canClockIn() && nowDateTime.isBefore(startDateTime)) {
-      _showAlertDialog("Clock in is allowed only 30 minutes before the designated start time.");
-      return;
-    }
-
     if (_clockStatus == 'Clock Out') {
       if (_currentPosition != null) {
         double distanceInMeters = Geolocator.distanceBetween(
             _officeLat, _officeLong, _currentPosition!.latitude, _currentPosition!.longitude);
-        if (distanceInMeters <= 100) {
-          if (nowDateTime.isAfter(startDateTime)) {
-            _showLateReasonDialog();
-          } else {
-            _processClockIn();
-          }
+        bool isClockInApproved = distanceInMeters <= _radius;
+
+        if (!isClockInApproved) {
+          _showAlertDialog("Anda berada di luar radius yang diizinkan untuk Clock In.");
+          return;
+        }
+
+        if (nowDateTime.isAfter(startDateTime)) {
+          _showLateReasonDialog(isClockInApproved);
         } else {
-          _showAlertDialog("Anda berada diluar jangkauan lokasi kantor.");
+          _processClockIn(isClockInApproved);
         }
       } else {
         _getCurrentLocation();
@@ -320,7 +288,7 @@ class _ClockPageState extends State<ClockPage> with WidgetsBindingObserver {
     }
   }
 
-  Future<void> _processClockIn() async {
+  Future<void> _processClockIn(bool isClockInApproved) async {
     final now = TimeOfDay.now();
     final startDateTime = DateTime(
       DateTime.now().year,
@@ -338,12 +306,12 @@ class _ClockPageState extends State<ClockPage> with WidgetsBindingObserver {
       now.minute,
     );
 
+    // Tampilkan dialog loading
+    await _showLoadingDialog();
+
     setState(() {
       _clockStatus = 'Clock In';
       _clockInTime = DateTime.now();
-      _clockInTimeStr = _formattedDateTime(_clockInTime!);
-      _isClockInDisabled = true;
-
       if (nowDateTime.isAfter(startDateTime)) {
         _lateDuration = nowDateTime.difference(startDateTime);
       }
@@ -363,7 +331,8 @@ class _ClockPageState extends State<ClockPage> with WidgetsBindingObserver {
       'late_reason': _lateReason,
       'image_url': imageUrl,
       'clock_status': _clockStatus,
-      'logbook_entries': _logbookEntries,
+      'approved': isClockInApproved, // Approval based on distance check
+      'date': DateFormat('yyyy-MM-dd').format(_clockInTime!), // Tambahkan date saat clock in
     });
 
     setState(() {
@@ -372,6 +341,7 @@ class _ClockPageState extends State<ClockPage> with WidgetsBindingObserver {
 
     // Tampilkan dialog sukses clock in
     if (mounted) {
+      Navigator.of(context, rootNavigator: true).pop(); // Tutup dialog loading
       _showSuccessDialog("Clock in sukses");
     }
   }
@@ -379,241 +349,49 @@ class _ClockPageState extends State<ClockPage> with WidgetsBindingObserver {
   Future<void> _performClockOut() async {
     final clockOutDateTime = DateTime.now();
 
+    // Tampilkan dialog loading
+    await _showLoadingDialog();
+
+    bool isClockOutApproved = true;
     setState(() {
       _clockStatus = 'Clock Out';
-      Duration workingHours = clockOutDateTime.difference(_clockInTime!);
-      _clockOutTimeStr = _formattedDateTime(clockOutDateTime);
-      _workingHoursStr = _formattedDuration(workingHours);
-      _isClockInDisabled = false;
+      _lateDuration = Duration.zero; // Reset late duration when clocking out
     });
 
     if (_currentRecordId != null) {
-      String imageUrl = await _uploadImage(_image!);
-
-      DocumentReference userDocRef = _firestore.collection('users').doc(_userId);
-      await userDocRef.collection('clockin_records').doc(_currentRecordId).update({
-        'clockout_location': GeoPoint(_currentPosition!.latitude, _currentPosition!.longitude),
-        'timestamp': Timestamp.now(),
-        'clock_out_time': clockOutDateTime,
-        'logbook_entries': _logbookEntries,
-        'total_working_hours': _workingHoursStr,
-        'approved': false,
-        'clock_out_image_url': imageUrl,
-        'clock_status': _clockStatus
-      });
-
-      // Tampilkan dialog sukses clock out
-      if (mounted) {
-        Navigator.of(context, rootNavigator: true).pop(); // Tutup dialog loading
-        _showSuccessDialog("Clock out sukses");
-      }
-    } else {
-      _showAlertDialog("No current record ID found for updating clock out.");
-    }
-  }
-
-  void _clockOut() {
-    if (_clockStatus == 'Clock In') {
       if (_currentPosition != null) {
         double distanceInMeters = Geolocator.distanceBetween(
             _officeLat, _officeLong, _currentPosition!.latitude, _currentPosition!.longitude);
-        if (distanceInMeters <= 100) {
-          _pickImageForClockOut();
-        } else {
-          _showAlertDialog("Anda berada diluar jangkauan lokasi kantor.");
+        isClockOutApproved = distanceInMeters <= _radius;
+
+        if (!isClockOutApproved) {
+          Navigator.of(context, rootNavigator: true).pop(); // Tutup dialog loading
+          _showAlertDialog("Anda berada di luar radius yang diizinkan untuk Clock Out.");
+          return;
+        }
+
+        String imageUrl = await _uploadImage(_image!); // Upload image for clock out
+
+        DocumentReference userDocRef = _firestore.collection('users').doc(_userId);
+        await userDocRef.collection('clockin_records').doc(_currentRecordId).update({
+          'clockout_location': GeoPoint(_currentPosition!.latitude, _currentPosition!.longitude),
+          'timestamp': Timestamp.now(),
+          'clock_out_time': clockOutDateTime,
+          'approved': isClockOutApproved, // Approval based on distance check
+          'clock_out_image_url': imageUrl,
+          'clock_status': _clockStatus,
+        });
+
+        // Tampilkan dialog sukses clock out
+        if (mounted) {
+          Navigator.of(context, rootNavigator: true).pop(); // Tutup dialog loading
+          _showSuccessDialog("Clock out sukses");
         }
       } else {
-        _getCurrentLocation();
+        Navigator.of(context, rootNavigator: true).pop(); // Tutup dialog loading
+        _showAlertDialog("Tidak dapat menemukan ID catatan saat ini untuk pembaruan clock out.");
       }
-    } else {
-      _showAlertDialog("Anda harus melakukan Clock In terlebih dahulu.");
     }
-  }
-
-  void _showLogbookDialog() {
-    TextEditingController timeStartController = TextEditingController();
-    TextEditingController timeEndController = TextEditingController();
-    TextEditingController activityController = TextEditingController();
-
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return Scaffold(
-          appBar: AppBar(
-            title: Text("Logbook"),
-            automaticallyImplyLeading: false,
-            actions: [
-              IconButton(
-                icon: Icon(Icons.close),
-                onPressed: () {
-                  Navigator.of(context).pop();
-                },
-              ),
-            ],
-          ),
-          body: Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: _buildTimePickerField(
-                        label: 'Waktu Mulai',
-                        controller: timeStartController,
-                        isEndTime: false,
-                      ),
-                    ),
-                    SizedBox(width: 10),
-                    Expanded(
-                      child: _buildTimePickerField(
-                        label: 'Waktu Selesai',
-                        controller: timeEndController,
-                        isEndTime: true,
-                        validateAgainst: timeStartController,
-                      ),
-                    ),
-                  ],
-                ),
-                SizedBox(height: 10),
-                TextFormField(
-                  controller: activityController,
-                  decoration: InputDecoration(
-                    labelText: 'Aktivitas',
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                  ),
-                ),
-                SizedBox(height: 20),
-                Text(
-                  "Entri Saat Ini:",
-                  style: TextStyle(fontWeight: FontWeight.bold),
-                ),
-                Container(
-                  height: 200, // Berikan tinggi tetap untuk daftar entri logbook
-                  child: SingleChildScrollView(
-                    child: Table(
-                      border: TableBorder.all(color: Colors.black),
-                      columnWidths: const <int, TableColumnWidth>{
-                        0: FlexColumnWidth(3),
-                        1: FlexColumnWidth(3),
-                        2: FlexColumnWidth(1),
-                      },
-                      children: [
-                        TableRow(
-                          children: [
-                            TableCell(
-                              child: Container(
-                                padding: EdgeInsets.all(8.0),
-                                child: Text(
-                                  'Waktu',
-                                  style: TextStyle(fontWeight: FontWeight.bold),
-                                ),
-                              ),
-                            ),
-                            TableCell(
-                              child: Container(
-                                padding: EdgeInsets.all(8.0),
-                                child: Text(
-                                  'Aktivitas',
-                                  style: TextStyle(fontWeight: FontWeight.bold),
-                                ),
-                              ),
-                            ),
-                            TableCell(
-                              child: Container(
-                                padding: EdgeInsets.all(8.0),
-                                child: Text(
-                                  'Edit',
-                                  style: TextStyle(fontWeight: FontWeight.bold),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        ..._logbookEntries.asMap().entries.map((entry) {
-                          int index = entry.key;
-                          return TableRow(
-                            children: [
-                              TableCell(
-                                child: Container(
-                                  padding: EdgeInsets.all(8.0),
-                                  child: Text(entry.value['time_range'] ?? ''),
-                                ),
-                              ),
-                              TableCell(
-                                child: Container(
-                                  padding: EdgeInsets.all(8.0),
-                                  child: Text(entry.value['activity'] ?? ''),
-                                ),
-                              ),
-                              TableCell(
-                                child: Container(
-                                  padding: EdgeInsets.all(8.0),
-                                  child: IconButton(
-                                    icon: Icon(Icons.edit),
-                                    onPressed: () {
-                                      _editLogbookEntry(index);
-                                    },
-                                  ),
-                                ),
-                              ),
-                            ],
-                          );
-                        }).toList(),
-                      ],
-                    ),
-                  ),
-                ),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    ElevatedButton(
-                      onPressed: () {
-                        if (timeStartController.text.isNotEmpty &&
-                            timeEndController.text.isNotEmpty &&
-                            activityController.text.isNotEmpty) {
-                          setState(() {
-                            _logbookEntries.add({
-                              'time_range': '${timeStartController.text} - ${timeEndController.text}',
-                              'activity': activityController.text,
-                            });
-                          });
-                          timeStartController.clear();
-                          timeEndController.clear();
-                          activityController.clear();
-                          _showLogbookDialog();
-                        } else {
-                          _showAlertDialog("Silakan isi semua waktu dan aktivitas.");
-                        }
-                      },
-                      child: Text('Add'),
-                    ),
-                    ElevatedButton(
-                      onPressed: () async {
-                        if (_logbookEntries.isNotEmpty) {
-                          Navigator.of(context).pop();
-                          await _showLoadingDialog();
-                          await _performClockOut();
-                          if (mounted) {
-                            Navigator.of(context, rootNavigator: true).pop(); // close loading dialog
-                            _showSuccessDialog("Clock out sukses");
-                          }
-                        } else {
-                          _showAlertDialog("Silakan tambahkan setidaknya satu entri logbook.");
-                        }
-                      },
-                      child: Text('Submit'),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
   }
 
   Future<void> _showLoadingDialog() async {
@@ -628,187 +406,7 @@ class _ClockPageState extends State<ClockPage> with WidgetsBindingObserver {
     );
   }
 
-  Widget _buildTimePickerField({
-    required String label,
-    required TextEditingController controller,
-    bool isEndTime = false,
-    TextEditingController? validateAgainst,
-  }) {
-    return GestureDetector(
-      onTap: () {
-        _showTimePickerDialog(context, label, controller, isEndTime, validateAgainst);
-      },
-      child: AbsorbPointer(
-        child: TextFormField(
-          controller: controller,
-          decoration: InputDecoration(
-            labelText: label,
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(10),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  void _showTimePickerDialog(BuildContext context, String label,
-      TextEditingController controller, bool isEndTime,
-      [TextEditingController? validateAgainst]) {
-    int initialHour = 0;
-    int initialMinute = 0;
-
-    if (controller.text.isNotEmpty) {
-      final timeParts = controller.text.split(':');
-      if (timeParts.length == 2) {
-        initialHour = int.parse(timeParts[0]);
-        initialMinute = int.parse(timeParts[1]);
-      }
-    }
-
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: Text(label),
-          content: Container(
-            height: 150.0,
-            child: Row(
-              children: [
-                Expanded(
-                  child: CupertinoPicker(
-                    scrollController: FixedExtentScrollController(initialItem: initialHour),
-                    itemExtent: 32.0,
-                    onSelectedItemChanged: (int index) {
-                      setState(() {
-                        initialHour = index;
-                      });
-                    },
-                    children: List<Widget>.generate(24, (int index) {
-                      return Center(child: Text(index.toString().padLeft(2, '0')));
-                    }),
-                  ),
-                ),
-                Expanded(
-                  child: CupertinoPicker(
-                    scrollController: FixedExtentScrollController(initialItem: initialMinute),
-                    itemExtent: 32.0,
-                    onSelectedItemChanged: (int index) {
-                      setState(() {
-                        initialMinute = index;
-                      });
-                    },
-                    children: List<Widget>.generate(60, (int index) {
-                      return Center(child: Text(index.toString().padLeft(2, '0')));
-                    }),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          actions: <Widget>[
-            TextButton(
-              child: Text('Batal'),
-              onPressed: () {
-                Navigator.of(context).pop();
-              },
-            ),
-            TextButton(
-              child: Text('Simpan'),
-              onPressed: () {
-                setState(() {
-                  final formattedTime = '${initialHour.toString().padLeft(2, '0')}:${initialMinute.toString().padLeft(2, '0')}';
-                  if (isEndTime) {
-                    if (validateAgainst != null && validateAgainst.text == formattedTime) {
-                      _showAlertDialog("Waktu selesai tidak boleh sama dengan waktu mulai.");
-                    } else {
-                      controller.text = formattedTime;
-                    }
-                  } else {
-                    controller.text = formattedTime;
-                  }
-                });
-                Navigator.of(context).pop();
-              },
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  void _editLogbookEntry(int index) {
-    TextEditingController timeStartController = TextEditingController(
-      text: _logbookEntries[index]['time_range']?.split(' - ')[0],
-    );
-    TextEditingController timeEndController = TextEditingController(
-      text: _logbookEntries[index]['time_range']?.split(' - ')[1],
-    );
-    TextEditingController activityController = TextEditingController(
-      text: _logbookEntries[index]['activity'],
-    );
-
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: Text("Edit Logbook Entry"),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              _buildTimePickerField(
-                label: 'Waktu Mulai',
-                controller: timeStartController,
-              ),
-              SizedBox(height: 10),
-              _buildTimePickerField(
-                label: 'Waktu Selesai',
-                controller: timeEndController,
-                isEndTime: true,
-                validateAgainst: timeStartController,
-              ),
-              SizedBox(height: 10),
-              TextFormField(
-                controller: activityController,
-                decoration: InputDecoration(
-                  labelText: 'Aktivitas',
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                ),
-              ),
-            ],
-          ),
-          actions: <Widget>[
-            TextButton(
-              child: Text("Batal"),
-              onPressed: () {
-                Navigator.of(context).pop();
-              },
-            ),
-            TextButton(
-              child: Text("Simpan"),
-              onPressed: () {
-                setState(() {
-                  if (timeStartController.text == timeEndController.text) {
-                    _showAlertDialog("Waktu mulai dan selesai tidak boleh sama.");
-                  } else {
-                    _logbookEntries[index] = {
-                      'time_range': '${timeStartController.text} - ${timeEndController.text}',
-                      'activity': activityController.text,
-                    };
-                    Navigator.of(context).pop();
-                  }
-                });
-              },
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  void _showLateReasonDialog() {
+  void _showLateReasonDialog(bool isClockInApproved) {
     TextEditingController reasonController = TextEditingController();
 
     showDialog(
@@ -839,7 +437,7 @@ class _ClockPageState extends State<ClockPage> with WidgetsBindingObserver {
                   setState(() {
                     _lateReason = reasonController.text;
                     Navigator.of(context).pop();
-                    _processClockIn();
+                    _processClockIn(isClockInApproved);
                   });
                 } else {
                   _showAlertDialog("Alasan keterlambatan wajib diisi.");
@@ -891,10 +489,8 @@ class _ClockPageState extends State<ClockPage> with WidgetsBindingObserver {
               child: Text("OK"),
               onPressed: () {
                 Navigator.of(context).pop();
-                Navigator.pushReplacement(
-                  context,
-                  MaterialPageRoute(builder: (context) => ClockPage()),
-                );
+                // Update the state to reflect late duration without reloading the page
+                setState(() {});
               },
             ),
           ],
@@ -1045,7 +641,7 @@ class _ClockPageState extends State<ClockPage> with WidgetsBindingObserver {
                     ),
                   ),
                   ElevatedButton(
-                    onPressed: (_clockStatus == 'Clock Out') ? null : _clockOut,
+                    onPressed: (_clockStatus == 'Clock Out') ? null : _pickImageForClockOut,
                     child: Text('Clock Out'),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.white,
@@ -1061,23 +657,6 @@ class _ClockPageState extends State<ClockPage> with WidgetsBindingObserver {
                   ),
                 ],
               ),
-              SizedBox(height: 20),
-              if (_lateDuration > Duration.zero)
-                Container(
-                  padding: const EdgeInsets.all(8.0),
-                  margin: const EdgeInsets.symmetric(vertical: 8.0),
-                  decoration: BoxDecoration(
-                    color: Colors.red[100],
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: Colors.red),
-                  ),
-                  child: Text(
-                    'Late Duration: ${_formattedDuration(_lateDuration)}',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.red),
-                    textAlign: TextAlign.center,
-                  ),
-                ),
-              Divider(thickness: 2),
               Expanded(
                 child: ListView(
                   children: <Widget>[

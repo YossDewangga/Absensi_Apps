@@ -108,7 +108,6 @@ class _RegisterPageState extends State<RegisterPage> {
 
   Future<void> postDetailsToFirestore(String userId) async {
     // Menggunakan nilai dari controller User ID
-    String userCustomId = userIdController.text;
 
     try {
       await FirebaseFirestore.instance.collection('users').doc(userId).set({

@@ -14,98 +14,10 @@ class ClockHistoryPage extends StatefulWidget {
 class _ClockHistoryPageState extends State<ClockHistoryPage> {
   DateTime _selectedDate = DateTime.now();
   bool _isCalendarExpanded = false;
-  TimeOfDay? _designatedStartTime;
-  TimeOfDay? _designatedEndTime;
 
   @override
   void initState() {
     super.initState();
-    _loadDesignatedTimes();
-  }
-
-  void _loadDesignatedTimes() async {
-    try {
-      DocumentSnapshot startSnapshot = await FirebaseFirestore.instance
-          .collection('settings')
-          .doc('designatedStartTime')
-          .get();
-
-      DocumentSnapshot endSnapshot = await FirebaseFirestore.instance
-          .collection('settings')
-          .doc('designatedEndTime')
-          .get();
-
-      if (startSnapshot.exists) {
-        Timestamp timestamp = startSnapshot['time'];
-        DateTime dateTime = timestamp.toDate();
-        setState(() {
-          _designatedStartTime = TimeOfDay(hour: dateTime.hour, minute: dateTime.minute);
-        });
-      }
-
-      if (endSnapshot.exists) {
-        Timestamp timestamp = endSnapshot['time'];
-        DateTime dateTime = timestamp.toDate();
-        setState(() {
-          _designatedEndTime = TimeOfDay(hour: dateTime.hour, minute: dateTime.minute);
-        });
-      }
-    } catch (e) {
-      print('Error loading designated times: $e');
-    }
-  }
-
-  void _clockOut() async {
-    try {
-      var now = DateTime.now();
-      var userId = widget.userId;
-      var recordSnapshot = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(userId)
-          .collection('clockin_records')
-          .where('clock_in_time', isLessThanOrEqualTo: now)
-          .orderBy('clock_in_time', descending: true)
-          .limit(1)
-          .get();
-
-      if (recordSnapshot.docs.isNotEmpty) {
-        var record = recordSnapshot.docs.first;
-        var clockInTime = (record['clock_in_time'] as Timestamp).toDate();
-        var workingHours = now.difference(clockInTime);
-
-        Duration lateDuration = _calculateLateDuration(clockInTime, _designatedStartTime!);
-
-        await record.reference.update({
-          'clock_out_time': now,
-          'working_hours': workingHours.inMinutes, // Store working hours in minutes
-          'late_duration': lateDuration.inMinutes,
-        });
-
-        print('Clock out successful');
-      }
-    } catch (e) {
-      print('Error during clock out: $e');
-    }
-  }
-
-  String _formattedDateTime(DateTime dateTime) {
-    return "${dateTime.day}-${dateTime.month}-${dateTime.year} ${dateTime.hour}:${dateTime.minute}:${dateTime.second}";
-  }
-
-  String _formattedDuration(Duration duration) {
-    String twoDigits(int n) => n.toString().padLeft(2, "0");
-    String twoDigitMinutes = twoDigits(duration.inMinutes.remainder(60));
-    String twoDigitSeconds = twoDigits(duration.inSeconds.remainder(60));
-    return "${twoDigits(duration.inHours)}:$twoDigitMinutes:$twoDigitSeconds";
-  }
-
-  Duration _calculateLateDuration(DateTime clockInTime, TimeOfDay designatedStartTime) {
-    DateTime designatedStartDateTime = DateTime(clockInTime.year, clockInTime.month, clockInTime.day, designatedStartTime.hour, designatedStartTime.minute);
-    if (clockInTime.isAfter(designatedStartDateTime)) {
-      return clockInTime.difference(designatedStartDateTime);
-    } else {
-      return Duration.zero;
-    }
   }
 
   void _showFullImage(BuildContext context, String imageUrl) {
@@ -236,28 +148,19 @@ class _ClockHistoryPageState extends State<ClockHistoryPage> {
                   itemBuilder: (context, index) {
                     var record = records[index];
                     var data = record.data() as Map<String, dynamic>;
-                    var recordId = record.id;
-                    var userId = record.reference.parent.parent!.id;
 
-                    var userName = data['user_name'] ?? 'Unknown';
                     var clockInTime = data['clock_in_time'] != null
                         ? (data['clock_in_time'] as Timestamp).toDate()
                         : null;
                     var clockOutTime = data['clock_out_time'] != null
                         ? (data['clock_out_time'] as Timestamp).toDate()
                         : null;
-                    var workingHours = data['total_working_hours'] != null
-                        ? data['total_working_hours']
-                        : 'N/A';
-                    var lateDuration = data['late_duration'] != null
-                        ? data['late_duration']
-                        : 'N/A';
-                    var logbookEntries = data['logbook_entries'] != null
-                        ? List<Map<String, dynamic>>.from(data['logbook_entries'])
-                        : <Map<String, dynamic>>[];
                     var imageUrl = data['image_url'] ?? '';
                     var clockOutImageUrl = data['clock_out_image_url'] ?? '';
-                    var lateReason = data['late_reason'] ?? 'N/A';
+                    var approved = data['approved'] ?? false;
+                    var lateDuration = data['late_duration'] ?? '-';
+                    var lateReason = data['late_reason'] ?? '-';
+                    var totalWorkingHours = data['total_working_hours'] ?? '-';
 
                     return Card(
                       margin: const EdgeInsets.all(8.0),
@@ -270,14 +173,9 @@ class _ClockHistoryPageState extends State<ClockHistoryPage> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            _buildTable(context, 'Clock In', clockInTime, imageUrl, lateReason, lateDuration),
+                            _buildTable(context, 'Clock In', clockInTime, imageUrl, lateDuration, lateReason),
                             Divider(thickness: 1),
-                            _buildTable(context, 'Clock Out', clockOutTime, clockOutImageUrl, null, null, logbookEntries),
-                            if (workingHours != 'N/A')
-                              Padding(
-                                padding: const EdgeInsets.only(top: 8.0),
-                                child: _buildWorkingHoursRow('Total Working Hours', workingHours),
-                              ),
+                            _buildTable(context, 'Clock Out', clockOutTime, clockOutImageUrl, approved, totalWorkingHours),
                           ],
                         ),
                       ),
@@ -292,7 +190,7 @@ class _ClockHistoryPageState extends State<ClockHistoryPage> {
     );
   }
 
-  Widget _buildTable(BuildContext context, String title, DateTime? time, String? imageUrl, [String? lateReason, String? lateDuration, List<Map<String, dynamic>>? logbookEntries]) {
+  Widget _buildTable(BuildContext context, String title, DateTime? time, String? imageUrl, dynamic extraData, [String? lateReason]) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -308,67 +206,24 @@ class _ClockHistoryPageState extends State<ClockHistoryPage> {
             1: FlexColumnWidth(2),
           },
           children: [
-            _buildTableRow('Time', time != null ? _formattedDateTime(time) : 'N/A'),
-            if (title == 'Clock In' && imageUrl != null)
+            _buildTableRow('Time', time != null ? _formattedDateTime(time) : '-'),
+            if (imageUrl != null && imageUrl.isNotEmpty)
               _buildTableRowImage(context, 'Image', imageUrl),
-            if (title == 'Clock Out' && imageUrl != null)
-              _buildTableRowImage(context, 'Image', imageUrl),
-            if (title == 'Clock In' && lateReason != null)
-              _buildTableRow('Late Reason', lateReason),
-            if (title == 'Clock In' && lateDuration != null)
-              _buildTableRow('Late Duration', lateDuration, isHighlight: true),
-            if (title == 'Clock Out' && logbookEntries != null)
-              ..._buildLogbookEntriesTable(logbookEntries),
+            if (title == 'Clock In') ...[
+              _buildTableRow('Late Duration', extraData.toString()),
+              _buildTableRow('Late Reason', lateReason ?? '-'),
+            ],
+            if (title == 'Clock Out') ...[
+              _buildTableRow('Working Hours', lateReason ?? '-'),
+              _buildTableRow('Status', extraData ? 'Approved' : 'Pending', extraData),
+            ],
           ],
         ),
       ],
     );
   }
 
-  List<TableRow> _buildLogbookEntriesTable(List<Map<String, dynamic>> logbookEntries) {
-    List<TableRow> rows = [
-      TableRow(
-        children: [
-          Padding(
-            padding: const EdgeInsets.all(8.0),
-            child: Text(
-              'Jam',
-              style: TextStyle(fontWeight: FontWeight.bold),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.all(8.0),
-            child: Text(
-              'Aktivitas',
-              style: TextStyle(fontWeight: FontWeight.bold),
-            ),
-          ),
-        ],
-      ),
-    ];
-
-    rows.addAll(logbookEntries.map((entry) {
-      return TableRow(
-        children: [
-          Padding(
-            padding: const EdgeInsets.all(8.0),
-            child: Text(entry['time_range'] ?? 'N/A'),
-          ),
-          Padding(
-            padding: const EdgeInsets.all(8.0),
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Text(entry['activity'] ?? 'N/A'),
-            ),
-          ),
-        ],
-      );
-    }).toList());
-
-    return rows;
-  }
-
-  TableRow _buildTableRow(String key, String value, {bool isHighlight = false}) {
+  TableRow _buildTableRow(String key, String value, [bool? approved]) {
     return TableRow(
       children: [
         Padding(
@@ -382,9 +237,12 @@ class _ClockHistoryPageState extends State<ClockHistoryPage> {
           padding: const EdgeInsets.all(8.0),
           child: Text(
             value,
-            style: isHighlight
-                ? TextStyle(color: Colors.red, fontWeight: FontWeight.bold)
-                : TextStyle(),
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              color: approved != null
+                  ? (approved ? Colors.green : Colors.red)
+                  : null,
+            ),
           ),
         ),
       ],
@@ -436,24 +294,13 @@ class _ClockHistoryPageState extends State<ClockHistoryPage> {
               ),
             ),
           )
-              : Text('No Image'),
+              : Text('-'),
         ),
       ],
     );
   }
 
-  Widget _buildWorkingHoursRow(String key, String value) {
-    return Row(
-      children: [
-        Text(
-          '$key: ',
-          style: TextStyle(fontWeight: FontWeight.bold),
-        ),
-        Text(
-          value,
-          style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
-        ),
-      ],
-    );
+  String _formattedDateTime(DateTime dateTime) {
+    return "${dateTime.day}-${dateTime.month}-${dateTime.year} ${dateTime.hour}:${dateTime.minute}:${dateTime.second}";
   }
 }

@@ -126,14 +126,13 @@ class _VisitHistoryPageState extends State<VisitHistoryPage> {
                   itemBuilder: (context, index) {
                     var record = records[index];
                     var data = record.data() as Map<String, dynamic>;
-                    var approvalStatus = data['visit_out_isApproved'] as bool?;
-                    var approvalRequested = data['approval_requested'] as bool? ?? false;
+                    var approvalStatus = data['approved'] as bool?;
                     var statusText = 'Pending';
-                    var statusColor = Colors.black;
+                    var statusColor = Colors.red;
 
-                    if (approvalStatus != null) {
-                      statusText = approvalStatus ? 'Approved' : 'Rejected';
-                      statusColor = approvalStatus ? Colors.green : Colors.red;
+                    if (approvalStatus != null && approvalStatus) {
+                      statusText = 'Approved';
+                      statusColor = Colors.green;
                     }
 
                     return Card(
@@ -165,6 +164,8 @@ class _VisitHistoryPageState extends State<VisitHistoryPage> {
                                 data['visit_out_address'] as String?,
                                 data['visit_out_imageUrl'] as String?,
                                 data['next_destination'] as String?,
+                                statusText,
+                                statusColor,
                               ),
                           ],
                         ),
@@ -180,7 +181,7 @@ class _VisitHistoryPageState extends State<VisitHistoryPage> {
     );
   }
 
-  Widget _buildTable(BuildContext context, String title, String? time, String? location, String? address, String? imageUrl, [String? nextDestination]) {
+  Widget _buildTable(BuildContext context, String title, String? time, String? location, String? address, String? imageUrl, [String? nextDestination, String? statusText, Color? statusColor]) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -202,13 +203,15 @@ class _VisitHistoryPageState extends State<VisitHistoryPage> {
             if (title == 'Visit Out' && nextDestination != null)
               _buildTableRow('Next Destination', nextDestination),
             _buildTableRowImage(context, 'Image', imageUrl),
+            if (title == 'Visit Out' && statusText != null && statusColor != null)
+              _buildTableRow('Status', statusText, statusColor: statusColor),
           ],
         ),
       ],
     );
   }
 
-  TableRow _buildTableRow(String key, String value) {
+  TableRow _buildTableRow(String key, String value, {Color? statusColor}) {
     return TableRow(
       children: [
         Padding(
@@ -222,6 +225,10 @@ class _VisitHistoryPageState extends State<VisitHistoryPage> {
           padding: const EdgeInsets.all(8.0),
           child: Text(
             value,
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              color: statusColor ?? Colors.black,
+            ),
           ),
         ),
       ],

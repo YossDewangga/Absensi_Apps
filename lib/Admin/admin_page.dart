@@ -1,10 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'admin_absensi.dart';
+import 'admin_activity.dart';
 import 'admin_break.dart';
 import 'admin_cuti.dart';
-import 'admin_overtime.dart';
 import 'History Karyawan/karyawan_list_page.dart';
 import 'admin_visit.dart';
 import 'setting_page.dart';
@@ -21,10 +20,10 @@ class _AdminPageState extends State<AdminPage> {
 
   static final List<Widget> _pages = <Widget>[
     const AdminAbsensiPage(),
-    const AdminOvertimePage(),
+    AdminActivityPage(),
     AdminApprovalPage(),
     const AdminBreakPage(),
-    AdminLeavePage(), // Add AdminLeavePage to the list
+    AdminLeavePage(),
     const KaryawanListPage(),
     ProfilePage(),
   ];
@@ -63,7 +62,7 @@ class _AdminPageState extends State<AdminPage> {
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.access_alarm),
-            label: 'Overtime',
+            label: 'Activity',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.report),

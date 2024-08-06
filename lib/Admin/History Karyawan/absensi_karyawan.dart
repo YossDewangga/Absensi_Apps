@@ -1,4 +1,3 @@
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:table_calendar/table_calendar.dart';
@@ -16,7 +15,7 @@ class _AbsensiPageState extends State<AbsensiPage> {
   DateTime _selectedDate = DateTime.now();
   bool _isCalendarExpanded = false;
   TimeOfDay? _designatedStartTime;
-  TimeOfDay? _designatedEndTime;
+  String _nextDestination = 'Pulang'; // Set default value to 'Pulang'
 
   @override
   void initState() {
@@ -36,20 +35,23 @@ class _AbsensiPageState extends State<AbsensiPage> {
           .doc('designatedEndTime')
           .get();
 
-      if (startSnapshot.exists) {
-        Timestamp timestamp = startSnapshot['time'];
-        DateTime dateTime = timestamp.toDate();
-        setState(() {
-          _designatedStartTime = TimeOfDay(hour: dateTime.hour, minute: dateTime.minute);
-        });
+      if (startSnapshot.exists && startSnapshot.data() != null) {
+        Timestamp? timestamp = startSnapshot['time'];
+        if (timestamp != null) {
+          DateTime dateTime = timestamp.toDate();
+          setState(() {
+            _designatedStartTime = TimeOfDay(hour: dateTime.hour, minute: dateTime.minute);
+          });
+        }
       }
 
-      if (endSnapshot.exists) {
-        Timestamp timestamp = endSnapshot['time'];
-        DateTime dateTime = timestamp.toDate();
-        setState(() {
-          _designatedEndTime = TimeOfDay(hour: dateTime.hour, minute: dateTime.minute);
-        });
+      if (endSnapshot.exists && endSnapshot.data() != null) {
+        Timestamp? timestamp = endSnapshot['time'];
+        if (timestamp != null) {
+          timestamp.toDate();
+          setState(() {
+          });
+        }
       }
     } catch (e) {
       print('Error loading designated times: $e');
@@ -71,18 +73,21 @@ class _AbsensiPageState extends State<AbsensiPage> {
 
       if (recordSnapshot.docs.isNotEmpty) {
         var record = recordSnapshot.docs.first;
-        var clockInTime = (record['clock_in_time'] as Timestamp).toDate();
-        var workingHours = now.difference(clockInTime);
+        if (record.data().containsKey('clock_in_time') && record['clock_in_time'] != null) {
+          var clockInTime = (record['clock_in_time'] as Timestamp).toDate();
+          var workingHours = now.difference(clockInTime);
 
-        Duration lateDuration = _calculateLateDuration(clockInTime, _designatedStartTime!);
+          Duration lateDuration = _calculateLateDuration(clockInTime, _designatedStartTime);
 
-        await record.reference.update({
-          'clock_out_time': now,
-          'working_hours': workingHours.inMinutes, // Store working hours in minutes
-          'late_duration': lateDuration.inMinutes,
-        });
+          await record.reference.update({
+            'clock_out_time': now,
+            'working_hours': workingHours.inMinutes, // Store working hours in minutes
+            'late_duration': lateDuration.inMinutes,
+            'next_destination': _nextDestination.isNotEmpty ? _nextDestination : 'Pulang', // Ensure next_destination is not empty
+          });
 
-        print('Clock out successful');
+          print('Clock out successful');
+        }
       }
     } catch (e) {
       print('Error during clock out: $e');
@@ -100,8 +105,19 @@ class _AbsensiPageState extends State<AbsensiPage> {
     return "${twoDigits(duration.inHours)}:$twoDigitMinutes:$twoDigitSeconds";
   }
 
-  Duration _calculateLateDuration(DateTime clockInTime, TimeOfDay designatedStartTime) {
-    DateTime designatedStartDateTime = DateTime(clockInTime.year, clockInTime.month, clockInTime.day, designatedStartTime.hour, designatedStartTime.minute);
+  Duration _calculateLateDuration(DateTime clockInTime, TimeOfDay? designatedStartTime) {
+    if (designatedStartTime == null) {
+      return Duration.zero;
+    }
+
+    DateTime designatedStartDateTime = DateTime(
+      clockInTime.year,
+      clockInTime.month,
+      clockInTime.day,
+      designatedStartTime.hour,
+      designatedStartTime.minute,
+    );
+
     if (clockInTime.isAfter(designatedStartDateTime)) {
       return clockInTime.difference(designatedStartDateTime);
     } else {
@@ -134,17 +150,64 @@ class _AbsensiPageState extends State<AbsensiPage> {
     );
   }
 
+  Future<void> _showNextDestinationDialog() async {
+    return showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) => AlertDialog(
+          title: Text('Tujuan Selanjutnya'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              RadioListTile<String>(
+                title: Text('Pulang'),
+                value: 'Pulang',
+                groupValue: _nextDestination,
+                onChanged: (value) {
+                  setState(() {
+                    _nextDestination = value!;
+                  });
+                },
+              ),
+              RadioListTile<String>(
+                title: Text('Lainnya'),
+                value: 'Lainnya',
+                groupValue: _nextDestination,
+                onChanged: (value) {
+                  setState(() {
+                    _nextDestination = value!;
+                  });
+                },
+              ),
+              if (_nextDestination == 'Lainnya')
+                TextField(
+                  onChanged: (value) {
+                    setState(() {
+                      _nextDestination = value;
+                    });
+                  },
+                  decoration: InputDecoration(hintText: "Masukkan tujuan selanjutnya"),
+                ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                if (_nextDestination.isEmpty) {
+                  _nextDestination = 'Pulang';
+                }
+                Navigator.of(context).pop();
+              },
+              child: Text('Submit'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    if (widget.userId == null) {
-      return Scaffold(
-        appBar: AppBar(
-          title: Text('Riwayat Clock In/Out'),
-        ),
-        body: Center(child: Text('User ID tidak ditemukan')),
-      );
-    }
-
     return Scaffold(
       appBar: AppBar(
         title: Text('Riwayat Clock In/Out'),
@@ -272,14 +335,106 @@ class _AbsensiPageState extends State<AbsensiPage> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            _buildTable(context, 'Clock In', clockInTime, imageUrl, lateReason, lateDuration),
-                            Divider(thickness: 1),
-                            _buildTable(context, 'Clock Out', clockOutTime, clockOutImageUrl, null, null, logbookEntries),
-                            if (workingHours != 'N/A')
-                              Padding(
-                                padding: const EdgeInsets.only(top: 8.0),
-                                child: _buildWorkingHoursRow('Total Working Hours', workingHours),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                  'ID Pengguna: $userId',
+                                  style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.black),
+                                ),
+                                Text(
+                                  'ID Record: $recordId',
+                                  style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.black),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 8.0),
+                            Text(
+                              'Nama: $userName',
+                              style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.black),
+                            ),
+                            const SizedBox(height: 8.0),
+                            Text(
+                              'Clock In: ${clockInTime != null ? _formattedDateTime(clockInTime) : 'N/A'}',
+                              style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.black),
+                            ),
+                            const SizedBox(height: 8.0),
+                            Text(
+                              'Clock Out: ${clockOutTime != null ? _formattedDateTime(clockOutTime) : 'N/A'}',
+                              style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.black),
+                            ),
+                            const SizedBox(height: 8.0),
+                            Text(
+                              'Total Jam Kerja: $workingHours',
+                              style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.black),
+                            ),
+                            const SizedBox(height: 8.0),
+                            Text(
+                              'Durasi Keterlambatan: $lateDuration',
+                              style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.black),
+                            ),
+                            const SizedBox(height: 8.0),
+                            Text(
+                              'Alasan Keterlambatan: $lateReason',
+                              style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.black),
+                            ),
+                            const SizedBox(height: 8.0),
+                            Text(
+                              'Logbook Entries:',
+                              style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.black),
+                            ),
+                            const SizedBox(height: 8.0),
+                            ListView.builder(
+                              shrinkWrap: true,
+                              physics: NeverScrollableScrollPhysics(),
+                              itemCount: logbookEntries.length,
+                              itemBuilder: (context, index) {
+                                var entry = logbookEntries[index];
+                                var timestamp = entry['timestamp'] != null
+                                    ? (entry['timestamp'] as Timestamp).toDate()
+                                    : null;
+                                var content = entry['content'] ?? '';
+
+                                return ListTile(
+                                  title: Text('Timestamp: ${timestamp != null ? _formattedDateTime(timestamp) : 'N/A'}', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.black)),
+                                  subtitle: Text('Content: $content', style: const TextStyle(color: Colors.black)),
+                                );
+                              },
+                            ),
+                            const SizedBox(height: 8.0),
+                            if (imageUrl.isNotEmpty) ...[
+                              const Text(
+                                'Clock In Image:',
+                                style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black),
                               ),
+                              const SizedBox(height: 8.0),
+                              GestureDetector(
+                                onTap: () => _showFullImage(context, imageUrl),
+                                child: Image.network(
+                                  imageUrl,
+                                  height: 200,
+                                  width: double.infinity,
+                                  fit: BoxFit.cover,
+                                ),
+                              ),
+                            ],
+                            const SizedBox(height: 8.0),
+                            if (clockOutImageUrl.isNotEmpty) ...[
+                              const Text(
+                                'Clock Out Image:',
+                                style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black),
+                              ),
+                              const SizedBox(height: 8.0),
+                              GestureDetector(
+                                onTap: () => _showFullImage(context, clockOutImageUrl),
+                                child: Image.network(
+                                  clockOutImageUrl,
+                                  height: 200,
+                                  width: double.infinity,
+                                  fit: BoxFit.cover,
+                                ),
+                              ),
+                            ],
                           ],
                         ),
                       ),
@@ -291,171 +446,6 @@ class _AbsensiPageState extends State<AbsensiPage> {
           ),
         ],
       ),
-    );
-  }
-
-  Widget _buildTable(BuildContext context, String title, DateTime? time, String? imageUrl, [String? lateReason, String? lateDuration, List<Map<String, dynamic>>? logbookEntries]) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          title,
-          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-        ),
-        SizedBox(height: 8),
-        Table(
-          border: TableBorder.all(color: Colors.grey),
-          columnWidths: const {
-            0: FlexColumnWidth(1),
-            1: FlexColumnWidth(2),
-          },
-          children: [
-            _buildTableRow('Time', time != null ? _formattedDateTime(time) : 'N/A'),
-            if (title == 'Clock In' && imageUrl != null)
-              _buildTableRowImage(context, 'Image', imageUrl),
-            if (title == 'Clock Out' && imageUrl != null)
-              _buildTableRowImage(context, 'Image', imageUrl),
-            if (title == 'Clock In' && lateReason != null)
-              _buildTableRow('Late Reason', lateReason),
-            if (title == 'Clock In' && lateDuration != null)
-              _buildTableRow('Late Duration', lateDuration, isHighlight: true),
-            if (title == 'Clock Out' && logbookEntries != null)
-              ..._buildLogbookEntriesTable(logbookEntries),
-          ],
-        ),
-      ],
-    );
-  }
-
-  List<TableRow> _buildLogbookEntriesTable(List<Map<String, dynamic>> logbookEntries) {
-    List<TableRow> rows = [
-      TableRow(
-        children: [
-          Padding(
-            padding: const EdgeInsets.all(8.0),
-            child: Text(
-              'Jam',
-              style: TextStyle(fontWeight: FontWeight.bold),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.all(8.0),
-            child: Text(
-              'Aktivitas',
-              style: TextStyle(fontWeight: FontWeight.bold),
-            ),
-          ),
-        ],
-      ),
-    ];
-
-    rows.addAll(logbookEntries.map((entry) {
-      return TableRow(
-        children: [
-          Padding(
-            padding: const EdgeInsets.all(8.0),
-            child: Text(entry['time_range'] ?? 'N/A'),
-          ),
-          Padding(
-            padding: const EdgeInsets.all(8.0),
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Text(entry['activity'] ?? 'N/A'),
-            ),
-          ),
-        ],
-      );
-    }).toList());
-
-    return rows;
-  }
-
-  TableRow _buildTableRow(String key, String value, {bool isHighlight = false}) {
-    return TableRow(
-      children: [
-        Padding(
-          padding: const EdgeInsets.all(8.0),
-          child: Text(
-            key,
-            style: TextStyle(fontWeight: FontWeight.bold),
-          ),
-        ),
-        Padding(
-          padding: const EdgeInsets.all(8.0),
-          child: Text(
-            value,
-            style: isHighlight
-                ? TextStyle(color: Colors.red, fontWeight: FontWeight.bold)
-                : TextStyle(),
-          ),
-        ),
-      ],
-    );
-  }
-
-  TableRow _buildTableRowImage(BuildContext context, String key, String? imageUrl) {
-    return TableRow(
-      children: [
-        Padding(
-          padding: const EdgeInsets.all(8.0),
-          child: Text(
-            key,
-            style: TextStyle(fontWeight: FontWeight.bold),
-          ),
-        ),
-        Padding(
-          padding: const EdgeInsets.all(8.0),
-          child: imageUrl != null && imageUrl.isNotEmpty
-              ? GestureDetector(
-            onTap: () {
-              _showFullImage(context, imageUrl);
-            },
-            child: Center(
-              child: Container(
-                width: 100,
-                height: 100,
-                decoration: BoxDecoration(
-                  border: Border.all(color: Colors.grey),
-                ),
-                child: Image.network(
-                  imageUrl,
-                  loadingBuilder: (BuildContext context, Widget child, ImageChunkEvent? loadingProgress) {
-                    if (loadingProgress == null) {
-                      return child;
-                    } else {
-                      return Center(
-                        child: CircularProgressIndicator(
-                          value: loadingProgress.expectedTotalBytes != null
-                              ? loadingProgress.cumulativeBytesLoaded / (loadingProgress.expectedTotalBytes ?? 1)
-                              : null,
-                        ),
-                      );
-                    }
-                  },
-                  errorBuilder: (context, error, stackTrace) => Icon(Icons.error),
-                  fit: BoxFit.cover,
-                ),
-              ),
-            ),
-          )
-              : Text('No Image'),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildWorkingHoursRow(String key, String value) {
-    return Row(
-      children: [
-        Text(
-          '$key: ',
-          style: TextStyle(fontWeight: FontWeight.bold),
-        ),
-        Text(
-          value,
-          style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
-        ),
-      ],
     );
   }
 }

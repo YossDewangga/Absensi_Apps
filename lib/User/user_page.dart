@@ -1,10 +1,10 @@
+import 'package:absensi_apps/Logbook/daily_activity.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:absensi_apps/Admin/setting_page.dart';
 import 'package:absensi_apps/Break/start_&_end_break.dart';
 import 'package:absensi_apps/Cuti/leave_page.dart';
 import '../Clock In & Clock Out/clock_in_out.dart';
-import '../Overtime/overtime.dart';
 import '../Visit In & Out/visit.dart';
 
 class UserPage extends StatefulWidget {
@@ -162,7 +162,7 @@ class _UserPageState extends State<UserPage> {
                               Navigator.push(
                                 context,
                                 MaterialPageRoute(
-                                    builder: (context) => OvertimePage()),
+                                    builder: (context) => LogbookPage()),
                               );
                             },
                             child: Card(
@@ -177,7 +177,7 @@ class _UserPageState extends State<UserPage> {
                                   ),
                                   SizedBox(height: 5),
                                   Text(
-                                    'Overtime',
+                                    'Daily Activity',
                                     textAlign: TextAlign.center,
                                     style: TextStyle(
                                       color: Colors.black,

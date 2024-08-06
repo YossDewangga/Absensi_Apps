@@ -1,5 +1,3 @@
-import 'package:absensi_apps/Admin/admin_page.dart';
-import 'package:absensi_apps/Trash/auth_page.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
@@ -8,13 +6,15 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:workmanager/workmanager.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'firebase_options.dart';  // Ensure this is properly set up with your Firebase configuration
+import 'package:absensi_apps/Trash/auth_page.dart';  // Corrected import statement
 
 final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin = FlutterLocalNotificationsPlugin();
 
 void callbackDispatcher() {
   Workmanager().executeTask((task, inputData) async {
     WidgetsFlutterBinding.ensureInitialized();
-    await Firebase.initializeApp();
+    await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
     FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
 
     SharedPreferences prefs = await SharedPreferences.getInstance();
@@ -30,20 +30,21 @@ void callbackDispatcher() {
 }
 
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
-  // Jika pesan diterima saat aplikasi di background
-  await Firebase.initializeApp();
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
   print('Handling a background message: ${message.messageId}');
 }
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp();
+  print('Initializing Firebase...');
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  print('Firebase initialized');
   FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
-  tz.initializeTimeZones(); // Inisialisasi timezone
-  await _requestNotificationPermission(); // Meminta izin notifikasi
+  tz.initializeTimeZones();
+  await _requestNotificationPermission();
   Workmanager().initialize(
     callbackDispatcher,
-    isInDebugMode: true, // Set ke false untuk release mode
+    isInDebugMode: true,
   );
   runApp(MyApp());
 }
@@ -64,7 +65,7 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       theme: ThemeData(),
-      home: AdminPage(),
+      home: CheckLoginStatus(),
     );
   }
 }

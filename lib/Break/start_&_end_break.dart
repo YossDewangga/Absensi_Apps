@@ -111,11 +111,9 @@ class _BreakStartEndPageState extends State<BreakStartEndPage> {
   void _startBreak([DateTime? startTime]) async {
     final now = DateTime.now();
 
-    if (_adminStartBreakTime != null && _adminEndBreakTime != null) {
-      if (now.isBefore(_adminStartBreakTime!) || now.isAfter(_adminEndBreakTime!)) {
-        _showInvalidTimeDialog();
-        return;
-      }
+    if (now.isBefore(_adminStartBreakTime!) || now.isAfter(_adminEndBreakTime!)) {
+      _showInvalidTimeDialog();
+      return;
     }
 
     setState(() {
@@ -177,7 +175,7 @@ class _BreakStartEndPageState extends State<BreakStartEndPage> {
     _breakTimer = Timer.periodic(Duration(seconds: 1), (timer) {
       setState(() {
         final now = DateTime.now();
-        if (_endBreakTime != null && now.isBefore(_endBreakTime!)) {
+        if (now.isBefore(_endBreakTime!)) {
           _remainingTime = _endBreakTime!.difference(now);
           if (_remainingTime.isNegative) {
             _handleBreakEnd();
@@ -225,10 +223,8 @@ class _BreakStartEndPageState extends State<BreakStartEndPage> {
   }
 
   void _vibratePhone() {
-    if (Vibration.hasVibrator() != null) {
-      Vibration.vibrate();
+    Vibration.vibrate();
     }
-  }
 
   String _calculateBreakDuration() {
     if (_startBreakTime != null && _endBreakTime != null) {

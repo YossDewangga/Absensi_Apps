@@ -26,7 +26,6 @@ class _VisitInAndOutPageState extends State<VisitInAndOutPage> {
   String _visitOutDateTime = 'Unknown';
   bool _visitInCompleted = false;
   bool _visitOutCompleted = false;
-  bool _approvalRequested = false;
   File? _visitInImage;
   File? _visitOutImage;
   String _visitInLocation = 'Unknown';
@@ -34,6 +33,7 @@ class _VisitInAndOutPageState extends State<VisitInAndOutPage> {
   String _visitOutLocation = 'Unknown';
   String _visitOutAddress = 'Unknown';
   String _visitInDocumentId = '';
+  String _clockInDocumentId = ''; // Untuk menyimpan ID dokumen clock in
   Position? _visitInPosition;
   String? _userId;
   DateTime? _visitInTime;
@@ -41,6 +41,16 @@ class _VisitInAndOutPageState extends State<VisitInAndOutPage> {
   String _nextDestination = '';
   String _visitStatus = 'Not Visited';
   String? _displayName;
+  String _selectedOption = 'Pulang'; // Set default to 'Pulang'
+  bool _isOtherOptionSelected = false; // Variabel untuk mengatur opsi "Lainnya"
+
+  TimeOfDay? _designatedStartTime;
+  Duration _lateDuration = Duration.zero;
+  String? _lateReason;
+
+  final double _radius = 100; // Ubah radius menjadi 100 meter
+  bool isLoading = false;
+  bool _isOutsideDesignatedArea = false;
 
   @override
   void initState() {
@@ -48,6 +58,7 @@ class _VisitInAndOutPageState extends State<VisitInAndOutPage> {
     initializeDateFormatting('id_ID', null);
     _checkPermission();
     _getUserInfo();
+    _getDesignatedTimes();
   }
 
   Future<void> _checkPermission() async {
@@ -60,6 +71,28 @@ class _VisitInAndOutPageState extends State<VisitInAndOutPage> {
       }
     } else if (status.isPermanentlyDenied) {
       openAppSettings();
+    }
+  }
+
+  Future<void> _getDesignatedTimes() async {
+    try {
+      DocumentSnapshot startSnapshot = await FirebaseFirestore.instance
+          .collection('settings')
+          .doc('absensi_times')
+          .get();
+
+      if (startSnapshot.exists) {
+        Timestamp startTimestamp = startSnapshot['designatedStartTime'];
+        DateTime startDateTime = startTimestamp.toDate();
+        setState(() {
+          _designatedStartTime = TimeOfDay(hour: startDateTime.hour, minute: startDateTime.minute);
+        });
+      } else {
+        print("Designated times document does not exist");
+      }
+    } catch (e) {
+      print('Error loading designated times: $e');
+      _showAlertDialog('Error loading designated times: $e');
     }
   }
 
@@ -82,8 +115,8 @@ class _VisitInAndOutPageState extends State<VisitInAndOutPage> {
       _visitStatus = prefs.getString('visit_status') ?? 'Not Visited';
       _visitInCompleted = prefs.getBool('visit_in_completed') ?? false;
       _visitOutCompleted = prefs.getBool('visit_out_completed') ?? false;
-      _approvalRequested = prefs.getBool('approval_requested') ?? false;
       _visitInDocumentId = prefs.getString('visit_in_document_id') ?? '';
+      _clockInDocumentId = prefs.getString('clock_in_document_id') ?? ''; // Load clock in document ID
       _visitInDateTime = prefs.getString('visit_in_date_time') ?? 'Unknown';
       _visitOutDateTime = prefs.getString('visit_out_date_time') ?? 'Unknown';
       _visitInLocation = prefs.getString('visit_in_location') ?? 'Unknown';
@@ -93,27 +126,7 @@ class _VisitInAndOutPageState extends State<VisitInAndOutPage> {
       if (_visitStatus == 'Visit In' && _visitInCompleted) {
         _loadVisitInDetails();
       }
-      _checkVisitOutApproval(); // Check approval status and handle accordingly
     });
-  }
-
-  Future<void> _checkVisitOutApproval() async {
-    if (_userId != null && _visitInDocumentId.isNotEmpty) {
-      DocumentReference visitDocRef = FirebaseFirestore.instance.collection('users').doc(_userId).collection('visits').doc(_visitInDocumentId);
-      DocumentSnapshot visitSnapshot = await visitDocRef.get();
-      if (visitSnapshot.exists) {
-        bool isApproved = visitSnapshot['visit_out_isApproved'] ?? false;
-        if (isApproved) {
-          setState(() {
-            _visitInCompleted = false;
-            _visitOutCompleted = true;
-            _visitStatus = 'Not Visited'; // Reset status
-          });
-          await _saveVisitStatus();
-          _showSnackBar('Visit Out approved, you can now check-in again.');
-        }
-      }
-    }
   }
 
   Future<void> _loadVisitInDetails() async {
@@ -147,34 +160,6 @@ class _VisitInAndOutPageState extends State<VisitInAndOutPage> {
 
   Future<void> _visitIn() async {
     await _takePicture(true);
-    await _getCurrentPosition(true);
-
-    if (_visitInImage != null && _visitInPosition != null) {
-      setState(() {
-        _visitInTime = DateTime.now();
-        _updateVisitInDateTime();
-      });
-
-      try {
-        String downloadUrl = await _uploadImageToStorage(_visitInImage!, 'visit_in_images');
-        String documentId = await _saveVisitInToFirestore(downloadUrl);
-
-        setState(() {
-          _visitInCompleted = true;
-          _visitInDocumentId = documentId;
-          _visitStatus = 'Visit In';
-          _visitOutCompleted = false;
-        });
-
-        await _saveVisitStatus();
-
-        _showSuccessDialog('Visit In Completed');
-      } catch (e) {
-        _showDialog('Gagal mengirim: $e');
-      }
-    } else {
-      _showDialog('Gagal mengambil gambar atau mendapatkan lokasi.');
-    }
   }
 
   Future<String> _saveVisitInToFirestore(String downloadUrl) async {
@@ -186,8 +171,7 @@ class _VisitInAndOutPageState extends State<VisitInAndOutPage> {
       'visit_in_imageUrl': downloadUrl,
       'visit_status': 'Visit In',
       'displayName': _displayName,
-      'approval_requested': false,
-      'visit_out_isApproved': false,
+      'approved': true,
     });
 
     return visitDocRef.id;
@@ -198,8 +182,8 @@ class _VisitInAndOutPageState extends State<VisitInAndOutPage> {
     prefs.setString('visit_status', _visitStatus);
     prefs.setBool('visit_in_completed', _visitInCompleted);
     prefs.setBool('visit_out_completed', _visitOutCompleted);
-    prefs.setBool('approval_requested', _approvalRequested);
     prefs.setString('visit_in_document_id', _visitInDocumentId);
+    prefs.setString('clock_in_document_id', _clockInDocumentId); // Save clock in document ID
     prefs.setString('visit_in_date_time', _visitInDateTime);
     prefs.setString('visit_out_date_time', _visitOutDateTime);
     prefs.setString('visit_in_location', _visitInLocation);
@@ -208,126 +192,269 @@ class _VisitInAndOutPageState extends State<VisitInAndOutPage> {
     prefs.setString('visit_out_address', _visitOutAddress);
   }
 
-  Future<void> _requestApproval() async {
-    if (_userId != null && _visitInDocumentId.isNotEmpty) {
-      DocumentReference visitDocRef = FirebaseFirestore.instance.collection('users').doc(_userId).collection('visits').doc(_visitInDocumentId);
-      await visitDocRef.update({
-        'approval_requested': true,
-      });
-      setState(() {
-        _approvalRequested = true;
-      });
-
-      await _saveVisitStatus();
-
-      _showDialog('Permintaan persetujuan telah dikirim ke admin.');
-    } else {
-      _showDialog('Gagal mengirim permintaan persetujuan.');
-    }
-  }
-
   Future<void> _visitOut() async {
     await _takePicture(false);
-    await _getCurrentPosition(false);
-
-    if (_visitOutImage != null && _visitInPosition != null) {
-      Position position = await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high);
-      double distanceInMeters = Geolocator.distanceBetween(
-        _visitInPosition!.latitude, _visitInPosition!.longitude,
-        position.latitude, position.longitude,
-      );
-
-      if (distanceInMeters > 50) {
-        _showDialog('Visit Out gagal: Anda berada lebih dari 50 meter dari lokasi Visit In.');
-        return;
-      }
-
-      setState(() {
-        _visitOutTime = DateTime.now();
-        _updateVisitOutDateTime();
-      });
-
-      await _showNextDestinationDialog();
-
-      if (_nextDestination.isEmpty) {
-        _showDialog('Tujuan Selanjutnya harus diisi.');
-        return;
-      }
-
-      try {
-        String downloadUrl = await _uploadImageToStorage(_visitOutImage!, 'visit_out_images');
-        await _saveVisitOutToFirestore(downloadUrl);
-
-        setState(() {
-          _visitOutCompleted = true;
-          _visitStatus = 'Visit Out';
-          _visitInCompleted = false;
-        });
-
-        await _saveVisitStatus();
-
-        _showSuccessDialog('Visit Out Completed');
-      } catch (e) {
-        _showDialog('Gagal mengirim: $e');
-      }
-    } else {
-      _showDialog('Gagal mengambil gambar atau mendapatkan lokasi.');
-    }
   }
 
-  Future<void> _saveVisitOutToFirestore(String downloadUrl) async {
+  Future<void> _saveVisitOutToFirestore(String downloadUrl, bool isApproved) async {
     DocumentReference userDocRef = FirebaseFirestore.instance.collection('users').doc(_userId);
     DocumentReference visitDocRef = userDocRef.collection('visits').doc(_visitInDocumentId);
 
     try {
-      if (_visitOutTime != null && _visitOutLocation.isNotEmpty && _visitOutAddress.isNotEmpty && downloadUrl.isNotEmpty && _nextDestination.isNotEmpty) {
+      DocumentSnapshot visitSnapshot = await visitDocRef.get();
+      if (visitSnapshot.exists) {
         await visitDocRef.update({
           'visit_out_time': _visitOutTime,
           'visit_out_location': _visitOutLocation,
           'visit_out_address': _visitOutAddress,
           'visit_out_imageUrl': downloadUrl,
-          'next_destination': _nextDestination,
+          'next_destination': _selectedOption == 'Pulang' ? 'Pulang' : _nextDestination,
           'visit_status': 'Visit Out',
-          'approval_requested': true,
+          'approved': isApproved,
         });
 
         print('Data updated successfully');
       } else {
-        print('One or more fields are null or empty');
+        print('Visit document not found');
+        _showAlertDialog('Visit document not found');
       }
     } catch (e) {
       print('Error updating document: $e');
-      _showDialog('Error updating document: $e');
+      _showAlertDialog('Error updating document: $e');
     }
   }
 
   Future<void> _showNextDestinationDialog() async {
-    return showDialog(
+    TimeOfDay now = TimeOfDay.now();
+    TimeOfDay startTime1 = TimeOfDay(hour: 6, minute: 0);
+    TimeOfDay endTime1 = TimeOfDay(hour: 16, minute: 0);
+    TimeOfDay startTime2 = TimeOfDay(hour: 16, minute: 1);
+    TimeOfDay endTime2 = TimeOfDay(hour: 23, minute: 59);
+
+    bool withinFirstRange = _isTimeWithinRange(now, startTime1, endTime1);
+    bool withinSecondRange = _isTimeWithinRange(now, startTime2, endTime2);
+
+    if (withinSecondRange) {
+      return showDialog(
+        context: context,
+        builder: (context) => StatefulBuilder(
+          builder: (context, setState) => AlertDialog(
+            title: Text('Tujuan Selanjutnya ?'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                RadioListTile<String>(
+                  title: Text('Pulang'),
+                  value: 'Pulang',
+                  groupValue: _selectedOption,
+                  onChanged: (value) {
+                    setState(() {
+                      _selectedOption = value!;
+                      _isOtherOptionSelected = false;
+                      _nextDestination = 'Pulang'; // Set default value to 'Pulang'
+                    });
+                  },
+                ),
+                RadioListTile<String>(
+                  title: Text('Lainnya'),
+                  value: 'Lainnya',
+                  groupValue: _selectedOption,
+                  onChanged: (value) {
+                    setState(() {
+                      _selectedOption = value!;
+                      _isOtherOptionSelected = true;
+                    });
+                  },
+                ),
+                if (_isOtherOptionSelected)
+                  TextField(
+                    onChanged: (value) {
+                      _nextDestination = value;
+                    },
+                    decoration: InputDecoration(hintText: "Masukkan tujuan selanjutnya"),
+                  ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () async {
+                  if (_selectedOption == 'Lainnya' && _nextDestination.isEmpty) {
+                    _showAlertDialog('Tujuan Selanjutnya harus diisi.');
+                  } else {
+                    Navigator.of(context).pop();
+                    await _submitNextDestination();
+                    if (_selectedOption == 'Pulang') {
+
+                    }
+                  }
+                },
+                child: Text('Submit'),
+              ),
+            ],
+          ),
+        ),
+      );
+    } else if (withinFirstRange) {
+      _showSuccessDialog('Visit Out Completed.');
+    } else {
+      _showAlertDialog('Waktu tidak valid untuk memasukkan tujuan selanjutnya.');
+    }
+  }
+
+  Future<void> _submitNextDestination() async {
+    // Simulate data update
+    await Future.delayed(Duration(seconds: 2));
+  }
+
+  bool _isTimeWithinRange(TimeOfDay now, TimeOfDay start, TimeOfDay end) {
+    final nowMinutes = now.hour * 60 + now.minute;
+    final startMinutes = start.hour * 60 + start.minute;
+    final endMinutes = end.hour * 60 + end.minute;
+    return nowMinutes >= startMinutes && nowMinutes <= endMinutes;
+  }
+
+  Future<void> _showClockOutConfirmationDialog() async {
+    setState(() {
+      isLoading = true;
+    });
+    bool confirmed = await showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text('Tujuan Selanjutnya'),
-        content: TextField(
-          onChanged: (value) {
-            setState(() {
-              _nextDestination = value;
-            });
-          },
-          decoration: InputDecoration(hintText: "Masukkan tujuan selanjutnya"),
-        ),
+        title: Text('Konfirmasi Clock Out'),
+        content: Text('Visit Out akan dijadikan Clock Out juga. Setuju?'),
         actions: [
           TextButton(
             onPressed: () {
-              if (_nextDestination.isEmpty) {
-                _showDialog('Tujuan Selanjutnya harus diisi.');
-              } else {
-                Navigator.of(context).pop();
-              }
+              Navigator.of(context).pop(true);
             },
-            child: Text('OK'),
+            child: Text('Ya'),
           ),
         ],
       ),
     );
+
+    if (confirmed) {
+      await _autoClockOut();
+      if (mounted) {
+        _showSuccessDialog('Visit Out dan Clock Out sukses.', additionalDialog: true);
+        setState(() {
+          isLoading = false;
+        });
+      }
+    } else {
+      setState(() {
+        isLoading = false;
+      });
+    }
+  }
+
+  Future<void> _autoClockIn(DateTime visitInTime, Position visitInPosition, String visitInImageUrl) async {
+    User? user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      DocumentReference userDocRef = FirebaseFirestore.instance.collection('users').doc(user.uid);
+
+      if (_designatedStartTime != null) {
+        final startDateTime = DateTime(
+          DateTime.now().year,
+          DateTime.now().month,
+          DateTime.now().day,
+          _designatedStartTime!.hour,
+          _designatedStartTime!.minute,
+        );
+
+        final nowDateTime = visitInTime;
+
+        if (nowDateTime.isAfter(startDateTime)) {
+          setState(() {
+            _lateDuration = nowDateTime.difference(startDateTime);
+            _lateReason = "-"; // Set late reason to "-"
+          });
+        }
+
+        // Cek apakah sudah ada clock in hari ini
+        QuerySnapshot clockInSnapshot = await userDocRef.collection('clockin_records')
+            .where('date', isEqualTo: DateFormat('yyyy-MM-dd').format(nowDateTime))
+            .where('clock_status', isEqualTo: 'Clock In')
+            .get();
+
+        if (clockInSnapshot.docs.isEmpty) {
+          DocumentReference clockInDocRef = userDocRef.collection('clockin_records').doc();
+          await clockInDocRef.set({
+            'user_name': user.displayName,
+            'user_id': user.uid,
+            'clockin_location': GeoPoint(visitInPosition.latitude, visitInPosition.longitude),
+            'timestamp': Timestamp.now(),
+            'clock_in_time': visitInTime,
+            'is_late': nowDateTime.isAfter(startDateTime),
+            'late_duration': _formattedDuration(_lateDuration),
+            'late_reason': _lateReason,
+            'image_url': visitInImageUrl,
+            'clock_status': 'Clock In',
+            'approved': false, // Set approved to false for all clock in from visit
+            'date': DateFormat('yyyy-MM-dd').format(nowDateTime),
+          }, SetOptions(merge: true));
+
+          setState(() {
+            _clockInDocumentId = clockInDocRef.id;
+          });
+
+          await _saveVisitStatus();
+
+          print("Clock in otomatis berhasil berdasarkan visit in.");
+        } else {
+          print("Clock in sudah dilakukan hari ini.");
+        }
+      } else {
+        print("Designated start time is not set.");
+      }
+    }
+  }
+
+  Future<void> _autoClockOut() async {
+    User? user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      DocumentReference userDocRef = FirebaseFirestore.instance.collection('users').doc(user.uid);
+
+      try {
+        Position currentPosition = await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high);
+
+        double distanceInMeters = Geolocator.distanceBetween(
+          double.parse(_visitOutLocation.split(',')[0].trim()),
+          double.parse(_visitOutLocation.split(',')[1].trim()),
+          currentPosition.latitude,
+          currentPosition.longitude,
+        );
+
+        bool isClockOutApproved = distanceInMeters <= _radius;
+
+        String visitOutImageUrl = await _uploadImageToStorage(_visitOutImage!, 'visit_out_images');
+
+        // Calculate total working hours
+        Duration totalWorkingHours = _visitOutTime!.difference(_visitInTime!);
+        String totalWorkingHoursStr = _formattedDuration(totalWorkingHours);
+
+        DocumentReference clockOutDocRef = userDocRef.collection('clockin_records').doc(_clockInDocumentId);
+        await clockOutDocRef.update({
+          'clockout_location': GeoPoint(currentPosition.latitude, currentPosition.longitude),
+          'timestamp': Timestamp.now(),
+          'clock_out_time': _visitOutTime,
+          'approved': false, // Set approved to false for all clock out from visit
+          'clock_status': 'Clock Out',
+          'clock_out_image_url': visitOutImageUrl, // Save visit out image URL
+          'total_working_hours': totalWorkingHoursStr, // Save total working hours
+        });
+
+        print("Clock out otomatis berhasil berdasarkan visit out.");
+        if (!isClockOutApproved) {
+          setState(() {
+            _isOutsideDesignatedArea = true;
+          });
+        }
+      } catch (e) {
+        print('Error getting location: $e');
+        _showAlertDialog('Error getting location: $e');
+      }
+    }
   }
 
   Future<void> _takePicture(bool isVisitIn) async {
@@ -346,6 +473,11 @@ class _VisitInAndOutPageState extends State<VisitInAndOutPage> {
           _visitOutImage = resizedFile;
         }
       });
+      if (isVisitIn) {
+        _startVisitInProcess();
+      } else {
+        _startVisitOutProcess();
+      }
     }
   }
 
@@ -371,7 +503,7 @@ class _VisitInAndOutPageState extends State<VisitInAndOutPage> {
       }
     } catch (e) {
       print('Error getting location: $e');
-      _showDialog('Error getting location: $e');
+      _showAlertDialog('Error getting location: $e');
     }
   }
 
@@ -398,25 +530,35 @@ class _VisitInAndOutPageState extends State<VisitInAndOutPage> {
     return downloadUrl;
   }
 
-  void _showDialog(String message) {
+  String _formattedDuration(Duration duration) {
+    String twoDigits(int n) => n.toString().padLeft(2, "0");
+    String twoDigitHours = twoDigits(duration.inHours);
+    String twoDigitMinutes = twoDigits(duration.inMinutes.remainder(60));
+    String twoDigitSeconds = twoDigits(duration.inSeconds.remainder(60));
+    return "$twoDigitHours:$twoDigitMinutes:$twoDigitSeconds";
+  }
+
+  void _showAlertDialog(String message) {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text('Pemberitahuan'),
-        content: Text(message),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.of(context).pop();
-            },
-            child: Text('OK'),
-          ),
-        ],
-      ),
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text('Peringatan'),
+          content: Text(message),
+          actions: <Widget>[
+            TextButton(
+              child: Text('OK'),
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+            ),
+          ],
+        );
+      },
     );
   }
 
-  void _showSuccessDialog(String message) {
+  void _showSuccessDialog(String message, {bool additionalDialog = false}) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -428,6 +570,36 @@ class _VisitInAndOutPageState extends State<VisitInAndOutPage> {
           ],
         ),
         content: Text(message),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+              if (_isOutsideDesignatedArea) {
+                _showOutsideDesignatedAreaDialog();
+              }
+              setState(() {
+                isLoading = false;
+              });
+            },
+            child: Text('OK'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showOutsideDesignatedAreaDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Row(
+          children: [
+            Icon(Icons.warning, color: Colors.orange),
+            SizedBox(width: 10),
+            Text('Peringatan'),
+          ],
+        ),
+        content: Text('Visit Out Completed, but you are outside the designated area'),
         actions: [
           TextButton(
             onPressed: () {
@@ -444,28 +616,87 @@ class _VisitInAndOutPageState extends State<VisitInAndOutPage> {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
   }
 
-  void _showImageDialog(BuildContext context, File imageFile) {
-    showDialog(
-      context: context,
-      builder: (context) => Dialog(
-        child: Container(
-          padding: EdgeInsets.all(8.0),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Image.file(imageFile),
-              SizedBox(height: 8.0),
-              OutlinedButton(
-                onPressed: () {
-                  Navigator.of(context).pop();
-                },
-                child: Text('Tutup'),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
+  Future<void> _startVisitInProcess() async {
+    setState(() {
+      isLoading = true;
+    });
+    await _getCurrentPosition(true);
+    if (_visitInImage != null && _visitInPosition != null) {
+      setState(() {
+        _visitInTime = DateTime.now();
+        _updateVisitInDateTime();
+      });
+      try {
+        String downloadUrl = await _uploadImageToStorage(_visitInImage!, 'visit_in_images');
+        String documentId = await _saveVisitInToFirestore(downloadUrl);
+        setState(() {
+          _visitInCompleted = true;
+          _visitInDocumentId = documentId;
+          _visitStatus = 'Visit In';
+          _visitOutCompleted = false;
+          isLoading = false;
+        });
+        await _saveVisitStatus();
+        await _autoClockIn(_visitInTime!, _visitInPosition!, downloadUrl);
+        _showSuccessDialog('Visit In Completed');
+      } catch (e) {
+        setState(() {
+          isLoading = false;
+        });
+        _showAlertDialog('Gagal mengirim: $e');
+      }
+    } else {
+      setState(() {
+        isLoading = false;
+      });
+      _showAlertDialog('Gagal mendapatkan lokasi.');
+    }
+  }
+
+  Future<void> _startVisitOutProcess() async {
+    setState(() {
+      isLoading = true;
+    });
+    await _getCurrentPosition(false);
+    if (_visitOutImage != null && _visitInPosition != null) {
+      Position position = await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high);
+      double distanceInMeters = Geolocator.distanceBetween(
+        _visitInPosition!.latitude,
+        _visitInPosition!.longitude,
+        position.latitude,
+        position.longitude,
+      );
+      bool isApproved = distanceInMeters <= _radius;
+      setState(() {
+        _visitOutTime = DateTime.now();
+        _updateVisitOutDateTime();
+      });
+      await _showNextDestinationDialog();
+      try {
+        String downloadUrl = await _uploadImageToStorage(_visitOutImage!, 'visit_out_images');
+        await _saveVisitOutToFirestore(downloadUrl, isApproved);
+        setState(() {
+          _visitOutCompleted = true;
+          _visitStatus = 'Visit Out';
+          _visitInCompleted = false;
+          _isOutsideDesignatedArea = !isApproved;
+        });
+        await _saveVisitStatus();
+
+        await _showClockOutConfirmationDialog(); // Tampilkan dialog konfirmasi clock out
+
+      } catch (e) {
+        setState(() {
+          isLoading = false;
+        });
+        _showAlertDialog('Gagal mengirim: $e');
+      }
+    } else {
+      setState(() {
+        isLoading = false;
+      });
+      _showAlertDialog('Gagal mendapatkan lokasi.');
+    }
   }
 
   @override
@@ -475,33 +706,41 @@ class _VisitInAndOutPageState extends State<VisitInAndOutPage> {
         title: Text('Visit In/Out'),
         centerTitle: true,
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: <Widget>[
-              _buildHeader(),
-              SizedBox(height: 20),
-              _buildButtons(),
-              Divider(thickness: 1),
-              ListTile(
-                title: Text(
-                  'Lihat Log Kunjungan',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.blue),
-                ),
-                trailing: Icon(Icons.arrow_forward, size: 24, color: Colors.blue),
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (context) => VisitHistoryPage(userId: _userId)),
-                  );
-                },
+      body: Stack(
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: <Widget>[
+                  _buildHeader(),
+                  SizedBox(height: 20),
+                  _buildButtons(),
+                  Divider(thickness: 1),
+                  ListTile(
+                    title: Text(
+                      'Lihat Log Kunjungan',
+                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.blue),
+                    ),
+                    trailing: Icon(Icons.arrow_forward, size: 24, color: Colors.blue),
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => VisitHistoryPage(userId: _userId)),
+                      );
+                    },
+                  ),
+                  Divider(thickness: 1),
+                ],
               ),
-              Divider(thickness: 1),
-            ],
+            ),
           ),
-        ),
+          if (isLoading)
+            Center(
+              child: CircularProgressIndicator(),
+            ),
+        ],
       ),
     );
   }
@@ -562,24 +801,7 @@ class _VisitInAndOutPageState extends State<VisitInAndOutPage> {
           ],
         ),
         SizedBox(height: 20),
-        _visitInCompleted && !_visitOutCompleted ? _buildRequestApprovalButton() : Container(),
       ],
-    );
-  }
-
-  Widget _buildRequestApprovalButton() {
-    return ElevatedButton.icon(
-      onPressed: _requestApproval,
-      icon: Icon(Icons.admin_panel_settings),
-      label: Text('Minta Persetujuan Admin'),
-      style: ElevatedButton.styleFrom(
-        padding: EdgeInsets.symmetric(horizontal: 13, vertical: 10),
-        textStyle: TextStyle(
-          fontSize: 15,
-          fontWeight: FontWeight.bold,
-        ),
-        foregroundColor: Colors.red,
-      ),
     );
   }
 }

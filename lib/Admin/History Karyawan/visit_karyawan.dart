@@ -18,7 +18,8 @@ class _VisitPageState extends State<VisitPage> {
 
   @override
   Widget build(BuildContext context) {
-    if (widget.userId == null) {
+    if (widget.userId.isEmpty) {
+      // UserId tidak mungkin null karena diinisialisasi sebagai required
       return Scaffold(
         appBar: AppBar(
           title: Text('Riwayat Kunjungan'),
@@ -118,7 +119,10 @@ class _VisitPageState extends State<VisitPage> {
                 }).toList();
 
                 if (records.isEmpty) {
-                  return const Center(child: Text('No records found for the selected date.', style: TextStyle(color: Colors.black)));
+                  return const Center(
+                      child: Text(
+                          'No records found for the selected date.',
+                          style: TextStyle(color: Colors.black)));
                 }
 
                 return ListView.builder(
@@ -127,7 +131,6 @@ class _VisitPageState extends State<VisitPage> {
                     var record = records[index];
                     var data = record.data() as Map<String, dynamic>;
                     var approvalStatus = data['visit_out_isApproved'] as bool?;
-                    var approvalRequested = data['approval_requested'] as bool? ?? false;
                     var statusText = 'Pending';
                     var statusColor = Colors.black;
 
@@ -166,6 +169,14 @@ class _VisitPageState extends State<VisitPage> {
                                 data['visit_out_imageUrl'] as String?,
                                 data['next_destination'] as String?,
                               ),
+                            SizedBox(height: 8.0),
+                            Text(
+                              'Status: $statusText',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: statusColor,
+                              ),
+                            ),
                           ],
                         ),
                       ),
@@ -180,7 +191,9 @@ class _VisitPageState extends State<VisitPage> {
     );
   }
 
-  Widget _buildTable(BuildContext context, String title, String? time, String? location, String? address, String? imageUrl, [String? nextDestination]) {
+  Widget _buildTable(BuildContext context, String title, String? time,
+      String? location, String? address, String? imageUrl,
+      [String? nextDestination]) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -275,20 +288,24 @@ class _VisitPageState extends State<VisitPage> {
                 ),
                 child: Image.network(
                   imageUrl,
-                  loadingBuilder: (BuildContext context, Widget child, ImageChunkEvent? loadingProgress) {
+                  loadingBuilder: (BuildContext context, Widget child,
+                      ImageChunkEvent? loadingProgress) {
                     if (loadingProgress == null) {
                       return child;
                     } else {
                       return Center(
                         child: CircularProgressIndicator(
                           value: loadingProgress.expectedTotalBytes != null
-                              ? loadingProgress.cumulativeBytesLoaded / (loadingProgress.expectedTotalBytes ?? 1)
+                              ? loadingProgress.cumulativeBytesLoaded /
+                              (loadingProgress.expectedTotalBytes ??
+                                  1)
                               : null,
                         ),
                       );
                     }
                   },
-                  errorBuilder: (context, error, stackTrace) => Icon(Icons.error),
+                  errorBuilder: (context, error, stackTrace) =>
+                      Icon(Icons.error),
                   fit: BoxFit.cover,
                 ),
               ),
@@ -304,7 +321,8 @@ class _VisitPageState extends State<VisitPage> {
     var coordinates = location.split(',').map((coord) => coord.trim()).toList();
     var latitude = coordinates[0];
     var longitude = coordinates[1];
-    var googleMapsUrl = 'https://www.google.com/maps/search/?api=1&query=$latitude,$longitude';
+    var googleMapsUrl =
+        'https://www.google.com/maps/search/?api=1&query=$latitude,$longitude';
 
     if (await canLaunch(googleMapsUrl)) {
       await launch(googleMapsUrl);

@@ -50,6 +50,28 @@ class _AdminApprovalPageState extends State<AdminApprovalPage> {
     }
   }
 
+  void _updateApprovalStatus(BuildContext context, String visitId, String userId, bool isApproved) {
+    FirebaseFirestore.instance
+        .collection('users')
+        .doc(userId)
+        .collection('visits')
+        .doc(visitId)
+        .update({
+      'approved': isApproved,
+    }).then((_) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(isApproved ? 'Visit Approved' : 'Visit Rejected')),
+      );
+      setState(() {
+        _editableVisitId = null;
+      });
+    }).catchError((error) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to update status: $error')),
+      );
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return WillPopScope(
@@ -174,9 +196,7 @@ class _AdminApprovalPageState extends State<AdminApprovalPage> {
                           var visitOutImageUrl = data['visit_out_imageUrl'] ?? '';
                           var nextDestination = data['next_destination'] ?? 'N/A';
 
-                          // Jika visit out sudah ada, set approval status menjadi approved
-                          var approvalStatus = visitOutTimestamp != null ? true : null;
-                          var approvalRequested = data['approval_requested'] as bool? ?? false;
+                          var approvalStatus = data['approved'] as bool? ?? false;
 
                           return FutureBuilder<String>(
                             future: _getUserDisplayName(userId),
@@ -221,12 +241,11 @@ class _AdminApprovalPageState extends State<AdminApprovalPage> {
                                         nextDestination,
                                       ),
                                       const Divider(thickness: 1),
-                                      if (approvalRequested) _buildApprovalRow(approvalStatus),
-                                      if (approvalRequested || approvalStatus != null)
-                                        if (_editableVisitId == visitId)
-                                          _buildApprovalButtons(context, visitId, userId, approvalStatus)
-                                        else if (approvalRequested && visitOutTimestamp == null)
-                                          _buildEditButton(visitId),
+                                      _buildApprovalRow(approvalStatus),
+                                      if (_editableVisitId == visitId)
+                                        _buildApprovalButtons(context, visitId, userId, approvalStatus)
+                                      else if (visitOutTimestamp != null && !approvalStatus)
+                                        _buildEditButton(visitId),
                                     ],
                                   ),
                                 ),
@@ -348,9 +367,9 @@ class _AdminApprovalPageState extends State<AdminApprovalPage> {
     );
   }
 
-  Widget _buildApprovalRow(bool? approvalStatus) {
-    Color textColor = approvalStatus == true ? Colors.green : approvalStatus == false ? Colors.red : Colors.black;
-    String text = approvalStatus == true ? 'Approved' : approvalStatus == false ? 'Rejected' : 'Pending';
+  Widget _buildApprovalRow(bool approvalStatus) {
+    Color textColor = approvalStatus ? Colors.green : Colors.red;
+    String text = approvalStatus ? 'Approved' : 'Pending';
     return Row(
       children: [
         Text(
@@ -370,7 +389,7 @@ class _AdminApprovalPageState extends State<AdminApprovalPage> {
     );
   }
 
-  Widget _buildApprovalButtons(BuildContext context, String visitId, String userId, bool? approvalStatus) {
+  Widget _buildApprovalButtons(BuildContext context, String visitId, String userId, bool approvalStatus) {
     return Column(
       children: [
         Row(
@@ -422,55 +441,6 @@ class _AdminApprovalPageState extends State<AdminApprovalPage> {
     );
   }
 
-  void _updateApprovalStatus(BuildContext context, String visitId, String userId, bool isApproved) {
-    FirebaseFirestore.instance
-        .collection('users')
-        .doc(userId)
-        .collection('visits')
-        .doc(visitId)
-        .update({
-      'visit_out_isApproved': isApproved,
-      'approval_requested': false, // Reset approval requested to false
-      if (isApproved) 'visit_status': 'Not Visited', // Ubah status menjadi Not Visited jika disetujui
-    }).then((_) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(isApproved ? 'Visit Approved' : 'Visit Rejected')),
-      );
-      setState(() {
-        _editableVisitId = null;
-      });
-    }).catchError((error) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to update status: $error')),
-      );
-    });
-  }
-
-  void _showSettingsDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return Dialog(
-          child: Container(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                ListTile(
-                  title: const Text('Settings'),
-                  trailing: const Icon(Icons.settings),
-                  onTap: () {
-                    Navigator.pop(context);
-                  },
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-
   void _showFullImage(BuildContext context, String imageUrl) {
     showDialog(
       context: context,
@@ -496,25 +466,6 @@ class _AdminApprovalPageState extends State<AdminApprovalPage> {
     );
   }
 
-  void _showAlertDialog(String message) {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text("Peringatan"),
-          content: Text(message),
-          actions: <Widget>[
-            TextButton(
-              child: const Text("OK"),
-              onPressed: () {
-                Navigator.of(context).pop();
-              },
-            ),
-          ],
-        );
-      },
-    );
-  }
 
   String _formattedDateTime(DateTime dateTime) {
     return "${dateTime.day}-${dateTime.month}-${dateTime.year} ${dateTime.hour}:${dateTime.minute}";

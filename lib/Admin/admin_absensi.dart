@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:table_calendar/table_calendar.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class AdminAbsensiPage extends StatefulWidget {
   const AdminAbsensiPage({Key? key}) : super(key: key);
@@ -15,6 +16,7 @@ class _AdminAbsensiPageState extends State<AdminAbsensiPage> {
   TimeOfDay? _designatedStartTime;
   TimeOfDay? _designatedEndTime;
   bool _isCalendarExpanded = false;
+  String? _editableRecordId;
 
   @override
   void initState() {
@@ -83,6 +85,36 @@ class _AdminAbsensiPageState extends State<AdminAbsensiPage> {
         _saveDesignatedTime(picked, key);
         _showAlertDialog('You selected the $timeType time: ${picked.format(context)}');
       });
+    }
+  }
+
+  void _approveRecord(String recordId, String userId, bool isApproved) async {
+    try {
+      DocumentReference recordRef = FirebaseFirestore.instance
+          .collection('users')
+          .doc(userId)
+          .collection('clockin_records')
+          .doc(recordId);
+
+      await recordRef.update({'approved': isApproved});
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(isApproved ? 'Record approved successfully' : 'Record rejected successfully')),
+      );
+      setState(() {
+        _editableRecordId = null;
+      });
+    } catch (e) {
+      print('Error approving record: $e');
+      _showAlertDialog('Error approving record: $e');
+    }
+  }
+
+  Future<void> _launchMaps(double lat, double long) async {
+    final String googleMapsUrl = "https://www.google.com/maps/search/?api=1&query=$lat,$long";
+    if (await canLaunch(googleMapsUrl)) {
+      await launch(googleMapsUrl);
+    } else {
+      throw 'Could not open the map.';
     }
   }
 
@@ -248,6 +280,9 @@ class _AdminAbsensiPageState extends State<AdminAbsensiPage> {
                             ? _calculateLateDuration(clockInTime, _designatedStartTime!)
                             : null;
                         var lateReason = data['late_reason'] ?? 'N/A';
+                        var isApproved = data['approved'] ?? false;
+                        var userId = record.reference.parent.parent!.id;
+                        var recordId = record.id;
 
                         return Card(
                           margin: const EdgeInsets.all(8.0),
@@ -264,12 +299,16 @@ class _AdminAbsensiPageState extends State<AdminAbsensiPage> {
                                 _buildTable('Time In', userName, clockInTime, clockInImageUrl, data['clockin_location'] as GeoPoint?, lateReason),
                                 Divider(thickness: 1),
                                 Text('Clock Out', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                                _buildTable('Time Out', null, clockOutTime, clockOutImageUrl, data['clockout_location'] as GeoPoint?),
+                                _buildTable('Time Out', null, clockOutTime, clockOutImageUrl, data['clockout_location'] as GeoPoint?, null, isApproved),
                                 Divider(thickness: 1),
                                 if (workingHours != null)
                                   _buildDurationTable('Working Hours', _formattedDuration(workingHours)),
                                 if (lateDuration != null)
                                   _buildDurationTable('Late Duration', _formattedDuration(lateDuration)),
+                                if (!isApproved && clockOutTime != null)
+                                  _buildEditButton(recordId),
+                                if (_editableRecordId == recordId)
+                                  _buildApprovalButtons(context, recordId, userId, isApproved),
                                 if (logbookEntries.isNotEmpty)
                                   Column(
                                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -317,7 +356,7 @@ class _AdminAbsensiPageState extends State<AdminAbsensiPage> {
     );
   }
 
-  Table _buildTable(String timeType, String? userName, DateTime? time, String? imageUrl, GeoPoint? location, [String? lateReason]) {
+  Table _buildTable(String timeType, String? userName, DateTime? time, String? imageUrl, GeoPoint? location, [String? lateReason, bool? isApproved]) {
     return Table(
       border: TableBorder.all(color: Colors.grey),
       columnWidths: const {
@@ -328,6 +367,25 @@ class _AdminAbsensiPageState extends State<AdminAbsensiPage> {
       children: [
         if (userName != null) _buildTableRow('User Name:', userName),
         _buildTableRow('$timeType:', time != null ? _formattedDateTime(time) : 'N/A'),
+        if (location != null)
+          TableRow(
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(8.0),
+                child: Text(
+                  '$timeType Location:',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.all(8.0),
+                child: IconButton(
+                  icon: Icon(Icons.location_on, color: Colors.blue),
+                  onPressed: () => _launchMaps(location.latitude, location.longitude),
+                ),
+              ),
+            ],
+          ),
         if (imageUrl != null && imageUrl.isNotEmpty)
           TableRow(
             children: [
@@ -370,6 +428,8 @@ class _AdminAbsensiPageState extends State<AdminAbsensiPage> {
           ),
         if (lateReason != null && timeType == 'Time In')
           _buildTableRow('Late Reason:', lateReason),
+        if (timeType == 'Time Out' && isApproved != null)
+          _buildTableRow('Approved:', isApproved ? 'Approve' : 'Pending', isBold: true),
       ],
     );
   }
@@ -388,7 +448,7 @@ class _AdminAbsensiPageState extends State<AdminAbsensiPage> {
     );
   }
 
-  TableRow _buildTableRow(String title, String content, {bool isLateDuration = false}) {
+  TableRow _buildTableRow(String title, String content, {bool isLateDuration = false, bool isBold = false}) {
     return TableRow(
       children: [
         Container(
@@ -402,9 +462,10 @@ class _AdminAbsensiPageState extends State<AdminAbsensiPage> {
           padding: EdgeInsets.all(8.0),
           child: Text(
             content,
-            style: isLateDuration
-                ? TextStyle(color: Colors.red, fontWeight: FontWeight.bold)
-                : TextStyle(),
+            style: TextStyle(
+              color: isLateDuration ? Colors.red : null,
+              fontWeight: isBold ? FontWeight.bold : null,
+            ),
           ),
         ),
       ],
@@ -595,6 +656,58 @@ class _AdminAbsensiPageState extends State<AdminAbsensiPage> {
           ],
         );
       },
+    );
+  }
+
+  Widget _buildApprovalButtons(BuildContext context, String recordId, String userId, bool approvalStatus) {
+    return Column(
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Column(
+              children: [
+                IconButton(
+                  icon: Icon(Icons.check_circle, color: Colors.green),
+                  onPressed: () {
+                    _approveRecord(recordId, userId, true);
+                  },
+                ),
+                Text('Approve', style: TextStyle(color: Colors.green, fontSize: 12)),
+              ],
+            ),
+            Column(
+              children: [
+                IconButton(
+                  icon: Icon(Icons.cancel, color: Colors.red),
+                  onPressed: () {
+                    _approveRecord(recordId, userId, false);
+                  },
+                ),
+                Text('Reject', style: TextStyle(color: Colors.red, fontSize: 12)),
+              ],
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildEditButton(String recordId) {
+    return Center(
+      child: Column(
+        children: [
+          IconButton(
+            icon: Icon(Icons.edit, color: Colors.black),
+            onPressed: () {
+              setState(() {
+                _editableRecordId = recordId;
+              });
+            },
+          ),
+          Text('Edit', style: TextStyle(color: Colors.black, fontSize: 12)),
+        ],
+      ),
     );
   }
 }
