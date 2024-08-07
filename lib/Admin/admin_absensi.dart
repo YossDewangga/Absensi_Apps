@@ -429,7 +429,7 @@ class _AdminAbsensiPageState extends State<AdminAbsensiPage> {
         if (lateReason != null && timeType == 'Time In')
           _buildTableRow('Late Reason:', lateReason),
         if (timeType == 'Time Out' && isApproved != null)
-          _buildTableRow('Approved:', isApproved ? 'Approve' : 'Pending', isBold: true),
+          _buildTableRow('Approved:', isApproved ? 'Approved' : 'Pending', isBold: true, isApproved: isApproved),
       ],
     );
   }
@@ -448,7 +448,7 @@ class _AdminAbsensiPageState extends State<AdminAbsensiPage> {
     );
   }
 
-  TableRow _buildTableRow(String title, String content, {bool isLateDuration = false, bool isBold = false}) {
+  TableRow _buildTableRow(String title, String content, {bool isLateDuration = false, bool isBold = false, bool? isApproved}) {
     return TableRow(
       children: [
         Container(
@@ -463,7 +463,7 @@ class _AdminAbsensiPageState extends State<AdminAbsensiPage> {
           child: Text(
             content,
             style: TextStyle(
-              color: isLateDuration ? Colors.red : null,
+              color: isLateDuration ? Colors.red : (isApproved == false ? Colors.red : (isApproved == true ? Colors.green : null)),
               fontWeight: isBold ? FontWeight.bold : null,
             ),
           ),

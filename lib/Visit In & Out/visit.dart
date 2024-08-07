@@ -48,7 +48,7 @@ class _VisitInAndOutPageState extends State<VisitInAndOutPage> {
   Duration _lateDuration = Duration.zero;
   String? _lateReason;
 
-  final double _radius = 2000; // Ubah radius menjadi 100 meter
+  final double _radius = 2000; // Ubah radius menjadi 2000 meter
   bool isLoading = false;
   bool _isOutsideDesignatedArea = false;
 
@@ -123,6 +123,7 @@ class _VisitInAndOutPageState extends State<VisitInAndOutPage> {
       _visitInAddress = prefs.getString('visit_in_address') ?? 'Unknown';
       _visitOutLocation = prefs.getString('visit_out_location') ?? 'Unknown';
       _visitOutAddress = prefs.getString('visit_out_address') ?? 'Unknown';
+      _nextDestination = prefs.getString('next_destination') ?? '';
       if (_visitStatus == 'Visit In' && _visitInCompleted) {
         _loadVisitInDetails();
       }
@@ -190,6 +191,7 @@ class _VisitInAndOutPageState extends State<VisitInAndOutPage> {
     prefs.setString('visit_in_address', _visitInAddress);
     prefs.setString('visit_out_location', _visitOutLocation);
     prefs.setString('visit_out_address', _visitOutAddress);
+    prefs.setString('next_destination', _nextDestination); // Save next destination
   }
 
   Future<void> _visitOut() async {
@@ -207,8 +209,8 @@ class _VisitInAndOutPageState extends State<VisitInAndOutPage> {
           'visit_out_time': _visitOutTime,
           'visit_out_location': _visitOutLocation,
           'visit_out_address': _visitOutAddress,
-          'visit_out_imageUrl': downloadUrl,
-          'next_destination': _selectedOption == 'Pulang' ? 'Pulang' : _nextDestination,
+          'visit_out_imageUrl': downloadUrl, // Save image URL to visit_out_imageUrl
+          'next_destination': _nextDestination,
           'visit_status': 'Visit Out',
           'approved': isApproved,
         });
@@ -226,7 +228,7 @@ class _VisitInAndOutPageState extends State<VisitInAndOutPage> {
 
   Future<void> _showNextDestinationDialog() async {
     TimeOfDay now = TimeOfDay.now();
-    TimeOfDay startTime1 = TimeOfDay(hour: 6, minute: 0);
+    TimeOfDay startTime1 = TimeOfDay(hour: 0, minute: 0);
     TimeOfDay endTime1 = TimeOfDay(hour: 16, minute: 0);
     TimeOfDay startTime2 = TimeOfDay(hour: 16, minute: 1);
     TimeOfDay endTime2 = TimeOfDay(hour: 23, minute: 59);
@@ -239,7 +241,7 @@ class _VisitInAndOutPageState extends State<VisitInAndOutPage> {
         context: context,
         builder: (context) => StatefulBuilder(
           builder: (context, setState) => AlertDialog(
-            title: Text('Tujuan Selanjutnya ?'),
+            title: Text('Masukkan Tujuan Selanjutnya !'),
             content: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -271,7 +273,7 @@ class _VisitInAndOutPageState extends State<VisitInAndOutPage> {
                     onChanged: (value) {
                       _nextDestination = value;
                     },
-                    decoration: InputDecoration(hintText: "Masukkan tujuan selanjutnya"),
+                    decoration: InputDecoration(hintText: "Pilih tujuan selanjutnya !"),
                   ),
               ],
             ),
@@ -284,7 +286,9 @@ class _VisitInAndOutPageState extends State<VisitInAndOutPage> {
                     Navigator.of(context).pop();
                     await _submitNextDestination();
                     if (_selectedOption == 'Pulang') {
-
+                      await _showClockOutConfirmationDialog();
+                    } else {
+                      await _completeVisitOut();
                     }
                   }
                 },
@@ -295,7 +299,35 @@ class _VisitInAndOutPageState extends State<VisitInAndOutPage> {
         ),
       );
     } else if (withinFirstRange) {
-      _showSuccessDialog('Visit Out Completed.');
+      return showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: Text('Tujuan Selanjutnya ?'),
+          content: TextField(
+            onChanged: (value) {
+              setState(() {
+                _nextDestination = value;
+              });
+            },
+            decoration: InputDecoration(hintText: "Masukkan tujuan selanjutnya"),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () async {
+                if (_nextDestination.isEmpty) {
+                  _showAlertDialog('Tujuan Selanjutnya harus diisi.');
+                } else {
+                  Navigator.of(context).pop();
+                  await _submitNextDestination();
+                  await _saveVisitOutToFirestore(await _uploadImageToStorage(_visitOutImage!, 'visit_out_images'), true);
+                  _showSuccessDialog('Visit Out sukses.');
+                }
+              },
+              child: Text('Submit'),
+            ),
+          ],
+        ),
+      );
     } else {
       _showAlertDialog('Waktu tidak valid untuk memasukkan tujuan selanjutnya.');
     }
@@ -306,22 +338,16 @@ class _VisitInAndOutPageState extends State<VisitInAndOutPage> {
     await Future.delayed(Duration(seconds: 2));
   }
 
-  bool _isTimeWithinRange(TimeOfDay now, TimeOfDay start, TimeOfDay end) {
-    final nowMinutes = now.hour * 60 + now.minute;
-    final startMinutes = start.hour * 60 + start.minute;
-    final endMinutes = end.hour * 60 + end.minute;
-    return nowMinutes >= startMinutes && nowMinutes <= endMinutes;
+  Future<void> _completeVisitOut() async {
+    _showSuccessDialog('Visit Out sukses.');
   }
 
   Future<void> _showClockOutConfirmationDialog() async {
-    setState(() {
-      isLoading = true;
-    });
     bool confirmed = await showDialog(
       context: context,
       builder: (context) => AlertDialog(
         title: Text('Konfirmasi Clock Out'),
-        content: Text('Visit Out akan dijadikan Clock Out juga. Setuju?'),
+        content: Text('Visit Out akan dijadikan Clock Out juga.'),
         actions: [
           TextButton(
             onPressed: () {
@@ -335,17 +361,15 @@ class _VisitInAndOutPageState extends State<VisitInAndOutPage> {
 
     if (confirmed) {
       await _autoClockOut();
-      if (mounted) {
-        _showSuccessDialog('Visit Out dan Clock Out sukses.', additionalDialog: true);
-        setState(() {
-          isLoading = false;
-        });
-      }
-    } else {
-      setState(() {
-        isLoading = false;
-      });
+      _showSuccessDialog('Visit Out dan Clock Out sukses.');
     }
+  }
+
+  bool _isTimeWithinRange(TimeOfDay now, TimeOfDay start, TimeOfDay end) {
+    final nowMinutes = now.hour * 60 + now.minute;
+    final startMinutes = start.hour * 60 + start.minute;
+    final endMinutes = end.hour * 60 + end.minute;
+    return nowMinutes >= startMinutes && nowMinutes <= endMinutes;
   }
 
   Future<void> _autoClockIn(DateTime visitInTime, Position visitInPosition, String visitInImageUrl) async {
@@ -682,9 +706,6 @@ class _VisitInAndOutPageState extends State<VisitInAndOutPage> {
           _isOutsideDesignatedArea = !isApproved;
         });
         await _saveVisitStatus();
-
-        await _showClockOutConfirmationDialog(); // Tampilkan dialog konfirmasi clock out
-
       } catch (e) {
         setState(() {
           isLoading = false;
