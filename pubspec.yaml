@@ -62,6 +62,7 @@ dependencies:
   firebase_messaging: 14.9.4
   flutter_launcher_icons: ^0.13.1
   firebase_core_web: ^2.0.0
+  google_maps_flutter_ios: ^2.13.0
 
 
 flutter_launcher_icons:
