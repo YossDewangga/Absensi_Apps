@@ -1,0 +1,17 @@
+workflows:
+  ios-workflow:
+    name: iOS Workflow
+    environment:
+      xcode: latest
+    scripts:
+      - name: Install CocoaPods dependencies
+        script: |
+          cd ios
+          pod repo update
+          pod install
+    artifacts:
+      - build/ios/ipa
+    ios:
+      scheme: "YourAppScheme"
+      project_path: "ios/YourApp.xcodeproj"
+      distribution_type: app-store
