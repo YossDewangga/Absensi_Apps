@@ -78,33 +78,45 @@ class _AdminBreakPageState extends State<AdminBreakPage> {
           ),
           Column(
             children: [
-              AppBar(
-                title: Column(
-                  children: [
-                    const Text('Break History', style: TextStyle(color: Colors.black)),
-                    Container(
-                      margin: const EdgeInsets.only(top: 4.0),
-                      height: 4.0,
-                      width: 60.0,
-                      decoration: BoxDecoration(
-                        color: Colors.black,
-                        borderRadius: BorderRadius.circular(2.0),
-                      ),
+              Container(
+                decoration: BoxDecoration(
+                  color: Colors.teal.shade700,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black26,
+                      offset: Offset(0, 2),
+                      blurRadius: 4.0,
                     ),
                   ],
                 ),
-                centerTitle: true,
-                backgroundColor: Colors.transparent,
-                elevation: 0,
-                iconTheme: const IconThemeData(color: Colors.black),
-                actions: [
-                  IconButton(
-                    icon: FaIcon(FontAwesomeIcons.cog, color: Colors.black),
-                    onPressed: () {
-                      _showSettingsDialog(context);
-                    },
+                child: AppBar(
+                  title: Column(
+                    children: [
+                      Text('Break History', style: TextStyle(color: Colors.white)),
+                      Container(
+                        margin: const EdgeInsets.only(top: 4.0),
+                        height: 4.0,
+                        width: 60.0,
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(2.0),
+                        ),
+                      ),
+                    ],
                   ),
-                ],
+                  centerTitle: true,
+                  backgroundColor: Colors.transparent,
+                  elevation: 0,
+                  iconTheme: const IconThemeData(color: Colors.white),
+                  actions: [
+                    IconButton(
+                      icon: FaIcon(FontAwesomeIcons.cog, color: Colors.white),
+                      onPressed: () {
+                        _showSettingsDialog(context);
+                      },
+                    ),
+                  ],
+                ),
               ),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
@@ -118,7 +130,7 @@ class _AdminBreakPageState extends State<AdminBreakPage> {
                     ExpansionPanel(
                       headerBuilder: (BuildContext context, bool isExpanded) {
                         return ListTile(
-                          title: Text('Select Date', style: TextStyle(fontWeight: FontWeight.bold)),
+                          title: Text('Select Date', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.teal.shade900)),
                         );
                       },
                       body: TableCalendar(
@@ -136,7 +148,7 @@ class _AdminBreakPageState extends State<AdminBreakPage> {
                         },
                         calendarStyle: CalendarStyle(
                           selectedDecoration: BoxDecoration(
-                            color: Colors.blueAccent,
+                            color: Colors.teal.shade700,
                             shape: BoxShape.circle,
                           ),
                           todayDecoration: BoxDecoration(
@@ -194,7 +206,7 @@ class _AdminBreakPageState extends State<AdminBreakPage> {
                     }).toList();
 
                     if (breakLogs.isEmpty) {
-                      return const Center(child: Text('No break logs found for the selected date.', style: TextStyle(color: Colors.black)));
+                      return Center(child: Text('No break logs found for the selected date.', style: TextStyle(color: Colors.teal.shade900)));
                     }
 
                     return ListView.builder(
@@ -242,14 +254,13 @@ class _AdminBreakPageState extends State<AdminBreakPage> {
 
   Table _buildTable(String title, String userName, String displayName, DateTime? startBreak, DateTime? endBreak, String breakDuration) {
     return Table(
-      border: TableBorder.all(color: Colors.grey),
+      border: TableBorder.all(color: Colors.teal.shade700),
       columnWidths: const {
         0: FixedColumnWidth(150),
         1: FlexColumnWidth(),
       },
       defaultVerticalAlignment: TableCellVerticalAlignment.middle,
       children: [
-
         _buildTableRow('User Name:', displayName),
         _buildTableRow('Start Break:', startBreak != null ? _formattedDateTime(startBreak) : 'N/A'),
         _buildTableRow('End Break:', endBreak != null ? _formattedDateTime(endBreak) : 'N/A'),
@@ -265,12 +276,12 @@ class _AdminBreakPageState extends State<AdminBreakPage> {
           padding: EdgeInsets.all(8.0),
           child: Text(
             title,
-            style: TextStyle(fontWeight: FontWeight.bold),
+            style: TextStyle(fontWeight: FontWeight.bold, color: Colors.teal.shade900),
           ),
         ),
         Container(
           padding: EdgeInsets.all(8.0),
-          child: Text(content),
+          child: Text(content, style: TextStyle(color: Colors.teal.shade900)),
         ),
       ],
     );
@@ -284,7 +295,7 @@ class _AdminBreakPageState extends State<AdminBreakPage> {
           Container(
             width: 100,
             height: 20,
-            color: Colors.grey[300],
+            color: Colors.teal.shade50,
           ),
         ],
       ),
@@ -309,15 +320,15 @@ class _AdminBreakPageState extends State<AdminBreakPage> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 ListTile(
-                  title: Text('Set Start Break Time'),
-                  trailing: Icon(Icons.access_time),
+                  title: Text('Set Start Break Time', style: TextStyle(color: Colors.teal.shade900)),
+                  trailing: Icon(Icons.access_time, color: Colors.teal.shade700),
                   onTap: () {
                     _pickTime(context, true);
                   },
                 ),
                 ListTile(
-                  title: Text('Set End Break Time'),
-                  trailing: Icon(Icons.access_time),
+                  title: Text('Set End Break Time', style: TextStyle(color: Colors.teal.shade900)),
+                  trailing: Icon(Icons.access_time, color: Colors.teal.shade700),
                   onTap: () {
                     _pickTime(context, false);
                   },
@@ -332,7 +343,7 @@ class _AdminBreakPageState extends State<AdminBreakPage> {
                           child: SizedBox(
                             height: 100.0,
                             child: Card(
-                              color: Colors.blue[50],
+                              color: Colors.teal.shade50,
                               elevation: 2.0,
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(8.0),
@@ -344,12 +355,12 @@ class _AdminBreakPageState extends State<AdminBreakPage> {
                                   children: [
                                     Text(
                                       'Start Break Time',
-                                      style: TextStyle(fontWeight: FontWeight.bold, color: Colors.blue),
+                                      style: TextStyle(fontWeight: FontWeight.bold, color: Colors.teal.shade700),
                                     ),
                                     SizedBox(height: 4.0),
                                     Text(
                                       _adminStartBreakTime != null ? _formattedDateTime(_adminStartBreakTime!) : 'N/A',
-                                      style: TextStyle(color: Colors.blue),
+                                      style: TextStyle(color: Colors.teal.shade700),
                                     ),
                                   ],
                                 ),
@@ -362,7 +373,7 @@ class _AdminBreakPageState extends State<AdminBreakPage> {
                           child: SizedBox(
                             height: 100.0,
                             child: Card(
-                              color: Colors.red[50],
+                              color: Colors.teal.shade50,
                               elevation: 2.0,
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(8.0),
@@ -374,12 +385,12 @@ class _AdminBreakPageState extends State<AdminBreakPage> {
                                   children: [
                                     Text(
                                       'End Break Time',
-                                      style: TextStyle(fontWeight: FontWeight.bold, color: Colors.red),
+                                      style: TextStyle(fontWeight: FontWeight.bold, color: Colors.teal.shade700),
                                     ),
                                     SizedBox(height: 4.0),
                                     Text(
                                       _adminEndBreakTime != null ? _formattedDateTime(_adminEndBreakTime!) : 'N/A',
-                                      style: TextStyle(color: Colors.red),
+                                      style: TextStyle(color: Colors.teal.shade700),
                                     ),
                                   ],
                                 ),

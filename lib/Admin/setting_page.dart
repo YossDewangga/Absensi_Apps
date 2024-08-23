@@ -1,8 +1,8 @@
-import 'package:absensi_apps/Admin/admin_password.dart';
-import 'package:absensi_apps/User/logout_page.dart';
+import 'package:absensi_apps/Login_Register/login_page.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-
+import 'package:shared_preferences/shared_preferences.dart';
+import 'admin_password.dart';  // Ganti dengan path halaman edit password yang sesuai
 
 class ProfilePage extends StatelessWidget {
   @override
@@ -141,6 +141,54 @@ class ProfilePage extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+void showLogoutDialog(BuildContext context) {
+  showDialog(
+    context: context,
+    builder: (BuildContext context) {
+      return AlertDialog(
+        title: Text('Konfirmasi Logout'),
+        content: Text('Apakah Anda yakin ingin logout?'),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.of(context).pop(); // Menutup dialog
+            },
+            child: Text('Tidak'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.of(context).pop(); // Menutup dialog
+              logout(context); // Panggil fungsi logout
+            },
+            child: Text('Ya'),
+          ),
+        ],
+      );
+    },
+  );
+}
+
+Future<void> logout(BuildContext context) async {
+  try {
+    // Logout dari Firebase
+    await FirebaseAuth.instance.signOut();
+
+    // Clear SharedPreferences (opsional, jika digunakan)
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    await prefs.clear();
+
+    // Navigasi ke halaman logout atau login
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(builder: (context) => LoginPage()), // Arahkan ke halaman login atau logout
+    );
+  } catch (error) {
+    print('Gagal logout: $error');
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Logout gagal: $error')),
     );
   }
 }

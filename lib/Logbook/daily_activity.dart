@@ -140,7 +140,7 @@ class _LogbookPageState extends State<LogbookPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+        Text(label, style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.teal.shade900)),
         SizedBox(height: 8),
         GestureDetector(
           onTap: () async {
@@ -155,12 +155,12 @@ class _LogbookPageState extends State<LogbookPage> {
           child: Container(
             padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             decoration: BoxDecoration(
-              border: Border.all(color: Colors.black, width: 1.0),
+              border: Border.all(color: Colors.teal.shade700, width: 1.0),
               borderRadius: BorderRadius.circular(10),
             ),
             child: Text(
               selectedTime?.format(context) ?? '--:--',
-              style: TextStyle(fontSize: 16),
+              style: TextStyle(fontSize: 16, color: Colors.teal.shade900),
             ),
           ),
         ),
@@ -183,7 +183,7 @@ class _LogbookPageState extends State<LogbookPage> {
           content: Text(message),
           actions: <Widget>[
             TextButton(
-              child: Text("OK"),
+              child: Text("OK", style: TextStyle(color: Colors.teal.shade700)),
               onPressed: () {
                 Navigator.of(context).pop();
               },
@@ -209,7 +209,7 @@ class _LogbookPageState extends State<LogbookPage> {
           content: Text(message),
           actions: <Widget>[
             TextButton(
-              child: Text("OK"),
+              child: Text("OK", style: TextStyle(color: Colors.teal.shade700)),
               onPressed: () {
                 Navigator.of(context).pop();
               },
@@ -224,9 +224,9 @@ class _LogbookPageState extends State<LogbookPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text("Logbook Harian", style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+        Text("Logbook Harian", style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.teal.shade900)),
         SizedBox(height: 10),
-        Text("Catat aktivitas harian Anda dengan detail"),
+        Text("Catat aktivitas harian Anda dengan detail", style: TextStyle(color: Colors.teal.shade700)),
       ],
     );
   }
@@ -237,14 +237,26 @@ class _LogbookPageState extends State<LogbookPage> {
         Expanded(
           child: ElevatedButton(
             onPressed: _addLogbookEntry,
-            child: Text("Tambahkan Entri"),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.teal.shade700,
+            ),
+            child: Text(
+              "Tambahkan Entri",
+              style: TextStyle(color: Colors.white), // Teks menjadi putih
+            ),
           ),
         ),
         SizedBox(width: 16),
         Expanded(
           child: ElevatedButton(
             onPressed: _submitLogbook,
-            child: Text("Submit Logbook"),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.teal.shade700,
+            ),
+            child: Text(
+              "Submit Logbook",
+              style: TextStyle(color: Colors.white), // Teks menjadi putih
+            ),
           ),
         ),
       ],
@@ -254,15 +266,15 @@ class _LogbookPageState extends State<LogbookPage> {
   Widget _buildLogbookEntries() {
     return Container(
       decoration: BoxDecoration(
-        border: Border.all(color: Colors.grey.shade300, width: 1.0),
+        border: Border.all(color: Colors.teal.shade700, width: 1.0),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Table(
-        border: TableBorder.all(color: Colors.grey.shade300),
+        border: TableBorder.all(color: Colors.teal.shade700),
         children: [
           TableRow(
             decoration: BoxDecoration(
-              color: Colors.grey.shade200,
+              color: Colors.teal.shade50,
             ),
             children: [
               _buildTableCell("Mulai", isHeader: true),
@@ -292,6 +304,7 @@ class _LogbookPageState extends State<LogbookPage> {
         style: TextStyle(
           fontWeight: isHeader ? FontWeight.bold : FontWeight.normal,
           fontSize: 16,
+          color: isHeader ? Colors.teal.shade900 : Colors.teal.shade700,
         ),
       ),
     );
@@ -303,6 +316,7 @@ class _LogbookPageState extends State<LogbookPage> {
       appBar: AppBar(
         title: Text("Logbook Harian"),
         centerTitle: true,
+        backgroundColor: Colors.teal.shade700,
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -338,12 +352,17 @@ class _LogbookPageState extends State<LogbookPage> {
                 decoration: InputDecoration(
                   labelText: "Aktivitas",
                   border: OutlineInputBorder(),
+                  labelStyle: TextStyle(color: Colors.teal.shade900),
+                  focusedBorder: OutlineInputBorder(
+                    borderSide: BorderSide(color: Colors.teal.shade700),
+                  ),
                 ),
+                style: TextStyle(color: Colors.teal.shade900),
               ),
               SizedBox(height: 20),
               _buildButtons(),
               SizedBox(height: 20),
-              Text("Daftar Entri:"),
+              Text("Daftar Entri:", style: TextStyle(color: Colors.teal.shade900)),
               SizedBox(height: 10),
               _buildLogbookEntries(),
               Divider(thickness: 1),

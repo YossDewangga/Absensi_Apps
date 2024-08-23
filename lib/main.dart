@@ -1,3 +1,6 @@
+import 'package:absensi_apps/Admin/admin_page.dart';
+import 'package:absensi_apps/Trash/auth_page.dart';
+import 'package:absensi_apps/User/user_page.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
@@ -6,8 +9,8 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:workmanager/workmanager.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
-import 'firebase_options.dart';  // Ensure this is properly set up with your Firebase configuration
-import 'package:absensi_apps/Trash/auth_page.dart';  // Corrected import statement
+import 'firebase_options.dart';
+
 
 final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin = FlutterLocalNotificationsPlugin();
 

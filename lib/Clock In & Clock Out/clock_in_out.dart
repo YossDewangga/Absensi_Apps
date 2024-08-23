@@ -455,11 +455,11 @@ class _ClockPageState extends State<ClockPage> with WidgetsBindingObserver {
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          title: Text("Peringatan"),
-          content: Text(message),
+          title: Text("Peringatan", style: TextStyle(color: Colors.teal.shade900)),
+          content: Text(message, style: TextStyle(color: Colors.teal.shade900)),
           actions: <Widget>[
             TextButton(
-              child: Text("OK"),
+              child: Text("OK", style: TextStyle(color: Colors.teal.shade700)),
               onPressed: () {
                 Navigator.of(context).pop();
               },
@@ -480,13 +480,13 @@ class _ClockPageState extends State<ClockPage> with WidgetsBindingObserver {
             children: [
               Icon(Icons.check_circle, color: Colors.green),
               SizedBox(width: 10),
-              Text("Sukses"),
+              Text("Sukses", style: TextStyle(color: Colors.teal.shade900)),
             ],
           ),
-          content: Text(message),
+          content: Text(message, style: TextStyle(color: Colors.teal.shade900)),
           actions: <Widget>[
             TextButton(
-              child: Text("OK"),
+              child: Text("OK", style: TextStyle(color: Colors.teal.shade700)),
               onPressed: () {
                 Navigator.of(context).pop();
                 // Update the state to reflect late duration without reloading the page
@@ -500,7 +500,9 @@ class _ClockPageState extends State<ClockPage> with WidgetsBindingObserver {
   }
 
   String _formattedDateTime(DateTime dateTime) {
-    return "${_getFormattedDay(dateTime)}, ${dateTime.day} ${_getFormattedMonth(dateTime)} ${dateTime.year} ${_getFormattedTime(dateTime)}";
+    return "${_getFormattedDay(dateTime)},"
+        " ${dateTime.day} ${_getFormattedMonth(dateTime)}"
+        " ${dateTime.year} ${_getFormattedTime(dateTime)}";
   }
 
   String _getFormattedDay(DateTime dateTime) {
@@ -591,6 +593,7 @@ class _ClockPageState extends State<ClockPage> with WidgetsBindingObserver {
           icon: Icon(Icons.arrow_back),
           onPressed: _navigateToUserPage,
         ),
+        backgroundColor: Colors.teal.shade700, // Sesuaikan warna AppBar
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -604,22 +607,22 @@ class _ClockPageState extends State<ClockPage> with WidgetsBindingObserver {
                   children: [
                     Text(
                       'Working Hours:',
-                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.teal.shade900),
                     ),
                     Text(
                       'Start: ${_designatedStartTime!.format(context)}',
-                      style: TextStyle(fontSize: 16),
+                      style: TextStyle(fontSize: 16, color: Colors.teal.shade900),
                     ),
                     Text(
                       'End: ${_designatedEndTime!.format(context)}',
-                      style: TextStyle(fontSize: 16),
+                      style: TextStyle(fontSize: 16, color: Colors.teal.shade900),
                     ),
                     SizedBox(height: 20),
                   ],
                 ),
               Text(
                 'Status: $_clockStatus',
-                style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.teal.shade900),
               ),
               SizedBox(height: 20),
               Row(
@@ -629,14 +632,14 @@ class _ClockPageState extends State<ClockPage> with WidgetsBindingObserver {
                     onPressed: (_clockStatus == 'Clock In') ? null : _pickImage,
                     child: Text('Clock In'),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: (_clockStatus == 'Clock In') ? Colors.grey : Colors.white,
+                      backgroundColor: (_clockStatus == 'Clock In') ? Colors.grey : Colors.teal.shade700, // Warna teal untuk tombol aktif
                       padding: EdgeInsets.symmetric(horizontal: 30, vertical: 20),
                       textStyle: TextStyle(fontSize: 16),
-                      foregroundColor: Colors.black,
+                      foregroundColor: Colors.white, // Warna teks putih
                       minimumSize: Size(150, 60),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(10),
-                        side: BorderSide(color: Colors.grey),
+                        side: BorderSide(color: Colors.teal.shade700), // Border teal
                       ),
                     ),
                   ),
@@ -644,14 +647,14 @@ class _ClockPageState extends State<ClockPage> with WidgetsBindingObserver {
                     onPressed: (_clockStatus == 'Clock Out') ? null : _pickImageForClockOut,
                     child: Text('Clock Out'),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.white,
+                      backgroundColor: Colors.teal.shade700, // Warna teal untuk tombol aktif
                       padding: EdgeInsets.symmetric(horizontal: 30, vertical: 20),
                       textStyle: TextStyle(fontSize: 16),
-                      foregroundColor: Colors.black,
+                      foregroundColor: Colors.white, // Warna teks putih
                       minimumSize: Size(150, 60),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(10),
-                        side: BorderSide(color: Colors.grey),
+                        side: BorderSide(color: Colors.teal.shade700), // Border teal
                       ),
                     ),
                   ),
@@ -664,9 +667,9 @@ class _ClockPageState extends State<ClockPage> with WidgetsBindingObserver {
                     ListTile(
                       title: Text(
                         'Lihat Riwayat Clock In/Out',
-                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.blue),
+                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.teal.shade700),
                       ),
-                      trailing: Icon(Icons.arrow_forward, size: 24, color: Colors.blue),
+                      trailing: Icon(Icons.arrow_forward, size: 24, color: Colors.teal.shade700),
                       onTap: _navigateToHistoryPage,
                     ),
                     Divider(thickness: 1),

@@ -241,12 +241,12 @@ class _VisitInAndOutPageState extends State<VisitInAndOutPage> {
         context: context,
         builder: (context) => StatefulBuilder(
           builder: (context, setState) => AlertDialog(
-            title: Text('Masukkan Tujuan Selanjutnya !'),
+            title: Text('Masukkan Tujuan Selanjutnya !', style: TextStyle(color: Colors.teal.shade900)),
             content: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
                 RadioListTile<String>(
-                  title: Text('Pulang'),
+                  title: Text('Pulang', style: TextStyle(color: Colors.teal.shade900)),
                   value: 'Pulang',
                   groupValue: _selectedOption,
                   onChanged: (value) {
@@ -256,9 +256,10 @@ class _VisitInAndOutPageState extends State<VisitInAndOutPage> {
                       _nextDestination = 'Pulang'; // Set default value to 'Pulang'
                     });
                   },
+                  activeColor: Colors.teal.shade700,
                 ),
                 RadioListTile<String>(
-                  title: Text('Lainnya'),
+                  title: Text('Lainnya', style: TextStyle(color: Colors.teal.shade900)),
                   value: 'Lainnya',
                   groupValue: _selectedOption,
                   onChanged: (value) {
@@ -267,13 +268,14 @@ class _VisitInAndOutPageState extends State<VisitInAndOutPage> {
                       _isOtherOptionSelected = true;
                     });
                   },
+                  activeColor: Colors.teal.shade700,
                 ),
                 if (_isOtherOptionSelected)
                   TextField(
                     onChanged: (value) {
                       _nextDestination = value;
                     },
-                    decoration: InputDecoration(hintText: "Pilih tujuan selanjutnya !"),
+                    decoration: InputDecoration(hintText: "Pilih tujuan selanjutnya !", hintStyle: TextStyle(color: Colors.teal.shade700)),
                   ),
               ],
             ),
@@ -292,7 +294,7 @@ class _VisitInAndOutPageState extends State<VisitInAndOutPage> {
                     }
                   }
                 },
-                child: Text('Submit'),
+                child: Text('Submit', style: TextStyle(color: Colors.teal.shade700)),
               ),
             ],
           ),
@@ -302,14 +304,14 @@ class _VisitInAndOutPageState extends State<VisitInAndOutPage> {
       return showDialog(
         context: context,
         builder: (context) => AlertDialog(
-          title: Text('Tujuan Selanjutnya ?'),
+          title: Text('Tujuan Selanjutnya ?', style: TextStyle(color: Colors.teal.shade900)),
           content: TextField(
             onChanged: (value) {
               setState(() {
                 _nextDestination = value;
               });
             },
-            decoration: InputDecoration(hintText: "Masukkan tujuan selanjutnya"),
+            decoration: InputDecoration(hintText: "Masukkan tujuan selanjutnya", hintStyle: TextStyle(color: Colors.teal.shade700)),
           ),
           actions: [
             TextButton(
@@ -323,7 +325,7 @@ class _VisitInAndOutPageState extends State<VisitInAndOutPage> {
                   _showSuccessDialog('Visit Out sukses.');
                 }
               },
-              child: Text('Submit'),
+              child: Text('Submit', style: TextStyle(color: Colors.teal.shade700)),
             ),
           ],
         ),
@@ -346,14 +348,14 @@ class _VisitInAndOutPageState extends State<VisitInAndOutPage> {
     bool confirmed = await showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text('Konfirmasi Clock Out'),
-        content: Text('Visit Out akan dijadikan Clock Out juga.'),
+        title: Text('Konfirmasi Clock Out', style: TextStyle(color: Colors.teal.shade900)),
+        content: Text('Visit Out akan dijadikan Clock Out juga.', style: TextStyle(color: Colors.teal.shade900)),
         actions: [
           TextButton(
             onPressed: () {
               Navigator.of(context).pop(true);
             },
-            child: Text('Ya'),
+            child: Text('Ya', style: TextStyle(color: Colors.teal.shade700)),
           ),
         ],
       ),
@@ -532,14 +534,14 @@ class _VisitInAndOutPageState extends State<VisitInAndOutPage> {
   }
 
   void _updateVisitInDateTime() {
-    final DateFormat formatter = DateFormat.yMMMMd('id_ID').add_jm();
+    final DateFormat formatter = DateFormat.yMMMMd('id_ID').addPattern(" HH:mm");
     setState(() {
       _visitInDateTime = formatter.format(_visitInTime!);
     });
   }
 
   void _updateVisitOutDateTime() {
-    final DateFormat formatter = DateFormat.yMMMMd('id_ID').add_jm();
+    final DateFormat formatter = DateFormat.yMMMMd('id_ID').addPattern(" HH:mm");
     setState(() {
       _visitOutDateTime = formatter.format(_visitOutTime!);
     });
@@ -567,11 +569,11 @@ class _VisitInAndOutPageState extends State<VisitInAndOutPage> {
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          title: Text('Peringatan'),
-          content: Text(message),
+          title: Text('Peringatan', style: TextStyle(color: Colors.teal.shade900)),
+          content: Text(message, style: TextStyle(color: Colors.teal.shade900)),
           actions: <Widget>[
             TextButton(
-              child: Text('OK'),
+              child: Text('OK', style: TextStyle(color: Colors.teal.shade700)),
               onPressed: () {
                 Navigator.of(context).pop();
               },
@@ -590,10 +592,10 @@ class _VisitInAndOutPageState extends State<VisitInAndOutPage> {
           children: [
             Icon(Icons.check_circle, color: Colors.green),
             SizedBox(width: 10),
-            Text('Sukses'),
+            Text('Sukses', style: TextStyle(color: Colors.teal.shade900)),
           ],
         ),
-        content: Text(message),
+        content: Text(message, style: TextStyle(color: Colors.teal.shade900)),
         actions: [
           TextButton(
             onPressed: () {
@@ -605,7 +607,7 @@ class _VisitInAndOutPageState extends State<VisitInAndOutPage> {
                 isLoading = false;
               });
             },
-            child: Text('OK'),
+            child: Text('OK', style: TextStyle(color: Colors.teal.shade700)),
           ),
         ],
       ),
@@ -620,16 +622,16 @@ class _VisitInAndOutPageState extends State<VisitInAndOutPage> {
           children: [
             Icon(Icons.warning, color: Colors.orange),
             SizedBox(width: 10),
-            Text('Peringatan'),
+            Text('Peringatan', style: TextStyle(color: Colors.teal.shade900)),
           ],
         ),
-        content: Text('Visit Out Completed, but you are outside the designated area'),
+        content: Text('Visit Out Completed, but you are outside the designated area', style: TextStyle(color: Colors.teal.shade900)),
         actions: [
           TextButton(
             onPressed: () {
               Navigator.of(context).pop();
             },
-            child: Text('OK'),
+            child: Text('OK', style: TextStyle(color: Colors.teal.shade700)),
           ),
         ],
       ),
@@ -637,7 +639,14 @@ class _VisitInAndOutPageState extends State<VisitInAndOutPage> {
   }
 
   void _showSnackBar(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+            content: Text(
+                message,
+                style: TextStyle(color: Colors.white)
+            )
+        )
+    );
   }
 
   Future<void> _startVisitInProcess() async {
@@ -724,8 +733,24 @@ class _VisitInAndOutPageState extends State<VisitInAndOutPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Visit In/Out'),
+        title: Column(
+          children: [
+            const Text('Visit In/Out', style: TextStyle(color: Colors.white)),
+            Container(
+              margin: const EdgeInsets.only(top: 4.0),
+              height: 4.0,
+              width: 60.0,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(2.0),
+              ),
+            ),
+          ],
+        ),
         centerTitle: true,
+        backgroundColor: Colors.teal.shade700,
+        elevation: 4.0,
+        iconTheme: const IconThemeData(color: Colors.white),
       ),
       body: Stack(
         children: [
@@ -738,13 +763,13 @@ class _VisitInAndOutPageState extends State<VisitInAndOutPage> {
                   _buildHeader(),
                   SizedBox(height: 20),
                   _buildButtons(),
-                  Divider(thickness: 1),
+                  Divider(thickness: 1, color: Colors.teal.shade700),
                   ListTile(
                     title: Text(
                       'Lihat Log Kunjungan',
-                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.blue),
+                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.teal.shade900),
                     ),
-                    trailing: Icon(Icons.arrow_forward, size: 24, color: Colors.blue),
+                    trailing: Icon(Icons.arrow_forward, size: 24, color: Colors.teal.shade700),
                     onTap: () {
                       Navigator.push(
                         context,
@@ -752,7 +777,7 @@ class _VisitInAndOutPageState extends State<VisitInAndOutPage> {
                       );
                     },
                   ),
-                  Divider(thickness: 1),
+                  Divider(thickness: 1, color: Colors.teal.shade700),
                 ],
               ),
             ),
@@ -773,20 +798,20 @@ class _VisitInAndOutPageState extends State<VisitInAndOutPage> {
         Center(
           child: Text(
             'Silakan gunakan tombol di bawah untuk mencatat waktu kunjungan masuk dan keluar.',
-            style: TextStyle(fontSize: 16),
+            style: TextStyle(fontSize: 16, color: Colors.teal.shade900),
             textAlign: TextAlign.center,
           ),
         ),
         SizedBox(height: 20),
-        Divider(thickness: 2),
+        Divider(thickness: 2, color: Colors.teal.shade700),
         Center(
           child: Text(
             'Status Saat Ini: $_visitStatus',
-            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.blue),
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.teal.shade900),
             textAlign: TextAlign.center,
           ),
         ),
-        Divider(thickness: 2),
+        Divider(thickness: 2, color: Colors.teal.shade700),
       ],
     );
   }
@@ -802,7 +827,7 @@ class _VisitInAndOutPageState extends State<VisitInAndOutPage> {
               icon: Icon(Icons.login),
               label: Text('Visit In'),
               style: ElevatedButton.styleFrom(
-                backgroundColor: _visitInCompleted && !_visitOutCompleted ? Colors.grey : Colors.blue,
+                backgroundColor: _visitInCompleted && !_visitOutCompleted ? Colors.grey : Colors.teal.shade700,
                 padding: EdgeInsets.symmetric(horizontal: 30, vertical: 20),
                 textStyle: TextStyle(fontSize: 16),
                 foregroundColor: Colors.white,

@@ -224,7 +224,7 @@ class _BreakStartEndPageState extends State<BreakStartEndPage> {
 
   void _vibratePhone() {
     Vibration.vibrate();
-    }
+  }
 
   String _calculateBreakDuration() {
     if (_startBreakTime != null && _endBreakTime != null) {
@@ -286,9 +286,9 @@ class _BreakStartEndPageState extends State<BreakStartEndPage> {
       padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
       margin: const EdgeInsets.symmetric(vertical: 8.0),
       decoration: BoxDecoration(
-        color: Colors.grey[200],
+        color: Colors.teal.shade50,
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: Colors.black, width: 1.0),
+        border: Border.all(color: Colors.teal.shade700, width: 1.0),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.center,
@@ -300,12 +300,13 @@ class _BreakStartEndPageState extends State<BreakStartEndPage> {
               style: TextStyle(
                 fontSize: textSize,
                 fontWeight: FontWeight.bold,
+                color: Colors.teal.shade900,
               ),
             ),
           ),
           Padding(
             padding: const EdgeInsets.only(top: 4.0, bottom: 0.0),
-            child: Divider(thickness: 1),
+            child: Divider(thickness: 1, color: Colors.teal.shade700),
           ),
           Expanded(
             child: Center(
@@ -313,6 +314,7 @@ class _BreakStartEndPageState extends State<BreakStartEndPage> {
                 content,
                 style: TextStyle(
                   fontSize: contentTextSize,
+                  color: Colors.teal.shade700,
                 ),
                 textAlign: TextAlign.center,
               ),
@@ -340,10 +342,11 @@ class _BreakStartEndPageState extends State<BreakStartEndPage> {
           appBar: AppBar(
             title: Text('Break Start/End'),
             centerTitle: true,
+            backgroundColor: Colors.teal.shade700,
             actions: _isAdmin
                 ? [
               IconButton(
-                icon: Icon(Icons.settings),
+                icon: Icon(Icons.settings, color: Colors.white),
                 onPressed: () {
                   _showAdminSettingsDialog(context);
                 },
@@ -362,29 +365,29 @@ class _BreakStartEndPageState extends State<BreakStartEndPage> {
                       Column(
                         children: [
                           Text(
-                            'Break Time Set :',
-                            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                            'Break Time Set:',
+                            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.teal.shade900),
                           ),
                           Text(
                             'Start: ${_formatTime(_adminStartBreakTime!)}',
-                            style: TextStyle(fontSize: 16),
+                            style: TextStyle(fontSize: 16, color: Colors.teal.shade700),
                           ),
                           Text(
                             'End: ${_formatTime(_adminEndBreakTime!)}',
-                            style: TextStyle(fontSize: 16),
+                            style: TextStyle(fontSize: 16, color: Colors.teal.shade700),
                           ),
                           SizedBox(height: 20),
                         ],
                       ),
                     Text(
                       'Break Status: ${_isBreakStarted ? 'Started' : 'Not Started'}',
-                      style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                      style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.teal.shade900),
                     ),
                     SizedBox(height: 20),
                     if (_isBreakStarted)
                       Text(
                         'Remaining Time: ${_remainingTime.inMinutes.toString().padLeft(2, '0')}:${_remainingTime.inSeconds.remainder(60).toString().padLeft(2, '0')}',
-                        style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                        style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.teal.shade700),
                       ),
                     SizedBox(height: 30),
                     Row(
@@ -392,31 +395,29 @@ class _BreakStartEndPageState extends State<BreakStartEndPage> {
                       children: <Widget>[
                         ElevatedButton(
                           onPressed: (!_isBreakStarted && !_isBreakEndedAutomatically) ? _startBreak : null,
-                          child: Text('Start Break'),
+                          child: Text('Start Break', style: TextStyle(color: Colors.white)),
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.white,
+                            backgroundColor: Colors.teal.shade700,
                             padding: EdgeInsets.symmetric(horizontal: 30, vertical: 20),
                             textStyle: TextStyle(fontSize: 16),
-                            foregroundColor: Colors.black,
                           ),
                         ),
                         ElevatedButton(
                           onPressed: (_isBreakStarted || _isBreakEndedAutomatically) ? _endBreak : null,
-                          child: Text('End Break'),
+                          child: Text('End Break', style: TextStyle(color: Colors.white)),
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.white,
+                            backgroundColor: Colors.teal.shade700,
                             padding: EdgeInsets.symmetric(horizontal: 30, vertical: 20),
                             textStyle: TextStyle(fontSize: 16),
-                            foregroundColor: Colors.black,
                           ),
                         ),
                       ],
                     ),
                     SizedBox(height: 15),
-                    Divider(thickness: 2),
+                    Divider(thickness: 2, color: Colors.teal.shade700),
                     SizedBox(height: 5),
                     SizedBox(height: 15),
-                    Divider(thickness: 1),
+                    Divider(thickness: 1, color: Colors.teal.shade700),
                     ListTile(
                       title: Text(
                         'Lihat Log Break',
@@ -430,7 +431,7 @@ class _BreakStartEndPageState extends State<BreakStartEndPage> {
                         );
                       },
                     ),
-                    Divider(thickness: 1),
+                    Divider(thickness: 1, color: Colors.teal.shade700),
                     if (_isAdmin) ...[
                       SizedBox(height: 20),
                       _buildLogBox(
@@ -443,7 +444,12 @@ class _BreakStartEndPageState extends State<BreakStartEndPage> {
                       ),
                       ElevatedButton(
                         onPressed: () => _pickTime(context, true),
-                        child: Text('Set Start Time'),
+                        child: Text('Set Start Time', style: TextStyle(color: Colors.white)),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.teal.shade700,
+                          padding: EdgeInsets.symmetric(horizontal: 30, vertical: 20),
+                          textStyle: TextStyle(fontSize: 16),
+                        ),
                       ),
                       SizedBox(height: 15),
                       _buildLogBox(
@@ -456,7 +462,12 @@ class _BreakStartEndPageState extends State<BreakStartEndPage> {
                       ),
                       ElevatedButton(
                         onPressed: () => _pickTime(context, false),
-                        child: Text('Set End Time'),
+                        child: Text('Set End Time', style: TextStyle(color: Colors.white)),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.teal.shade700,
+                          padding: EdgeInsets.symmetric(horizontal: 30, vertical: 20),
+                          textStyle: TextStyle(fontSize: 16),
+                        ),
                       ),
                     ],
                   ],
@@ -474,21 +485,24 @@ class _BreakStartEndPageState extends State<BreakStartEndPage> {
       context: context,
       builder: (BuildContext context) {
         return Dialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20.0),
+          ),
           child: Container(
             padding: EdgeInsets.all(16.0),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
                 ListTile(
-                  title: Text('Set Start Break Time'),
-                  trailing: Icon(Icons.access_time),
+                  title: Text('Set Start Break Time', style: TextStyle(color: Colors.teal.shade900)),
+                  trailing: Icon(Icons.access_time, color: Colors.teal.shade700),
                   onTap: () {
                     _pickTime(context, true);
                   },
                 ),
                 ListTile(
-                  title: Text('Set End Break Time'),
-                  trailing: Icon(Icons.access_time),
+                  title: Text('Set End Break Time', style: TextStyle(color: Colors.teal.shade900)),
+                  trailing: Icon(Icons.access_time, color: Colors.teal.shade700),
                   onTap: () {
                     _pickTime(context, false);
                   },

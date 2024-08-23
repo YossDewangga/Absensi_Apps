@@ -19,23 +19,80 @@ class _AdminPageState extends State<AdminPage> {
   int _selectedIndex = 0;
 
   static final List<Widget> _pages = <Widget>[
-    const AdminAbsensiPage(),
-    AdminActivityPage(),
-    AdminApprovalPage(),
-    const AdminBreakPage(),
-    AdminLeavePage(),
+    const AdminAbsensiPage(), // Halaman Absensi tetap ada
     const KaryawanListPage(),
+    AdminLeavePage(),
     ProfilePage(),
   ];
 
   void _onItemTapped(int index) {
-    setState(() {
-      _selectedIndex = index;
-    });
+    if (index == 0) {
+      _showAbsensiOptions(context);  // Menampilkan bottom sheet untuk Absensi
+    } else {
+      setState(() {
+        _selectedIndex = index;
+      });
+    }
   }
 
   void signUserOut() {
     FirebaseAuth.instance.signOut();
+  }
+
+  void _showAbsensiOptions(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      builder: (BuildContext context) {
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget>[
+            ListTile(
+              leading: const Icon(Icons.access_time),
+              title: const Text('Absensi'),
+              onTap: () {
+                Navigator.pop(context);  // Tutup bottom sheet
+                setState(() {
+                  _selectedIndex = 0;  // Pilih halaman Absensi Utama
+                });
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.access_alarm),
+              title: const Text('Activity'),
+              onTap: () {
+                Navigator.pop(context);  // Tutup bottom sheet
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => AdminActivityPage()),
+                );
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.report),
+              title: const Text('Visit'),
+              onTap: () {
+                Navigator.pop(context);  // Tutup bottom sheet
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => AdminApprovalPage()),
+                );
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.coffee),
+              title: const Text('Break'),
+              onTap: () {
+                Navigator.pop(context);  // Tutup bottom sheet
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const AdminBreakPage()),
+                );
+              },
+            ),
+          ],
+        );
+      },
+    );
   }
 
   @override
@@ -61,24 +118,12 @@ class _AdminPageState extends State<AdminPage> {
             label: 'Absensi',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.access_alarm),
-            label: 'Activity',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.report),
-            label: 'Visit',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.coffee),
-            label: 'Break',
+            icon: Icon(Icons.people),
+            label: 'Karyawan',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.beach_access), // Icon for Cuti
             label: 'Cuti',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.people),
-            label: 'Karyawan',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.settings),

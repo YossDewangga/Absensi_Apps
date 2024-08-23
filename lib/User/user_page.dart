@@ -6,6 +6,7 @@ import 'package:absensi_apps/Break/start_&_end_break.dart';
 import 'package:absensi_apps/Cuti/leave_page.dart';
 import '../Clock In & Clock Out/clock_in_out.dart';
 import '../Visit In & Out/visit.dart';
+import 'dart:ui';
 
 class UserPage extends StatefulWidget {
   UserPage({Key? key}) : super(key: key);
@@ -38,34 +39,30 @@ class _UserPageState extends State<UserPage> {
     return Scaffold(
       body: Stack(
         children: [
-          Container(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topRight,
-                end: Alignment.bottomLeft,
-                colors: [
-                  Colors.white,
-                  Colors.white,
-                ],
-              ),
+          // Gambar sebagai latar belakang utama
+          Positioned(
+            top: 300,
+            left: -155,
+            child: Image.asset(
+              'assets/images/Tridaya.png',
+              width: 700,
+              height: 400,
+              fit: BoxFit.cover,
+              color: Colors.black.withOpacity(0.6),
+              colorBlendMode: BlendMode.darken,
             ),
           ),
           SingleChildScrollView(
             child: Column(
               children: [
                 Container(
-                  padding: EdgeInsets.only(
-                      top: 70, left: 15, right: 30, bottom: 15),
+                  padding: EdgeInsets.only(top: 70, left: 15, right: 30, bottom: 15),
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.only(
                       bottomLeft: Radius.circular(20),
                       bottomRight: Radius.circular(30),
                     ),
-                    gradient: LinearGradient(
-                      colors: [Colors.white, Colors.white],
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                    ),
+                    color: Colors.teal.shade700.withOpacity(0.9),
                     boxShadow: [
                       BoxShadow(
                         color: Colors.black.withOpacity(0.2),
@@ -85,7 +82,7 @@ class _UserPageState extends State<UserPage> {
                           fontWeight: FontWeight.w600,
                           letterSpacing: 1,
                           wordSpacing: 2,
-                          color: Colors.black,
+                          color: Colors.white,
                         ),
                       ),
                       Row(
@@ -96,17 +93,15 @@ class _UserPageState extends State<UserPage> {
                             style: TextStyle(
                               fontSize: 18,
                               fontWeight: FontWeight.normal,
-                              color: Colors.black,
+                              color: Colors.white,
                             ),
                           ),
                           IconButton(
-                            icon: Icon(Icons.person,
-                                size: 30, color: Colors.black),
+                            icon: Icon(Icons.person, size: 30, color: Colors.white),
                             onPressed: () {
                               Navigator.push(
                                 context,
-                                MaterialPageRoute(
-                                    builder: (context) => ProfilePage()),
+                                MaterialPageRoute(builder: (context) => ProfilePage()),
                               );
                             },
                           ),
@@ -127,167 +122,65 @@ class _UserPageState extends State<UserPage> {
                         shrinkWrap: true,
                         physics: NeverScrollableScrollPhysics(),
                         children: [
-                          GestureDetector(
+                          _buildManualGlassCard(
+                            context: context,
+                            icon: Icons.access_time,
+                            label: 'Absensi',
                             onTap: () {
                               Navigator.push(
                                 context,
-                                MaterialPageRoute(
-                                    builder: (context) => ClockPage()),
+                                MaterialPageRoute(builder: (context) => ClockPage()),
                               );
                             },
-                            child: Card(
-                              elevation: 4,
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(
-                                    Icons.access_time,
-                                    size: 30,
-                                    color: Colors.black,
-                                  ),
-                                  SizedBox(height: 5),
-                                  Text(
-                                    'Absensi',
-                                    style: TextStyle(
-                                      color: Colors.black,
-                                      fontSize: 12,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
                           ),
-                          GestureDetector(
+                          _buildManualGlassCard(
+                            context: context,
+                            icon: Icons.book,
+                            label: 'Daily Activity',
                             onTap: () {
                               Navigator.push(
                                 context,
-                                MaterialPageRoute(
-                                    builder: (context) => LogbookPage()),
+                                MaterialPageRoute(builder: (context) => LogbookPage()),
                               );
                             },
-                            child: Card(
-                              elevation: 4,
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(
-                                    Icons.book,
-                                    size: 30,
-                                    color: Colors.black,
-                                  ),
-                                  SizedBox(height: 5),
-                                  Text(
-                                    'Daily Activity',
-                                    textAlign: TextAlign.center,
-                                    style: TextStyle(
-                                      color: Colors.black,
-                                      fontSize: 12,
-                                      height: 1.0,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
                           ),
-                          GestureDetector(
+                          _buildManualGlassCard(
+                            context: context,
+                            icon: Icons.free_breakfast,
+                            label: 'Break',
                             onTap: () {
                               Navigator.push(
                                 context,
-                                MaterialPageRoute(
-                                    builder: (context) =>
-                                        BreakStartEndPage()),
+                                MaterialPageRoute(builder: (context) => BreakStartEndPage()),
                               );
                             },
-                            child: Card(
-                              elevation: 4,
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(
-                                    Icons.free_breakfast,
-                                    size: 30,
-                                    color: Colors.black,
-                                  ),
-                                  SizedBox(height: 5),
-                                  Text(
-                                    'Break',
-                                    style: TextStyle(
-                                      color: Colors.black,
-                                      fontSize: 12,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
                           ),
-                          GestureDetector(
+                          _buildManualGlassCard(
+                            context: context,
+                            icon: Icons.work,
+                            label: 'Visit',
                             onTap: () {
                               Navigator.push(
                                 context,
-                                MaterialPageRoute(
-                                    builder: (context) =>
-                                        VisitInAndOutPage()),
+                                MaterialPageRoute(builder: (context) => VisitInAndOutPage()),
                               );
                             },
-                            child: Card(
-                              elevation: 4,
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(
-                                    Icons.work,
-                                    size: 30,
-                                    color: Colors.black,
-                                  ),
-                                  SizedBox(height: 5),
-                                  Text(
-                                    'Visit',
-                                    style: TextStyle(
-                                      color: Colors.black,
-                                      fontSize: 12,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
                           ),
                         ],
                       ),
                       SizedBox(height: 20),
-                      GestureDetector(
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                                builder: (context) =>
-                                    LeaveApplicationPage()),
-                          );
-                        },
-                        child: Card(
-                          elevation: 4,
-                          child: Container(
-                            width: double.infinity,
-                            height: 87, // Set the height to make it rectangular
-                            padding: EdgeInsets.symmetric(vertical: 20),
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(
-                                  Icons.airplane_ticket,
-                                  size: 30,
-                                  color: Colors.black,
-                                ),
-                                Text(
-                                  'Cuti',
-                                  textAlign: TextAlign.center,
-                                  style: TextStyle(
-                                    color: Colors.black,
-                                    fontSize: 12,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
+                      Align(
+                        alignment: Alignment.center,
+                        child: _buildManualGlassCard(
+                          context: context,
+                          icon: Icons.airplane_ticket,
+                          label: 'Cuti',
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(builder: (context) => LeaveApplicationPage()),
+                            );
+                          },
                         ),
                       ),
                     ],
@@ -297,6 +190,64 @@ class _UserPageState extends State<UserPage> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildManualGlassCard({
+    required BuildContext context,
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: SizedBox(
+        height: 150, // Samakan tinggi dengan card lainnya
+        width: 150, // Samakan lebar dengan card lainnya
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(10.0),
+          child: Stack(
+            children: [
+              // Efek blur
+              Positioned.fill(
+                child: BackdropFilter(
+                  filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10), // Atur tingkat blur
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.1), // Atur tingkat transparansi
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                        color: Colors.white.withOpacity(0.1), // Warna border
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      icon,
+                      size: 30,
+                      color: Colors.teal.shade700, // Warna ikon
+                    ),
+                    SizedBox(height: 5),
+                    Text(
+                      label,
+                      style: TextStyle(
+                        color: Colors.teal.shade700,
+                        fontSize: 12,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

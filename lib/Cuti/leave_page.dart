@@ -4,8 +4,6 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
-
-
 class LeaveApplicationPage extends StatefulWidget {
   @override
   _LeaveApplicationPageState createState() => _LeaveApplicationPageState();
@@ -34,7 +32,8 @@ class _LeaveApplicationPageState extends State<LeaveApplicationPage> {
       User? user = FirebaseAuth.instance.currentUser;
       if (user != null) {
         _userId = user.uid;
-        DocumentSnapshot userDoc = await FirebaseFirestore.instance.collection('users').doc(_userId).get();
+        DocumentSnapshot userDoc =
+        await FirebaseFirestore.instance.collection('users').doc(_userId).get();
         if (userDoc.exists) {
           Map<String, dynamic>? userData = userDoc.data() as Map<String, dynamic>?;
           if (userData != null && !userData.containsKey('leave_quota')) {
@@ -88,13 +87,15 @@ class _LeaveApplicationPageState extends State<LeaveApplicationPage> {
 
   Future<void> _submitLeaveApplication() async {
     if (_startDate == null || _endDate == null || _keteranganController.text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Harap isi semua bidang')));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('Harap isi semua bidang')));
       return;
     }
 
     int leaveDays = _endDate!.difference(_startDate!).inDays + 1;
     if (_leaveQuota < leaveDays) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Sisa cuti tidak mencukupi untuk pengajuan ini')));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('Sisa cuti tidak mencukupi untuk pengajuan ini')));
       return;
     }
 
@@ -108,7 +109,8 @@ class _LeaveApplicationPageState extends State<LeaveApplicationPage> {
       }
 
       // Simpan data pengajuan cuti ke sub-koleksi leave_applications di dalam dokumen pengguna
-      DocumentReference userDocRef = FirebaseFirestore.instance.collection('users').doc(_userId);
+      DocumentReference userDocRef =
+      FirebaseFirestore.instance.collection('users').doc(_userId);
       await userDocRef.collection('leave_applications').add({
         'displayName': _displayName,
         'userId': _userId,
@@ -119,7 +121,8 @@ class _LeaveApplicationPageState extends State<LeaveApplicationPage> {
         'submitted_at': DateTime.now(),
       });
 
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Pengajuan cuti berhasil diajukan')));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('Pengajuan cuti berhasil diajukan')));
       _keteranganController.clear();
       setState(() {
         _startDate = null;
@@ -128,7 +131,8 @@ class _LeaveApplicationPageState extends State<LeaveApplicationPage> {
         _endDateString = 'Pilih Tanggal Selesai';
       });
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Gagal mengajukan cuti: $e')));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('Gagal mengajukan cuti: $e')));
     } finally {
       setState(() {
         _isSubmitting = false;
@@ -149,6 +153,7 @@ class _LeaveApplicationPageState extends State<LeaveApplicationPage> {
       appBar: AppBar(
         title: Text('Pengajuan Cuti'),
         centerTitle: true,
+        backgroundColor: Colors.teal.shade700,
       ),
       body: _isLoading
           ? Center(child: CircularProgressIndicator())
@@ -174,7 +179,8 @@ class _LeaveApplicationPageState extends State<LeaveApplicationPage> {
                         GestureDetector(
                           onTap: () => _selectDate(context, true),
                           child: Container(
-                            padding: EdgeInsets.symmetric(vertical: 12, horizontal: 10),
+                            padding: EdgeInsets.symmetric(
+                                vertical: 12, horizontal: 10),
                             decoration: BoxDecoration(
                               border: Border.all(color: Colors.grey),
                               borderRadius: BorderRadius.circular(5),
@@ -195,7 +201,8 @@ class _LeaveApplicationPageState extends State<LeaveApplicationPage> {
                         GestureDetector(
                           onTap: () => _selectDate(context, false),
                           child: Container(
-                            padding: EdgeInsets.symmetric(vertical: 12, horizontal: 10),
+                            padding: EdgeInsets.symmetric(
+                                vertical: 12, horizontal: 10),
                             decoration: BoxDecoration(
                               border: Border.all(color: Colors.grey),
                               borderRadius: BorderRadius.circular(5),
@@ -218,14 +225,19 @@ class _LeaveApplicationPageState extends State<LeaveApplicationPage> {
                 maxLines: 3,
               ),
               SizedBox(height: 20),
-              Text('Sisa Cuti: $_leaveQuota hari', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              Text('Sisa Cuti: $_leaveQuota hari',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
               SizedBox(height: 20),
               _isSubmitting
                   ? Center(child: CircularProgressIndicator())
                   : ElevatedButton(
                 onPressed: _submitLeaveApplication,
-                child: Text('Kirim Pengajuan'),
+                  child: Text(
+                  'Kirim Pengajuan',
+                  style: TextStyle(color: Colors.white), // Teks putih
+                ),
                 style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.teal.shade700, // Warna tombol
                   minimumSize: Size(double.infinity, 50),
                 ),
               ),
@@ -233,13 +245,19 @@ class _LeaveApplicationPageState extends State<LeaveApplicationPage> {
               ListTile(
                 title: Text(
                   'Lihat Log Cuti',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.blue),
+                  style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.blue),
                 ),
-                trailing: Icon(Icons.arrow_forward, size: 24, color: Colors.blue),
+                trailing: Icon(Icons.arrow_forward,
+                    size: 24, color: Colors.blue),
                 onTap: () {
                   Navigator.push(
                     context,
-                    MaterialPageRoute(builder: (context) => HistoryLeavePage(userId: _userId)),
+                    MaterialPageRoute(
+                        builder: (context) =>
+                            HistoryLeavePage(userId: _userId)),
                   );
                 },
               ),

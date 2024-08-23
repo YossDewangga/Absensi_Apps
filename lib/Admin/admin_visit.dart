@@ -80,20 +80,20 @@ class _AdminApprovalPageState extends State<AdminApprovalPage> {
       },
       child: Scaffold(
         appBar: AppBar(
-          title: const Text('Visit Approval', style: TextStyle(color: Colors.black)),
+          title: Text('Visit Approval', style: TextStyle(color: Colors.white)),
           centerTitle: true,
-          backgroundColor: Colors.transparent,
-          elevation: 0,
-          iconTheme: const IconThemeData(color: Colors.black),
+          backgroundColor: Colors.teal.shade700,
+          elevation: 4,
+          iconTheme: IconThemeData(color: Colors.white),
         ),
         body: Stack(
           children: [
             Container(
-              decoration: const BoxDecoration(
+              decoration: BoxDecoration(
                 gradient: LinearGradient(
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
-                  colors: [Colors.white, Colors.white],
+                  colors: [Colors.white, Colors.teal.shade50],
                 ),
               ),
             ),
@@ -110,8 +110,8 @@ class _AdminApprovalPageState extends State<AdminApprovalPage> {
                     children: [
                       ExpansionPanel(
                         headerBuilder: (BuildContext context, bool isExpanded) {
-                          return const ListTile(
-                            title: Text('Select Date', style: TextStyle(fontWeight: FontWeight.bold)),
+                          return ListTile(
+                            title: Text('Select Date', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.teal.shade900)),
                           );
                         },
                         body: TableCalendar(
@@ -127,9 +127,9 @@ class _AdminApprovalPageState extends State<AdminApprovalPage> {
                               _selectedDate = selectedDay;
                             });
                           },
-                          calendarStyle: const CalendarStyle(
+                          calendarStyle: CalendarStyle(
                             selectedDecoration: BoxDecoration(
-                              color: Colors.blueAccent,
+                              color: Colors.teal.shade700,
                               shape: BoxShape.circle,
                             ),
                             todayDecoration: BoxDecoration(
@@ -148,7 +148,7 @@ class _AdminApprovalPageState extends State<AdminApprovalPage> {
                     stream: FirebaseFirestore.instance.collectionGroup('visits').snapshots(),
                     builder: (context, snapshot) {
                       if (!snapshot.hasData) {
-                        return const Center(child: CircularProgressIndicator());
+                        return Center(child: CircularProgressIndicator());
                       }
 
                       var visits = snapshot.data!.docs;
@@ -168,8 +168,8 @@ class _AdminApprovalPageState extends State<AdminApprovalPage> {
                       }).toList();
 
                       if (visits.isEmpty) {
-                        return const Center(
-                          child: Text('No visits found for the selected date.', style: TextStyle(color: Colors.black)),
+                        return Center(
+                          child: Text('No visits found for the selected date.', style: TextStyle(color: Colors.teal.shade900)),
                         );
                       }
 
@@ -202,7 +202,7 @@ class _AdminApprovalPageState extends State<AdminApprovalPage> {
                             future: _getUserDisplayName(userId),
                             builder: (context, snapshot) {
                               if (!snapshot.hasData) {
-                                return const Center(child: CircularProgressIndicator());
+                                return Center(child: CircularProgressIndicator());
                               }
 
                               var displayName = snapshot.data ?? 'Unknown';
@@ -219,8 +219,8 @@ class _AdminApprovalPageState extends State<AdminApprovalPage> {
                                     crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
                                       _buildUserTable('Nama User', displayName),
-                                      const Divider(thickness: 1),
-                                      Text('Visit In', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                                      Divider(thickness: 1, color: Colors.teal.shade700),
+                                      Text('Visit In', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.teal.shade900)),
                                       _buildVisitLog(
                                         context,
                                         'Visit In',
@@ -229,8 +229,8 @@ class _AdminApprovalPageState extends State<AdminApprovalPage> {
                                         visitInAddress,
                                         visitInImageUrl,
                                       ),
-                                      const Divider(thickness: 1),
-                                      Text('Visit Out', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                                      Divider(thickness: 1, color: Colors.teal.shade700),
+                                      Text('Visit Out', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.teal.shade900)),
                                       _buildVisitLog(
                                         context,
                                         'Visit Out',
@@ -240,7 +240,7 @@ class _AdminApprovalPageState extends State<AdminApprovalPage> {
                                         visitOutImageUrl,
                                         nextDestination,
                                       ),
-                                      const Divider(thickness: 1),
+                                      Divider(thickness: 1, color: Colors.teal.shade700),
                                       _buildApprovalRow(approvalStatus),
                                       if (_editableVisitId == visitId)
                                         _buildApprovalButtons(context, visitId, userId, approvalStatus)
@@ -279,9 +279,9 @@ class _AdminApprovalPageState extends State<AdminApprovalPage> {
           children: [
             Padding(
               padding: const EdgeInsets.all(8.0),
-              child: const Text(
+              child: Text(
                 'Location:',
-                style: TextStyle(fontWeight: FontWeight.bold),
+                style: TextStyle(fontWeight: FontWeight.bold, color: Colors.teal.shade900),
               ),
             ),
             Padding(
@@ -300,7 +300,7 @@ class _AdminApprovalPageState extends State<AdminApprovalPage> {
                   _openLocation(location);
                 },
               )
-                  : Text(location?.toString() ?? 'N/A'),
+                  : Text(location?.toString() ?? 'N/A', style: TextStyle(color: Colors.teal.shade700)),
             ),
           ],
         ),
@@ -312,9 +312,9 @@ class _AdminApprovalPageState extends State<AdminApprovalPage> {
             children: [
               Padding(
                 padding: const EdgeInsets.all(8.0),
-                child: const Text(
+                child: Text(
                   'Image:',
-                  style: TextStyle(fontWeight: FontWeight.bold),
+                  style: TextStyle(fontWeight: FontWeight.bold, color: Colors.teal.shade900),
                 ),
               ),
               Padding(
@@ -337,7 +337,7 @@ class _AdminApprovalPageState extends State<AdminApprovalPage> {
 
   Table _buildUserTable(String title, String userName) {
     return Table(
-      border: TableBorder.all(color: Colors.grey),
+      border: TableBorder.all(color: Colors.teal.shade700),
       columnWidths: const {
         0: FixedColumnWidth(150),
         1: FlexColumnWidth(),
@@ -356,12 +356,12 @@ class _AdminApprovalPageState extends State<AdminApprovalPage> {
           padding: const EdgeInsets.all(8.0),
           child: Text(
             title,
-            style: const TextStyle(fontWeight: FontWeight.bold),
+            style: TextStyle(fontWeight: FontWeight.bold, color: Colors.teal.shade900),
           ),
         ),
         Container(
           padding: const EdgeInsets.all(8.0),
-          child: Text(content),
+          child: Text(content, style: TextStyle(color: Colors.teal.shade700)),
         ),
       ],
     );
@@ -376,6 +376,7 @@ class _AdminApprovalPageState extends State<AdminApprovalPage> {
           'Approval Status: ',
           style: TextStyle(
             fontWeight: FontWeight.bold,
+            color: Colors.teal.shade900,
           ),
         ),
         Text(
@@ -428,14 +429,14 @@ class _AdminApprovalPageState extends State<AdminApprovalPage> {
       child: Column(
         children: [
           IconButton(
-            icon: Icon(Icons.edit, color: Colors.black),
+            icon: Icon(Icons.edit, color: Colors.teal.shade900),
             onPressed: () {
               setState(() {
                 _editableVisitId = visitId;
               });
             },
           ),
-          Text('Edit', style: TextStyle(color: Colors.black, fontSize: 12)),
+          Text('Edit', style: TextStyle(color: Colors.teal.shade900, fontSize: 12)),
         ],
       ),
     );
@@ -465,7 +466,6 @@ class _AdminApprovalPageState extends State<AdminApprovalPage> {
       },
     );
   }
-
 
   String _formattedDateTime(DateTime dateTime) {
     return "${dateTime.day}-${dateTime.month}-${dateTime.year} ${dateTime.hour}:${dateTime.minute}";

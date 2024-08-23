@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:absensi_apps/Login_Register/register_page.dart';
 
-
 class KaryawanListPage extends StatefulWidget {
   const KaryawanListPage({super.key});
 
@@ -18,29 +17,19 @@ class _KaryawanListPageState extends State<KaryawanListPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Karyawan List'),
+        title: const Text('Karyawan List', style: TextStyle(color: Colors.white)),
         centerTitle: true,
+        backgroundColor: Colors.teal.shade700,
         actions: [
           IconButton(
-            icon: const Icon(Icons.add),
-            onPressed: () => _navigateToRegisterPage(),
+            icon: const Icon(Icons.add, color: Colors.white),
+            onPressed: _navigateToRegisterPage,
           ),
         ],
-        titleSpacing: 0.0, // Mengatur spasi judul
-        toolbarHeight: 70.0, // Mengatur tinggi AppBar
+        titleSpacing: 0.0,
+        toolbarHeight: 70.0,
         flexibleSpace: Align(
-          alignment: Alignment.topCenter, // Mengatur posisi teks ke atas
-          child: Padding(
-            padding: const EdgeInsets.only(top: 10.0), // Mengatur padding atas
-            child: const Text(
-              'Karyawan List',
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-                color: Colors.white,
-              ),
-            ),
-          ),
+          alignment: Alignment.topCenter,
         ),
       ),
       body: StreamBuilder<QuerySnapshot>(
@@ -78,13 +67,13 @@ class _KaryawanListPageState extends State<KaryawanListPage> {
                       width: 80,
                       height: 30,
                       alignment: Alignment.center,
-                      child: const Text('Admin'),
+                      child: Text('Admin', style: TextStyle(color: Colors.teal.shade900)),
                     ),
                     Container(
                       width: 80,
                       height: 30,
                       alignment: Alignment.center,
-                      child: const Text('Karyawan'),
+                      child: Text('Karyawan', style: TextStyle(color: Colors.teal.shade900)),
                     ),
                   ],
                 ),
@@ -124,10 +113,10 @@ class _KaryawanListPageState extends State<KaryawanListPage> {
       ),
       child: Text(
         title,
-        style: const TextStyle(
+        style: TextStyle(
           fontSize: 24,
           fontWeight: FontWeight.bold,
-          color: Colors.black,
+          color: Colors.teal.shade900,
         ),
       ),
     );
@@ -172,11 +161,11 @@ class _KaryawanListPageState extends State<KaryawanListPage> {
   Color _getAvatarColor(String role) {
     switch (role) {
       case 'Admin':
-        return Colors.red; // Example color for Admin
+        return Colors.blueAccent;
       case 'Karyawan':
-        return Colors.blue; // Example color for Karyawan
+        return Colors.redAccent;
       default:
-        return Colors.grey; // Default color
+        return Colors.grey;
     }
   }
 

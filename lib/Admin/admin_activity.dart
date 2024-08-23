@@ -19,8 +19,10 @@ class _AdminActivityPageState extends State<AdminActivityPage> {
     return Scaffold(
       appBar: AppBar(
         title: const Center(
-          child: Text('Riwayat Logbook'),
+          child: Text('Riwayat Logbook', style: TextStyle(color: Colors.white)),
         ),
+        backgroundColor: Colors.teal.shade700,
+        elevation: 4.0,
       ),
       body: Column(
         children: [
@@ -35,8 +37,8 @@ class _AdminActivityPageState extends State<AdminActivityPage> {
               children: [
                 ExpansionPanel(
                   headerBuilder: (BuildContext context, bool isExpanded) {
-                    return const ListTile(
-                      title: Text('Pilih Tanggal', style: TextStyle(fontWeight: FontWeight.bold)),
+                    return ListTile(
+                      title: Text('Pilih Tanggal', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.teal.shade900)),
                     );
                   },
                   body: TableCalendar(
@@ -52,9 +54,9 @@ class _AdminActivityPageState extends State<AdminActivityPage> {
                         _selectedDate = selectedDay;
                       });
                     },
-                    calendarStyle: const CalendarStyle(
+                    calendarStyle: CalendarStyle(
                       selectedDecoration: BoxDecoration(
-                        color: Colors.blueAccent,
+                        color: Colors.teal.shade700,
                         shape: BoxShape.circle,
                       ),
                       todayDecoration: BoxDecoration(
@@ -101,7 +103,12 @@ class _AdminActivityPageState extends State<AdminActivityPage> {
                     }
 
                     if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                      return const Center(child: Text('Belum ada entri logbook untuk tanggal ini.'));
+                      return Center(
+                        child: Text(
+                          'Belum ada entri logbook untuk tanggal ini.',
+                          style: TextStyle(color: Colors.teal.shade900),
+                        ),
+                      );
                     }
 
                     var records = snapshot.data!.docs;
@@ -115,7 +122,12 @@ class _AdminActivityPageState extends State<AdminActivityPage> {
                     }).toList();
 
                     if (records.isEmpty) {
-                      return const Center(child: Text('Tidak ada catatan untuk tanggal yang dipilih.', style: TextStyle(color: Colors.black)));
+                      return Center(
+                        child: Text(
+                          'Tidak ada catatan untuk tanggal yang dipilih.',
+                          style: TextStyle(color: Colors.teal.shade900),
+                        ),
+                      );
                     }
 
                     return ListView.builder(
@@ -127,16 +139,16 @@ class _AdminActivityPageState extends State<AdminActivityPage> {
 
                         return Container(
                           decoration: BoxDecoration(
-                            border: Border.all(color: Colors.grey.shade300),
+                            border: Border.all(color: Colors.teal.shade700),
                             borderRadius: BorderRadius.circular(8),
                           ),
                           margin: const EdgeInsets.all(8.0),
                           child: Table(
-                            border: TableBorder.all(color: Colors.grey.shade300),
+                            border: TableBorder.all(color: Colors.teal.shade700),
                             children: [
                               TableRow(
                                 decoration: BoxDecoration(
-                                  color: Colors.grey.shade200,
+                                  color: Colors.teal.shade50,
                                 ),
                                 children: [
                                   _buildTableCell("Mulai", isHeader: true),
@@ -180,6 +192,7 @@ class _AdminActivityPageState extends State<AdminActivityPage> {
         style: TextStyle(
           fontWeight: isHeader ? FontWeight.bold : FontWeight.normal,
           fontSize: 16,
+          color: isHeader ? Colors.teal.shade900 : Colors.teal.shade700,
         ),
       ),
     );

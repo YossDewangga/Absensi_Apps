@@ -1,8 +1,8 @@
+import 'package:absensi_apps/Admin/admin_absensi.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../Admin/admin_page.dart';
 import '../User/user_page.dart';
 import 'forgot_password_page.dart';
 import '../Components/my_button.dart';
@@ -65,7 +65,7 @@ class _LoginPageState extends State<LoginPage> {
           if (role == 'Admin') {
             Navigator.pushReplacement(
               context,
-              MaterialPageRoute(builder: (context) => AdminPage()),
+              MaterialPageRoute(builder: (context) => AdminAbsensiPage()),
             );
           } else if (role == 'Karyawan') {
             Navigator.pushReplacement(

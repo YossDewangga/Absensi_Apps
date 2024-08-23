@@ -9,27 +9,34 @@ Future<void> logout(BuildContext context) async {
   final user = FirebaseAuth.instance.currentUser;
 
   if (user != null) {
-    print('User ID: ${user.uid}'); // Logging user ID
-    // Update Firestore dan tunggu sampai selesai
-    await FirebaseFirestore.instance.collection('users').doc(user.uid).update({
-      'isLoggedIn': false,
-    }).then((value) async {
-      print('isLoggedIn diatur ke false'); // Logging sukses
+    print('User ID: ${user.uid}');
+
+    try {
+      // Update Firestore
+      await FirebaseFirestore.instance.collection('users').doc(user.uid).update({
+        'isLoggedIn': false,
+      });
+      print('isLoggedIn diatur ke false');
+
+      // Sign out
       await FirebaseAuth.instance.signOut();
+
+      // Clear shared preferences
       SharedPreferences prefs = await SharedPreferences.getInstance();
       await prefs.clear();
+
+      // Navigate to login page
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(builder: (context) => LoginPage()),
       );
-    }).catchError((error) {
-      // Tangani kesalahan, mungkin tampilkan Snackbar atau Dialog
-      print('Gagal memperbarui isLoggedIn: $error'); // Logging kesalahan
+    } catch (error) {
+      print('Gagal logout: $error');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Logout gagal: $error')),
       );
-    });
+    }
   } else {
-    print('Tidak ada pengguna yang masuk'); // Logging jika tidak ada pengguna yang masuk
+    print('Tidak ada pengguna yang masuk');
   }
 }
 

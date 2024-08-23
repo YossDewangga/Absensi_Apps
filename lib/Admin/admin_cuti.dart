@@ -90,25 +90,37 @@ class _AdminLeavePageState extends State<AdminLeavePage> {
           ),
           Column(
             children: [
-              AppBar(
-                title: Column(
-                  children: [
-                    const Text('Pengajuan Cuti', style: TextStyle(color: Colors.black)),
-                    Container(
-                      margin: const EdgeInsets.only(top: 4.0),
-                      height: 4.0,
-                      width: 60.0,
-                      decoration: BoxDecoration(
-                        color: Colors.black,
-                        borderRadius: BorderRadius.circular(2.0),
-                      ),
+              Container(
+                decoration: BoxDecoration(
+                  color: Colors.teal.shade700, // Mengatur warna latar belakang AppBar
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black26,
+                      offset: Offset(0, 2),
+                      blurRadius: 4.0,
                     ),
                   ],
                 ),
-                centerTitle: true,
-                backgroundColor: Colors.transparent,
-                elevation: 0,
-                iconTheme: const IconThemeData(color: Colors.black),
+                child: AppBar(
+                  title: Column(
+                    children: [
+                      Text('Pengajuan Cuti', style: TextStyle(color: Colors.white)),
+                      Container(
+                        margin: const EdgeInsets.only(top: 4.0),
+                        height: 4.0,
+                        width: 60.0,
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(2.0),
+                        ),
+                      ),
+                    ],
+                  ),
+                  centerTitle: true,
+                  backgroundColor: Colors.transparent,
+                  elevation: 0, // Hilangkan bayangan default AppBar
+                  iconTheme: IconThemeData(color: Colors.white),
+                ),
               ),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
@@ -175,7 +187,7 @@ class _AdminLeavePageState extends State<AdminLeavePage> {
                     }).toList();
 
                     if (records.isEmpty) {
-                      return const Center(child: Text('Tidak ada pengajuan cuti.', style: TextStyle(color: Colors.black)));
+                      return Center(child: Text('Tidak ada pengajuan cuti.', style: TextStyle(color: Colors.black)));
                     }
 
                     return ListView.builder(

@@ -121,235 +121,231 @@ class _AdminAbsensiPageState extends State<AdminAbsensiPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Stack(
-        children: [
-          Container(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [
-                  Colors.white,
-                  Colors.white,
-                ],
+      appBar: AppBar(
+        title: Column(
+          children: [
+            const Text('Absensi Approval', style: TextStyle(color: Colors.white)),
+            Container(
+              margin: const EdgeInsets.only(top: 4.0),
+              height: 4.0,
+              width: 60.0,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(2.0),
               ),
             ),
+          ],
+        ),
+        centerTitle: true,
+        backgroundColor: Colors.teal.shade700,
+        elevation: 4.0,
+        iconTheme: const IconThemeData(color: Colors.white),
+        actions: [
+          IconButton(
+            icon: FaIcon(color: Colors.white, FontAwesomeIcons.cog),
+            onPressed: () {
+              _showSettingsDialog(context);
+            },
           ),
-          Column(
-            children: [
-              AppBar(
-                title: Column(
-                  children: [
-                    const Text('Absensi Approval', style: TextStyle(color: Colors.black)),
-                    Container(
-                      margin: const EdgeInsets.only(top: 4.0),
-                      height: 4.0,
-                      width: 60.0,
-                      decoration: BoxDecoration(
-                        color: Colors.black,
-                        borderRadius: BorderRadius.circular(2.0),
+        ],
+      ),
+      body: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+            child: ExpansionPanelList(
+              expansionCallback: (int index, bool isExpanded) {
+                setState(() {
+                  _isCalendarExpanded = !_isCalendarExpanded;
+                });
+              },
+              children: [
+                ExpansionPanel(
+                  headerBuilder: (BuildContext context, bool isExpanded) {
+                    return ListTile(
+                      title: Text('Select Date', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.teal.shade900)),
+                    );
+                  },
+                  body: TableCalendar(
+                    focusedDay: _selectedDate,
+                    firstDay: DateTime(2000),
+                    lastDay: DateTime(2100),
+                    calendarFormat: CalendarFormat.month,
+                    selectedDayPredicate: (day) {
+                      return isSameDay(_selectedDate, day);
+                    },
+                    onDaySelected: (selectedDay, focusedDay) {
+                      setState(() {
+                        _selectedDate = selectedDay;
+                      });
+                    },
+                    calendarStyle: CalendarStyle(
+                      selectedDecoration: BoxDecoration(
+                        color: Colors.teal.shade700,
+                        shape: BoxShape.circle,
+                      ),
+                      todayDecoration: BoxDecoration(
+                        color: Colors.orangeAccent,
+                        shape: BoxShape.circle,
                       ),
                     ),
-                  ],
-                ),
-                centerTitle: true,
-                backgroundColor: Colors.transparent,
-                elevation: 0,
-                iconTheme: const IconThemeData(color: Colors.black),
-                actions: [
-                  IconButton(
-                    icon: FaIcon(FontAwesomeIcons.cog, color: Colors.black),
-                    onPressed: () {
-                      _showSettingsDialog(context);
-                    },
                   ),
-                ],
-              ),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-                child: ExpansionPanelList(
-                  expansionCallback: (int index, bool isExpanded) {
-                    setState(() {
-                      _isCalendarExpanded = !_isCalendarExpanded;
-                    });
-                  },
-                  children: [
-                    ExpansionPanel(
-                      headerBuilder: (BuildContext context, bool isExpanded) {
-                        return ListTile(
-                          title: Text('Select Date', style: TextStyle(fontWeight: FontWeight.bold)),
-                        );
-                      },
-                      body: TableCalendar(
-                        focusedDay: _selectedDate,
-                        firstDay: DateTime(2000),
-                        lastDay: DateTime(2100),
-                        calendarFormat: CalendarFormat.month,
-                        selectedDayPredicate: (day) {
-                          return isSameDay(_selectedDate, day);
-                        },
-                        onDaySelected: (selectedDay, focusedDay) {
-                          setState(() {
-                            _selectedDate = selectedDay;
-                          });
-                        },
-                        calendarStyle: CalendarStyle(
-                          selectedDecoration: BoxDecoration(
-                            color: Colors.blueAccent,
-                            shape: BoxShape.circle,
+                  isExpanded: _isCalendarExpanded,
+                ),
+              ],
+            ),
+          ),
+          Expanded(
+            child: StreamBuilder<QuerySnapshot>(
+              stream: FirebaseFirestore.instance.collectionGroup('clockin_records').snapshots(),
+              builder: (context, snapshot) {
+                if (!snapshot.hasData) {
+                  return ListView.builder(
+                    itemCount: 10,
+                    itemBuilder: (context, index) {
+                      return Card(
+                        margin: const EdgeInsets.all(8.0),
+                        elevation: 3.0,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Padding(
+                          padding: const EdgeInsets.all(16.0),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              _buildPlaceholder(),
+                              _buildPlaceholder(),
+                              _buildPlaceholder(),
+                            ],
                           ),
-                          todayDecoration: BoxDecoration(
-                            color: Colors.orangeAccent,
-                            shape: BoxShape.circle,
+                        ),
+                      );
+                    },
+                  );
+                }
+
+                var records = snapshot.data!.docs;
+
+                records = records.where((record) {
+                  var data = record.data() as Map<String, dynamic>;
+                  var clockInTime = data['clock_in_time'] != null
+                      ? (data['clock_in_time'] as Timestamp).toDate()
+                      : null;
+                  return clockInTime != null &&
+                      clockInTime.year == _selectedDate.year &&
+                      clockInTime.month == _selectedDate.month &&
+                      clockInTime.day == _selectedDate.day;
+                }).toList();
+
+                if (records.isEmpty) {
+                  return Center(child: Text('No records found for the selected date.', style: TextStyle(color: Colors.teal.shade900)));
+                }
+
+                return ListView.builder(
+                  itemCount: records.length,
+                  itemBuilder: (context, index) {
+                    var record = records[index];
+                    var data = record.data() as Map<String, dynamic>;
+                    var userName = data['user_name'] ?? 'Unknown';
+                    var clockInTime = data['clock_in_time'] != null
+                        ? (data['clock_in_time'] as Timestamp).toDate()
+                        : null;
+                    var clockOutTime = data['clock_out_time'] != null
+                        ? (data['clock_out_time'] as Timestamp).toDate()
+                        : null;
+                    var workingHours = clockInTime != null && clockOutTime != null
+                        ? clockOutTime.difference(clockInTime)
+                        : null;
+                    var logbookEntries = data['logbook_entries'] != null
+                        ? List<Map<String, dynamic>>.from(data['logbook_entries'])
+                        : <Map<String, dynamic>>[];
+                    var clockInImageUrl = data['image_url'] ?? '';
+                    var clockOutImageUrl = data['clock_out_image_url'] ?? '';
+                    var lateDuration = clockInTime != null && _designatedStartTime != null
+                        ? _calculateLateDuration(clockInTime, _designatedStartTime!)
+                        : null;
+                    var lateReason = data['late_reason'] ?? 'N/A';
+                    var isApproved = data['approved'] ?? false;
+                    var userId = record.reference.parent.parent!.id;
+                    var recordId = record.id;
+
+                    return Card(
+                      margin: const EdgeInsets.all(8.0),
+                      elevation: 3.0,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Container(
+                        decoration: BoxDecoration(
+                          // image: DecorationImage(
+                          //   image: AssetImage('assets/images/Tridaya.png'),
+                          //   fit: BoxFit.cover,
+                          //   colorFilter: ColorFilter.mode(
+                          //     Colors.black.withOpacity(0.2),
+                          //     BlendMode.dstATop,
+                          //   ),
+                          // ),
+                        ),
+                        child: Padding(
+                          padding: const EdgeInsets.all(16.0),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text('Clock In', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.teal.shade900)),
+                              _buildTable('Time In', userName, clockInTime, clockInImageUrl, data['clockin_location'] as GeoPoint?, lateReason),
+                              Divider(thickness: 1, color: Colors.teal.shade700),
+                              Text('Clock Out', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.teal.shade900)),
+                              _buildTable('Time Out', null, clockOutTime, clockOutImageUrl, data['clockout_location'] as GeoPoint?, null, isApproved),
+                              Divider(thickness: 1, color: Colors.teal.shade700),
+                              if (workingHours != null)
+                                _buildDurationTable('Working Hours', _formattedDuration(workingHours)),
+                              if (lateDuration != null)
+                                _buildDurationTable('Late Duration', _formattedDuration(lateDuration)),
+                              if (!isApproved && clockOutTime != null)
+                                _buildEditButton(recordId),
+                              if (_editableRecordId == recordId)
+                                _buildApprovalButtons(context, recordId, userId, isApproved),
+                              if (logbookEntries.isNotEmpty)
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Logbook Entries:',
+                                      style: TextStyle(fontWeight: FontWeight.bold, color: Colors.teal.shade900),
+                                    ),
+                                    Table(
+                                      border: TableBorder.all(color: Colors.teal.shade700),
+                                      columnWidths: const {
+                                        0: FixedColumnWidth(100),
+                                        1: FlexColumnWidth(),
+                                      },
+                                      children: logbookEntries.map((entry) {
+                                        return TableRow(
+                                          children: [
+                                            Padding(
+                                              padding: const EdgeInsets.all(8.0),
+                                              child: Text(entry['time_range'] ?? 'N/A', style: TextStyle(color: Colors.teal.shade900)),
+                                            ),
+                                            Padding(
+                                              padding: const EdgeInsets.all(8.0),
+                                              child: Text(entry['activity'] ?? 'N/A', style: TextStyle(color: Colors.teal.shade900)),
+                                            ),
+                                          ],
+                                        );
+                                      }).toList(),
+                                    ),
+                                  ],
+                                ),
+                            ],
                           ),
                         ),
                       ),
-                      isExpanded: _isCalendarExpanded,
-                    ),
-                  ],
-                ),
-              ),
-              Expanded(
-                child: StreamBuilder<QuerySnapshot>(
-                  stream: FirebaseFirestore.instance.collectionGroup('clockin_records').snapshots(),
-                  builder: (context, snapshot) {
-                    if (!snapshot.hasData) {
-                      return ListView.builder(
-                        itemCount: 10,
-                        itemBuilder: (context, index) {
-                          return Card(
-                            margin: const EdgeInsets.all(8.0),
-                            elevation: 3.0,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: Padding(
-                              padding: const EdgeInsets.all(16.0),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  _buildPlaceholder(),
-                                  _buildPlaceholder(),
-                                  _buildPlaceholder(),
-                                ],
-                              ),
-                            ),
-                          );
-                        },
-                      );
-                    }
-
-                    var records = snapshot.data!.docs;
-
-                    records = records.where((record) {
-                      var data = record.data() as Map<String, dynamic>;
-                      var clockInTime = data['clock_in_time'] != null
-                          ? (data['clock_in_time'] as Timestamp).toDate()
-                          : null;
-                      return clockInTime != null &&
-                          clockInTime.year == _selectedDate.year &&
-                          clockInTime.month == _selectedDate.month &&
-                          clockInTime.day == _selectedDate.day;
-                    }).toList();
-
-                    if (records.isEmpty) {
-                      return const Center(child: Text('No records found for the selected date.', style: TextStyle(color: Colors.black)));
-                    }
-
-                    return ListView.builder(
-                      itemCount: records.length,
-                      itemBuilder: (context, index) {
-                        var record = records[index];
-                        var data = record.data() as Map<String, dynamic>;
-                        var userName = data['user_name'] ?? 'Unknown';
-                        var clockInTime = data['clock_in_time'] != null
-                            ? (data['clock_in_time'] as Timestamp).toDate()
-                            : null;
-                        var clockOutTime = data['clock_out_time'] != null
-                            ? (data['clock_out_time'] as Timestamp).toDate()
-                            : null;
-                        var workingHours = clockInTime != null && clockOutTime != null
-                            ? clockOutTime.difference(clockInTime)
-                            : null;
-                        var logbookEntries = data['logbook_entries'] != null
-                            ? List<Map<String, dynamic>>.from(data['logbook_entries'])
-                            : <Map<String, dynamic>>[];
-                        var clockInImageUrl = data['image_url'] ?? '';
-                        var clockOutImageUrl = data['clock_out_image_url'] ?? '';
-                        var lateDuration = clockInTime != null && _designatedStartTime != null
-                            ? _calculateLateDuration(clockInTime, _designatedStartTime!)
-                            : null;
-                        var lateReason = data['late_reason'] ?? 'N/A';
-                        var isApproved = data['approved'] ?? false;
-                        var userId = record.reference.parent.parent!.id;
-                        var recordId = record.id;
-
-                        return Card(
-                          margin: const EdgeInsets.all(8.0),
-                          elevation: 3.0,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: Padding(
-                            padding: const EdgeInsets.all(16.0),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text('Clock In', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                                _buildTable('Time In', userName, clockInTime, clockInImageUrl, data['clockin_location'] as GeoPoint?, lateReason),
-                                Divider(thickness: 1),
-                                Text('Clock Out', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                                _buildTable('Time Out', null, clockOutTime, clockOutImageUrl, data['clockout_location'] as GeoPoint?, null, isApproved),
-                                Divider(thickness: 1),
-                                if (workingHours != null)
-                                  _buildDurationTable('Working Hours', _formattedDuration(workingHours)),
-                                if (lateDuration != null)
-                                  _buildDurationTable('Late Duration', _formattedDuration(lateDuration)),
-                                if (!isApproved && clockOutTime != null)
-                                  _buildEditButton(recordId),
-                                if (_editableRecordId == recordId)
-                                  _buildApprovalButtons(context, recordId, userId, isApproved),
-                                if (logbookEntries.isNotEmpty)
-                                  Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        'Logbook Entries:',
-                                        style: TextStyle(fontWeight: FontWeight.bold),
-                                      ),
-                                      Table(
-                                        border: TableBorder.all(color: Colors.grey),
-                                        columnWidths: const {
-                                          0: FixedColumnWidth(100),
-                                          1: FlexColumnWidth(),
-                                        },
-                                        children: logbookEntries.map((entry) {
-                                          return TableRow(
-                                            children: [
-                                              Padding(
-                                                padding: const EdgeInsets.all(8.0),
-                                                child: Text(entry['time_range'] ?? 'N/A'),
-                                              ),
-                                              Padding(
-                                                padding: const EdgeInsets.all(8.0),
-                                                child: Text(entry['activity'] ?? 'N/A'),
-                                              ),
-                                            ],
-                                          );
-                                        }).toList(),
-                                      ),
-                                    ],
-                                  ),
-                              ],
-                            ),
-                          ),
-                        );
-                      },
                     );
                   },
-                ),
-              ),
-            ],
+                );
+              },
+            ),
           ),
         ],
       ),
@@ -358,7 +354,7 @@ class _AdminAbsensiPageState extends State<AdminAbsensiPage> {
 
   Table _buildTable(String timeType, String? userName, DateTime? time, String? imageUrl, GeoPoint? location, [String? lateReason, bool? isApproved]) {
     return Table(
-      border: TableBorder.all(color: Colors.grey),
+      border: TableBorder.all(color: Colors.teal.shade700),
       columnWidths: const {
         0: FixedColumnWidth(150),
         1: FlexColumnWidth(),
@@ -374,13 +370,13 @@ class _AdminAbsensiPageState extends State<AdminAbsensiPage> {
                 padding: const EdgeInsets.all(8.0),
                 child: Text(
                   '$timeType Location:',
-                  style: TextStyle(fontWeight: FontWeight.bold),
+                  style: TextStyle(fontWeight: FontWeight.bold, color: Colors.teal.shade900),
                 ),
               ),
               Padding(
                 padding: const EdgeInsets.all(8.0),
                 child: IconButton(
-                  icon: Icon(Icons.location_on, color: Colors.blue),
+                  icon: Icon(Icons.location_on, color: Colors.teal.shade700),
                   onPressed: () => _launchMaps(location.latitude, location.longitude),
                 ),
               ),
@@ -393,7 +389,7 @@ class _AdminAbsensiPageState extends State<AdminAbsensiPage> {
                 padding: const EdgeInsets.all(8.0),
                 child: Text(
                   'Image:',
-                  style: TextStyle(fontWeight: FontWeight.bold),
+                  style: TextStyle(fontWeight: FontWeight.bold, color: Colors.teal.shade900),
                 ),
               ),
               Padding(
@@ -417,12 +413,12 @@ class _AdminAbsensiPageState extends State<AdminAbsensiPage> {
                 padding: const EdgeInsets.all(8.0),
                 child: Text(
                   'Image:',
-                  style: TextStyle(fontWeight: FontWeight.bold),
+                  style: TextStyle(fontWeight: FontWeight.bold, color: Colors.teal.shade900),
                 ),
               ),
               Padding(
                 padding: const EdgeInsets.all(8.0),
-                child: Text('No Image'),
+                child: Text('No Image', style: TextStyle(color: Colors.teal.shade900)),
               ),
             ],
           ),
@@ -436,7 +432,7 @@ class _AdminAbsensiPageState extends State<AdminAbsensiPage> {
 
   Table _buildDurationTable(String title, String content) {
     return Table(
-      border: TableBorder.all(color: Colors.grey),
+      border: TableBorder.all(color: Colors.teal.shade700),
       columnWidths: const {
         0: FixedColumnWidth(150),
         1: FlexColumnWidth(),
@@ -455,7 +451,7 @@ class _AdminAbsensiPageState extends State<AdminAbsensiPage> {
           padding: EdgeInsets.all(8.0),
           child: Text(
             title,
-            style: TextStyle(fontWeight: FontWeight.bold),
+            style: TextStyle(fontWeight: FontWeight.bold, color: Colors.teal.shade900),
           ),
         ),
         Container(
@@ -463,7 +459,7 @@ class _AdminAbsensiPageState extends State<AdminAbsensiPage> {
           child: Text(
             content,
             style: TextStyle(
-              color: isLateDuration ? Colors.red : (isApproved == false ? Colors.red : (isApproved == true ? Colors.green : null)),
+              color: isLateDuration ? Colors.red : (isApproved == false ? Colors.red : (isApproved == true ? Colors.green : Colors.teal.shade900)),
               fontWeight: isBold ? FontWeight.bold : null,
             ),
           ),
@@ -480,7 +476,7 @@ class _AdminAbsensiPageState extends State<AdminAbsensiPage> {
           Container(
             width: 100,
             height: 20,
-            color: Colors.grey[300],
+            color: Colors.teal.shade50,
           ),
         ],
       ),
@@ -525,15 +521,15 @@ class _AdminAbsensiPageState extends State<AdminAbsensiPage> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 ListTile(
-                  title: Text('Set Start Time'),
-                  trailing: Icon(Icons.access_time),
+                  title: Text('Set Start Time', style: TextStyle(color: Colors.teal.shade900)),
+                  trailing: Icon(Icons.access_time, color: Colors.teal.shade700),
                   onTap: () {
                     _selectTime(context, 'designatedStartTime');
                   },
                 ),
                 ListTile(
-                  title: Text('Set End Time'),
-                  trailing: Icon(Icons.access_time),
+                  title: Text('Set End Time', style: TextStyle(color: Colors.teal.shade900)),
+                  trailing: Icon(Icons.access_time, color: Colors.teal.shade700),
                   onTap: () {
                     _selectTime(context, 'designatedEndTime');
                   },
@@ -548,7 +544,7 @@ class _AdminAbsensiPageState extends State<AdminAbsensiPage> {
                           child: SizedBox(
                             height: 100.0,
                             child: Card(
-                              color: Colors.blue[50],
+                              color: Colors.teal.shade50,
                               elevation: 2.0,
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(8.0),
@@ -560,12 +556,12 @@ class _AdminAbsensiPageState extends State<AdminAbsensiPage> {
                                   children: [
                                     Text(
                                       'Start Time',
-                                      style: TextStyle(fontWeight: FontWeight.bold, color: Colors.blue),
+                                      style: TextStyle(fontWeight: FontWeight.bold, color: Colors.teal.shade700),
                                     ),
                                     SizedBox(height: 4.0),
                                     Text(
                                       _designatedStartTime != null ? _designatedStartTime!.format(context) : 'N/A',
-                                      style: TextStyle(color: Colors.blue),
+                                      style: TextStyle(color: Colors.teal.shade700),
                                     ),
                                   ],
                                 ),
@@ -578,7 +574,7 @@ class _AdminAbsensiPageState extends State<AdminAbsensiPage> {
                           child: SizedBox(
                             height: 100.0,
                             child: Card(
-                              color: Colors.red[50],
+                              color: Colors.teal.shade50,
                               elevation: 2.0,
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(8.0),
@@ -590,12 +586,12 @@ class _AdminAbsensiPageState extends State<AdminAbsensiPage> {
                                   children: [
                                     Text(
                                       'End Time',
-                                      style: TextStyle(fontWeight: FontWeight.bold, color: Colors.red),
+                                      style: TextStyle(fontWeight: FontWeight.bold, color: Colors.teal.shade700),
                                     ),
                                     SizedBox(height: 4.0),
                                     Text(
                                       _designatedEndTime != null ? _designatedEndTime!.format(context) : 'N/A',
-                                      style: TextStyle(color: Colors.red),
+                                      style: TextStyle(color: Colors.teal.shade700),
                                     ),
                                   ],
                                 ),
@@ -644,11 +640,11 @@ class _AdminAbsensiPageState extends State<AdminAbsensiPage> {
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          title: Text("Peringatan"),
-          content: Text(message),
+          title: Text("Peringatan", style: TextStyle(color: Colors.teal.shade900)),
+          content: Text(message, style: TextStyle(color: Colors.teal.shade900)),
           actions: <Widget>[
             TextButton(
-              child: Text("OK"),
+              child: Text("OK", style: TextStyle(color: Colors.teal.shade700)),
               onPressed: () {
                 Navigator.of(context).pop();
               },
@@ -698,14 +694,14 @@ class _AdminAbsensiPageState extends State<AdminAbsensiPage> {
       child: Column(
         children: [
           IconButton(
-            icon: Icon(Icons.edit, color: Colors.black),
+            icon: Icon(Icons.edit, color: Colors.teal.shade900),
             onPressed: () {
               setState(() {
                 _editableRecordId = recordId;
               });
             },
           ),
-          Text('Edit', style: TextStyle(color: Colors.black, fontSize: 12)),
+          Text('Edit', style: TextStyle(color: Colors.teal.shade900, fontSize: 12)),
         ],
       ),
     );
