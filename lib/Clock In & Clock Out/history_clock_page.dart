@@ -160,7 +160,7 @@ class _ClockHistoryPageState extends State<ClockHistoryPage> {
                     var approved = data['approved'] ?? false;
                     var lateDuration = data['late_duration'] ?? '-';
                     var lateReason = data['late_reason'] ?? '-';
-                    var totalWorkingHours = data['total_working_hours'] ?? '-';
+                    var totalWorkingHours = data['working_hours'] ?? '-';
 
                     return Card(
                       margin: const EdgeInsets.all(8.0),
@@ -263,10 +263,10 @@ class _ClockHistoryPageState extends State<ClockHistoryPage> {
           padding: const EdgeInsets.all(8.0),
           child: imageUrl != null && imageUrl.isNotEmpty
               ? GestureDetector(
-            onTap: () {
+              onTap: () {
               _showFullImage(context, imageUrl);
-            },
-            child: Center(
+              },
+              child: Center(
               child: Container(
                 width: 100,
                 height: 100,
@@ -301,6 +301,13 @@ class _ClockHistoryPageState extends State<ClockHistoryPage> {
   }
 
   String _formattedDateTime(DateTime dateTime) {
-    return "${dateTime.day}-${dateTime.month}-${dateTime.year} ${dateTime.hour}:${dateTime.minute}:${dateTime.second}";
+    String day = dateTime.day.toString().padLeft(2, '0');
+    String month = dateTime.month.toString().padLeft(2, '0');
+    String year = dateTime.year.toString();
+    String hour = dateTime.hour.toString().padLeft(2, '0');
+    String minute = dateTime.minute.toString().padLeft(2, '0');
+    String second = dateTime.second.toString().padLeft(2, '0');
+
+    return "$day-$month-$year | $hour:$minute:$second";
   }
 }

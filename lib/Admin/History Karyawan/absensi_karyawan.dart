@@ -85,12 +85,6 @@ class _AbsensiPageState extends State<AbsensiPage> {
                       columns: [
                         DataColumn(
                           label: Text(
-                            'Nama',
-                            style: TextStyle(fontWeight: FontWeight.bold, color: Colors.teal.shade900),
-                          ),
-                        ),
-                        DataColumn(
-                          label: Text(
                             'Hari',
                             style: TextStyle(fontWeight: FontWeight.bold, color: Colors.teal.shade900),
                           ),
@@ -132,7 +126,6 @@ class _AbsensiPageState extends State<AbsensiPage> {
 
                         var data = record.data() as Map<String, dynamic>;
 
-                        var userName = data['user_name'] ?? 'Unknown';
                         var clockInTime = data['clock_in_time'] != null
                             ? (data['clock_in_time'] as Timestamp).toDate()
                             : null;
@@ -143,7 +136,6 @@ class _AbsensiPageState extends State<AbsensiPage> {
                         var lateReason = data['late_reason'] ?? 'N/A';
                         var approved = data['approved'] as bool?;
 
-                        // Warna latar belakang untuk baris
                         Color rowColor = index.isEven ? Colors.teal.shade50 : Colors.white;
 
                         return DataRow(
@@ -151,7 +143,6 @@ class _AbsensiPageState extends State<AbsensiPage> {
                             return rowColor;
                           }),
                           cells: [
-                            DataCell(Text(userName, style: TextStyle(fontWeight: FontWeight.bold))),
                             DataCell(Text(clockInTime != null ? _formattedDay(clockInTime) : 'N/A')),
                             DataCell(
                               Column(
@@ -227,7 +218,7 @@ class _AbsensiPageState extends State<AbsensiPage> {
         List<List<dynamic>> rows = [];
 
         rows.add([
-          "Nama",
+          // Kolom Nama dihapus dari sini
           "Hari",
           "Clock In Date",
           "Clock In Time",
@@ -238,10 +229,8 @@ class _AbsensiPageState extends State<AbsensiPage> {
           "Approved"
         ]);
 
-        String? userName;
         for (var record in snapshot.docs) {
           var data = record.data() as Map<String, dynamic>;
-          userName = data['user_name'] ?? 'Unknown';
           var clockInTime = data['clock_in_time'] != null
               ? (data['clock_in_time'] as Timestamp).toDate()
               : null;
@@ -252,9 +241,8 @@ class _AbsensiPageState extends State<AbsensiPage> {
           var lateReason = data['late_reason'] ?? 'N/A';
           var approved = data['approved'] as bool?;
 
-          // Format data agar rapi dan tidak berantakan
           List<dynamic> row = [
-            _padRight(userName!, 20),
+            // Data Nama dihapus dari sini
             _padRight(clockInTime != null ? _formattedDay(clockInTime) : 'N/A', 10),
             _padRight(clockInTime != null ? _formattedDate(clockInTime) : 'N/A', 15),
             _padRight(clockInTime != null ? _formattedTime(clockInTime) : 'N/A', 10),
@@ -271,7 +259,7 @@ class _AbsensiPageState extends State<AbsensiPage> {
         final directory = await _getDownloadDirectory();
 
         String currentMonth = DateFormat('MMMM_yyyy').format(DateTime(widget.selectedYear, widget.selectedMonth));
-        final path = "${directory.path}/absensi_${userName}_$currentMonth.csv";
+        final path = "${directory.path}/absensi_$currentMonth.csv";
 
         final File file = File(path);
         await file.writeAsString(csv);

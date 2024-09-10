@@ -64,6 +64,7 @@ dependencies:
   firebase_core_web: ^2.0.0
   csv: ^6.0.0
   excel: ^4.0.6
+  connectivity_plus: ^2.3.0
 
 
 
@@ -103,6 +104,10 @@ flutter:
     - assets/images/Logo TPI web.png
     - assets/sounds/alarm.mp3
     - assets/images/Tridaya.png
+    - assets/images/bg image.png
+    - assets/images/image 1.jpg
+    - assets/images/image 2.jpg
+    - assets/images/image 3.jpg
 
 
   # An image asset can refer to one or more resolution-specific "variants", see

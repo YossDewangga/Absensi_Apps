@@ -40,161 +40,170 @@ class _UserPageState extends State<UserPage> {
       body: Stack(
         children: [
           // Gambar sebagai latar belakang utama
-          Positioned(
-            top: 300,
-            left: -155,
+          Positioned.fill(
             child: Image.asset(
-              'assets/images/Tridaya.png',
-              width: 700,
-              height: 400,
+              'assets/images/image 1.jpg',
               fit: BoxFit.cover,
-              color: Colors.black.withOpacity(0.6),
+              color: Colors.black.withOpacity(0.1),
               colorBlendMode: BlendMode.darken,
             ),
           ),
-          SingleChildScrollView(
-            child: Column(
-              children: [
-                Container(
-                  padding: EdgeInsets.only(top: 70, left: 15, right: 30, bottom: 15),
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.only(
-                      bottomLeft: Radius.circular(20),
-                      bottomRight: Radius.circular(30),
-                    ),
-                    color: Colors.teal.shade700.withOpacity(0.9),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.2),
-                        spreadRadius: 5,
-                        blurRadius: 7,
-                        offset: Offset(0, 3),
-                      ),
-                    ],
-                  ),
+          Column(
+            children: [
+              Expanded(
+                child: SingleChildScrollView(
                   child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        greeting,
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                          letterSpacing: 1,
-                          wordSpacing: 2,
-                          color: Colors.white,
-                        ),
-                      ),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            formattedName,
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.normal,
-                              color: Colors.white,
+                      Container(
+                        padding: EdgeInsets.only(top: 60, left: 20, right: 30, bottom: 0), // Ubah left dan right
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.only(
+                            bottomLeft: Radius.circular(20),
+                            bottomRight: Radius.circular(30),
+                          ),
+                          color: Colors.teal.shade700.withOpacity(0.9),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.2),
+                              spreadRadius: 5,
+                              blurRadius: 7,
+                              offset: Offset(0, 3),
                             ),
-                          ),
-                          IconButton(
-                            icon: Icon(Icons.person, size: 30, color: Colors.white),
-                            onPressed: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(builder: (context) => ProfilePage()),
-                              );
-                            },
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-                SizedBox(height: 20),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20.0),
-                  child: Column(
-                    children: [
-                      GridView.count(
-                        crossAxisCount: 2,
-                        crossAxisSpacing: 20,
-                        mainAxisSpacing: 20,
-                        shrinkWrap: true,
-                        physics: NeverScrollableScrollPhysics(),
-                        children: [
-                          _buildManualGlassCard(
-                            context: context,
-                            icon: Icons.access_time,
-                            label: 'Absensi',
-                            onTap: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(builder: (context) => ClockPage()),
-                              );
-                            },
-                          ),
-                          _buildManualGlassCard(
-                            context: context,
-                            icon: Icons.book,
-                            label: 'Daily Activity',
-                            onTap: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(builder: (context) => LogbookPage()),
-                              );
-                            },
-                          ),
-                          _buildManualGlassCard(
-                            context: context,
-                            icon: Icons.free_breakfast,
-                            label: 'Break',
-                            onTap: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(builder: (context) => BreakStartEndPage()),
-                              );
-                            },
-                          ),
-                          _buildManualGlassCard(
-                            context: context,
-                            icon: Icons.work,
-                            label: 'Visit',
-                            onTap: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(builder: (context) => VisitInAndOutPage()),
-                              );
-                            },
-                          ),
-                        ],
+                          ],
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              greeting,
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                                letterSpacing: 1,
+                                wordSpacing: 2,
+                                color: Colors.white,
+                              ),
+                            ),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                  formattedName,
+                                  style: TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.normal,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                                IconButton(
+                                  icon: Icon(Icons.person, size: 30, color: Colors.white),
+                                  onPressed: () {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(builder: (context) => ProfilePage()),
+                                    );
+                                  },
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
                       ),
                       SizedBox(height: 20),
-                      Align(
-                        alignment: Alignment.center,
-                        child: _buildManualGlassCard(
-                          context: context,
-                          icon: Icons.airplane_ticket,
-                          label: 'Cuti',
-                          onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(builder: (context) => LeaveApplicationPage()),
-                            );
-                          },
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 20.0),
+                        child: Column(
+                          children: [
+                            GridView.count(
+                              crossAxisCount: 2,
+                              crossAxisSpacing: 20,
+                              mainAxisSpacing: 20,
+                              shrinkWrap: true,
+                              physics: NeverScrollableScrollPhysics(),
+                              children: [
+                                _buildCard(
+                                  context: context,
+                                  icon: Icons.access_time,
+                                  label: 'Absensi',
+                                  onTap: () {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(builder: (context) => ClockPage()),
+                                    );
+                                  },
+                                ),
+                                _buildCard(
+                                  context: context,
+                                  icon: Icons.book,
+                                  label: 'Daily Activity',
+                                  onTap: () {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(builder: (context) => LogbookPage()),
+                                    );
+                                  },
+                                ),
+                                _buildCard(
+                                  context: context,
+                                  icon: Icons.free_breakfast,
+                                  label: 'Break',
+                                  onTap: () {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(builder: (context) => BreakStartEndPage()),
+                                    );
+                                  },
+                                ),
+                                _buildCard(
+                                  context: context,
+                                  icon: Icons.work,
+                                  label: 'Visit',
+                                  onTap: () {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(builder: (context) => VisitInAndOutPage()),
+                                    );
+                                  },
+                                ),
+                              ],
+                            ),
+                            Padding(
+                              padding: const EdgeInsets.only(top: 20.0),
+                              child: Align(
+                                alignment: Alignment.center,
+                                child: SizedBox(
+                                  width: 170, // Atur lebar sesuai kebutuhan
+                                  height: 170, // Atur tinggi sesuai kebutuhan
+                                  child: _buildCard(
+                                    context: context,
+                                    icon: Icons.airplane_ticket,
+                                    label: 'Cuti',
+                                    onTap: () {
+                                      Navigator.push(
+                                        context,
+                                        MaterialPageRoute(builder: (context) => LeaveApplicationPage()),
+                                      );
+                                    },
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
+                      SizedBox(height: 20), // Tambahkan jarak kosong di bagian bawah
                     ],
                   ),
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         ],
       ),
     );
   }
 
-  Widget _buildManualGlassCard({
+  Widget _buildCard({
     required BuildContext context,
     required IconData icon,
     required String label,
@@ -202,48 +211,28 @@ class _UserPageState extends State<UserPage> {
   }) {
     return GestureDetector(
       onTap: onTap,
-      child: SizedBox(
-        height: 150, // Samakan tinggi dengan card lainnya
-        width: 150, // Samakan lebar dengan card lainnya
-        child: ClipRRect(
+      child: Card(
+        shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(10.0),
-          child: Stack(
+        ),
+        elevation: 3,
+        child: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              // Efek blur
-              Positioned.fill(
-                child: BackdropFilter(
-                  filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10), // Atur tingkat blur
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.1), // Atur tingkat transparansi
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(
-                        color: Colors.white.withOpacity(0.1), // Warna border
-                      ),
-                    ),
-                  ),
-                ),
+              Icon(
+                icon,
+                size: 30,
+                color: Colors.teal.shade700, // Warna ikon
               ),
-              Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      icon,
-                      size: 30,
-                      color: Colors.teal.shade700, // Warna ikon
-                    ),
-                    SizedBox(height: 5),
-                    Text(
-                      label,
-                      style: TextStyle(
-                        color: Colors.teal.shade700,
-                        fontSize: 12,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                  ],
+              SizedBox(height: 5),
+              Text(
+                label,
+                style: TextStyle(
+                  color: Colors.teal.shade700,
+                  fontSize: 12,
                 ),
+                textAlign: TextAlign.center,
               ),
             ],
           ),

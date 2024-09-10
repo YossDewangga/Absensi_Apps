@@ -18,6 +18,7 @@ class _RegisterPageState extends State<RegisterPage> {
   final TextEditingController userIdController = TextEditingController();
   final TextEditingController firstnameController = TextEditingController();
   final TextEditingController lastnameController = TextEditingController();
+  String? selectedDepartment;
   User? user;
 
   String role = "Karyawan";
@@ -81,7 +82,6 @@ class _RegisterPageState extends State<RegisterPage> {
         userIdController.clear();
         firstnameController.clear();
         lastnameController.clear();
-
       } else {
         _showErrorMessage("Passwords don't match!");
       }
@@ -107,8 +107,6 @@ class _RegisterPageState extends State<RegisterPage> {
   }
 
   Future<void> postDetailsToFirestore(String userId) async {
-    // Menggunakan nilai dari controller User ID
-
     try {
       await FirebaseFirestore.instance.collection('users').doc(userId).set({
         'User ID': userIdController.text,
@@ -117,6 +115,7 @@ class _RegisterPageState extends State<RegisterPage> {
         'Email': emailController.text,
         'Password': passwordController.text,
         'role': role,
+        'department': selectedDepartment, // Menyimpan department yang dipilih
         'displayName': '${firstnameController.text} ${lastnameController.text}',
       });
       print('User data added to Firestore successfully');
@@ -154,7 +153,6 @@ class _RegisterPageState extends State<RegisterPage> {
                 ),
               ),
               SizedBox(height: 10.0),
-
               TextField(
                 controller: userIdController,
                 decoration: InputDecoration(
@@ -172,6 +170,7 @@ class _RegisterPageState extends State<RegisterPage> {
                 ),
               ),
               SizedBox(height: 10.0),
+
 
               TextField(
                 controller: firstnameController,
@@ -208,6 +207,38 @@ class _RegisterPageState extends State<RegisterPage> {
                 ),
               ),
               SizedBox(height: 10.0),
+              // Dropdown untuk pilihan department
+              DropdownButtonFormField<String>(
+                decoration: InputDecoration(
+                  labelText: "Department",
+                  enabledBorder: OutlineInputBorder(
+                    borderSide: BorderSide(color: Colors.white),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderSide: BorderSide(color: Colors.blueAccent),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  fillColor: Colors.grey[200],
+                  filled: true,
+                ),
+                value: selectedDepartment,
+                items: <String>['Direktur', 'Purchasing','Finance','Account Manager',
+                  'Marketing', 'Mobile Apps Development','Technical Support']
+                    .map((String department) {
+                  return DropdownMenuItem<String>(
+                    value: department,
+                    child: Text(department),
+                  );
+                }).toList(),
+                onChanged: (String? newValue) {
+                  setState(() {
+                    selectedDepartment = newValue;
+                  });
+                },
+              ),
+              SizedBox(height: 10.0),
+
 
               TextField(
                 controller: emailController,
@@ -237,7 +268,7 @@ class _RegisterPageState extends State<RegisterPage> {
                           ? Icons.visibility
                           : Icons.visibility_off,
                     ),
-                    onPressed: () { 
+                    onPressed: () {
                       setState(() {
                         _isPasswordVisible = !_isPasswordVisible;
                       });
@@ -270,7 +301,8 @@ class _RegisterPageState extends State<RegisterPage> {
                     ),
                     onPressed: () {
                       setState(() {
-                        _isConfirmPasswordVisible = !_isConfirmPasswordVisible;
+                        _isConfirmPasswordVisible =
+                        !_isConfirmPasswordVisible;
                       });
                     },
                   ),
@@ -286,30 +318,6 @@ class _RegisterPageState extends State<RegisterPage> {
                   fillColor: Colors.grey[200],
                   filled: true,
                 ),
-              ),
-              SizedBox(height: 10.0),
-
-              Row(
-                children: [
-                  Text('Select Role: '),
-                  DropdownButton<String>(
-                    value: role,
-                    onChanged: (String? newValue) {
-                      if (newValue != null) {
-                        setState(() {
-                          role = newValue;
-                        });
-                      }
-                    },
-                    items: <String>['Karyawan', 'Admin']
-                        .map<DropdownMenuItem<String>>((String value) {
-                      return DropdownMenuItem<String>(
-                        value: value,
-                        child: Text(value),
-                      );
-                    }).toList(),
-                  ),
-                ],
               ),
               SizedBox(height: 20.0),
 

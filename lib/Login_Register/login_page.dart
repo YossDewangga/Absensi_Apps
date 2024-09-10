@@ -32,6 +32,7 @@ class _LoginPageState extends State<LoginPage> {
       return;
     }
 
+    // Menampilkan loading spinner
     showDialog(
       context: context,
       builder: (context) {
@@ -42,6 +43,7 @@ class _LoginPageState extends State<LoginPage> {
     );
 
     try {
+      // Otentikasi pengguna menggunakan Firebase
       UserCredential userCredential = await FirebaseAuth.instance.signInWithEmailAndPassword(
         email: emailController.text,
         password: passwordController.text,
@@ -49,19 +51,26 @@ class _LoginPageState extends State<LoginPage> {
 
       User? user = userCredential.user;
 
+      // Menghilangkan dialog spinner setelah login berhasil
       Navigator.pop(context);
 
       if (mounted && user != null) {
+        // Mendapatkan data pengguna dari Firestore
         DocumentSnapshot<Map<String, dynamic>> userData =
         await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
 
         if (userData.exists) {
           String role = userData.data()!['role'];
+
+          // Simpan status login ke SharedPreferences
           _saveLoginStatus(true, role);
+
+          // Perbarui status login di Firestore
           await FirebaseFirestore.instance.collection('users').doc(user.uid).update({
             'isLoggedIn': true,
           });
 
+          // Navigasi berdasarkan peran pengguna
           if (role == 'Admin') {
             Navigator.pushReplacement(
               context,
@@ -89,12 +98,14 @@ class _LoginPageState extends State<LoginPage> {
     }
   }
 
+  // Fungsi untuk menyimpan status login ke SharedPreferences
   void _saveLoginStatus(bool isLoggedIn, String role) async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
     await prefs.setBool('isLoggedIn', isLoggedIn);
     await prefs.setString('role', role);
   }
 
+  // Fungsi untuk menampilkan pesan error
   void _showErrorMessage(String message) {
     showDialog(
       context: context,

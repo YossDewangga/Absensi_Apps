@@ -19,7 +19,9 @@ class _LeaveApplicationPageState extends State<LeaveApplicationPage> {
   bool _isLoading = true;
   String? _userId;
   String? _displayName;
-  int _leaveQuota = 0;
+  double _leaveQuota = 0; // Menggunakan double untuk kuota cuti
+  bool _isHalfDay = false; // Untuk pilihan cuti setengah hari
+  double _calculatedLeaveDays = 0; // Untuk menyimpan jumlah hari cuti yang dihitung
 
   @override
   void initState() {
@@ -32,27 +34,26 @@ class _LeaveApplicationPageState extends State<LeaveApplicationPage> {
       User? user = FirebaseAuth.instance.currentUser;
       if (user != null) {
         _userId = user.uid;
-        DocumentSnapshot userDoc =
-        await FirebaseFirestore.instance.collection('users').doc(_userId).get();
+        DocumentSnapshot userDoc = await FirebaseFirestore.instance.collection('users').doc(_userId).get();
         if (userDoc.exists) {
           Map<String, dynamic>? userData = userDoc.data() as Map<String, dynamic>?;
           if (userData != null && !userData.containsKey('leave_quota')) {
-            // Initialize leave_quota if not present
+            // Inisialisasi leave_quota jika tidak ada
             await userDoc.reference.update({'leave_quota': 12});
           }
 
           setState(() {
             _displayName = userData?['displayName'];
-            _leaveQuota = userData?['leave_quota'] ?? 12; // Default to 12 if not set
+            _leaveQuota = (userData?['leave_quota'] ?? 12).toDouble(); // Default 12 jika tidak disetel
           });
         } else {
-          _showSnackBar('User not found in Firestore.');
+          _showSnackBar('User tidak ditemukan di Firestore.');
         }
       } else {
-        _showSnackBar('User not logged in.');
+        _showSnackBar('User belum login.');
       }
     } catch (e) {
-      _showSnackBar('Failed to load user info: $e');
+      _showSnackBar('Gagal memuat info pengguna: $e');
     } finally {
       setState(() {
         _isLoading = false;
@@ -62,14 +63,14 @@ class _LeaveApplicationPageState extends State<LeaveApplicationPage> {
 
   Future<void> _selectDate(BuildContext context, bool isStart) async {
     final DateTime now = DateTime.now();
-    final DateTime firstDate = now.add(Duration(days: 7));
+    final DateTime firstDate = now.add(const Duration(days: 7));
     final DateTime? picked = await showDatePicker(
       context: context,
       initialDate: firstDate,
       firstDate: now,
       lastDate: DateTime(2030),
       selectableDayPredicate: (DateTime date) {
-        return date.isAfter(now.add(Duration(days: 6)));
+        return date.isAfter(now.add(const Duration(days: 6)));
       },
     );
     if (picked != null) {
@@ -81,21 +82,33 @@ class _LeaveApplicationPageState extends State<LeaveApplicationPage> {
           _endDate = picked;
           _endDateString = DateFormat('yyyy-MM-dd').format(picked);
         }
+        _calculateLeaveDays(); // Hitung jumlah hari cuti setiap kali tanggal dipilih
       });
+    }
+  }
+
+  void _calculateLeaveDays() {
+    if (_startDate != null && _endDate != null) {
+      _calculatedLeaveDays = _endDate!.difference(_startDate!).inDays + 1;
+      if (_isHalfDay) {
+        _calculatedLeaveDays -= 0.5; // Mengurangi setengah hari dari total hari jika cuti setengah hari
+      }
+    } else {
+      _calculatedLeaveDays = 0;
     }
   }
 
   Future<void> _submitLeaveApplication() async {
     if (_startDate == null || _endDate == null || _keteranganController.text.isEmpty) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text('Harap isi semua bidang')));
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Harap isi semua bidang')));
       return;
     }
 
-    int leaveDays = _endDate!.difference(_startDate!).inDays + 1;
+    double leaveDays = _calculatedLeaveDays;
+
+    // Cek apakah sisa cuti mencukupi
     if (_leaveQuota < leaveDays) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text('Sisa cuti tidak mencukupi untuk pengajuan ini')));
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Sisa cuti tidak mencukupi untuk pengajuan ini')));
       return;
     }
 
@@ -105,34 +118,35 @@ class _LeaveApplicationPageState extends State<LeaveApplicationPage> {
 
     try {
       if (_userId == null) {
-        throw 'User ID is null';
+        throw 'User ID tidak ditemukan';
       }
 
       // Simpan data pengajuan cuti ke sub-koleksi leave_applications di dalam dokumen pengguna
-      DocumentReference userDocRef =
-      FirebaseFirestore.instance.collection('users').doc(_userId);
+      DocumentReference userDocRef = FirebaseFirestore.instance.collection('users').doc(_userId);
       await userDocRef.collection('leave_applications').add({
         'displayName': _displayName,
         'userId': _userId,
         'Keterangan': _keteranganController.text,
         'start_date': _startDate,
         'end_date': _endDate,
-        'status': 'Pending',
+        'is_half_day': _isHalfDay, // Simpan informasi apakah cuti setengah hari
+        'status': 'Pending', // Status awal adalah Pending
         'submitted_at': DateTime.now(),
+        'leave_days': leaveDays, // Simpan jumlah hari cuti
       });
 
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text('Pengajuan cuti berhasil diajukan')));
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Pengajuan cuti berhasil diajukan')));
       _keteranganController.clear();
       setState(() {
         _startDate = null;
         _endDate = null;
         _startDateString = 'Pilih Tanggal Mulai';
         _endDateString = 'Pilih Tanggal Selesai';
+        _isHalfDay = false; // Reset cuti setengah hari
+        _calculatedLeaveDays = 0; // Reset perhitungan hari cuti
       });
     } catch (e) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text('Gagal mengajukan cuti: $e')));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Gagal mengajukan cuti: $e')));
     } finally {
       setState(() {
         _isSubmitting = false;
@@ -143,7 +157,7 @@ class _LeaveApplicationPageState extends State<LeaveApplicationPage> {
   void _showSnackBar(String message) {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
       content: Text(message),
-      duration: Duration(seconds: 2),
+      duration: const Duration(seconds: 2),
     ));
   }
 
@@ -151,35 +165,37 @@ class _LeaveApplicationPageState extends State<LeaveApplicationPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Pengajuan Cuti'),
+        title: const Text('Pengajuan Cuti'),
         centerTitle: true,
         backgroundColor: Colors.teal.shade700,
       ),
       body: _isLoading
-          ? Center(child: CircularProgressIndicator())
+          ? const Center(child: CircularProgressIndicator())
           : SingleChildScrollView(
         child: Padding(
           padding: const EdgeInsets.all(16.0),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                'Formulir Pengajuan Cuti',
-                style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+              const Center(
+                child: Text(
+                  'Formulir Pengajuan Cuti',
+                  style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                ),
               ),
-              SizedBox(height: 20),
+              const SizedBox(height: 20),
               Row(
                 children: [
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('Tanggal Mulai'),
-                        SizedBox(height: 10),
+                        const Text('Tanggal Mulai'),
+                        const SizedBox(height: 10),
                         GestureDetector(
                           onTap: () => _selectDate(context, true),
                           child: Container(
-                            padding: EdgeInsets.symmetric(
+                            padding: const EdgeInsets.symmetric(
                                 vertical: 12, horizontal: 10),
                             decoration: BoxDecoration(
                               border: Border.all(color: Colors.grey),
@@ -191,17 +207,17 @@ class _LeaveApplicationPageState extends State<LeaveApplicationPage> {
                       ],
                     ),
                   ),
-                  SizedBox(width: 20),
+                  const SizedBox(width: 20),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('Tanggal Selesai'),
-                        SizedBox(height: 10),
+                        const Text('Tanggal Selesai'),
+                        const SizedBox(height: 10),
                         GestureDetector(
                           onTap: () => _selectDate(context, false),
                           child: Container(
-                            padding: EdgeInsets.symmetric(
+                            padding: const EdgeInsets.symmetric(
                                 vertical: 12, horizontal: 10),
                             decoration: BoxDecoration(
                               border: Border.all(color: Colors.grey),
@@ -215,43 +231,63 @@ class _LeaveApplicationPageState extends State<LeaveApplicationPage> {
                   ),
                 ],
               ),
-              SizedBox(height: 20),
+              const SizedBox(height: 10),
+              CheckboxListTile(
+                title: const Text("Cuti Setengah Hari"),
+                value: _isHalfDay,
+                activeColor: Colors.teal.shade700, // Warna teal ketika dipilih
+                onChanged: (bool? value) {
+                  setState(() {
+                    _isHalfDay = value ?? false;
+                    _calculateLeaveDays(); // Hitung ulang jumlah hari jika opsi cuti setengah hari berubah
+                  });
+                },
+              ),
+              const SizedBox(height: 10),
+              if (_calculatedLeaveDays > 0)
+                Center(
+                  child: Text(
+                    'Jumlah Hari Cuti: $_calculatedLeaveDays hari',
+                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  ),
+                ),
+              const SizedBox(height: 20),
               TextField(
                 controller: _keteranganController,
-                decoration: InputDecoration(
+                decoration: const InputDecoration(
                   labelText: 'Keterangan',
                   border: OutlineInputBorder(),
                 ),
                 maxLines: 3,
               ),
-              SizedBox(height: 20),
+              const SizedBox(height: 20),
               Text('Sisa Cuti: $_leaveQuota hari',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-              SizedBox(height: 20),
+                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 20),
               _isSubmitting
-                  ? Center(child: CircularProgressIndicator())
+                  ? const Center(child: CircularProgressIndicator())
                   : ElevatedButton(
                 onPressed: _submitLeaveApplication,
-                  child: Text(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.teal.shade700, // Warna tombol
+                  minimumSize: const Size(double.infinity, 50),
+                ),
+                  child: const Text(
                   'Kirim Pengajuan',
                   style: TextStyle(color: Colors.white), // Teks putih
                 ),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.teal.shade700, // Warna tombol
-                  minimumSize: Size(double.infinity, 50),
-                ),
               ),
-              Divider(thickness: 1),
+              const Divider(thickness: 1),
               ListTile(
                 title: Text(
                   'Lihat Log Cuti',
                   style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
-                      color: Colors.blue),
+                      color: Colors.teal.shade700),
                 ),
                 trailing: Icon(Icons.arrow_forward,
-                    size: 24, color: Colors.blue),
+                    size: 24, color: Colors.teal.shade700),
                 onTap: () {
                   Navigator.push(
                     context,
@@ -261,7 +297,7 @@ class _LeaveApplicationPageState extends State<LeaveApplicationPage> {
                   );
                 },
               ),
-              Divider(thickness: 1),
+              const Divider(thickness: 1),
             ],
           ),
         ),

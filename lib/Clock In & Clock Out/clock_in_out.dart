@@ -21,11 +21,13 @@ class _ClockPageState extends State<ClockPage> with WidgetsBindingObserver {
   String _clockStatus = 'Clock Out';
   List<Map<String, dynamic>> _logbookEntries = [];
   DateTime? _clockInTime;
+  DateTime? _clockOutTime;
   Position? _currentPosition;
   String? _currentRecordId;
   TimeOfDay? _designatedStartTime;
   TimeOfDay? _designatedEndTime;
   Duration _lateDuration = Duration.zero;
+  Duration _workingHours = Duration.zero;
   String? _lateReason;
   File? _image;
 
@@ -331,7 +333,7 @@ class _ClockPageState extends State<ClockPage> with WidgetsBindingObserver {
       'late_reason': _lateReason,
       'image_url': imageUrl,
       'clock_status': _clockStatus,
-      'approved': isClockInApproved, // Approval based on distance check
+      'approved': false, // Set approved to false until clock out
       'date': DateFormat('yyyy-MM-dd').format(_clockInTime!), // Tambahkan date saat clock in
     });
 
@@ -355,7 +357,7 @@ class _ClockPageState extends State<ClockPage> with WidgetsBindingObserver {
     bool isClockOutApproved = true;
     setState(() {
       _clockStatus = 'Clock Out';
-      _lateDuration = Duration.zero; // Reset late duration when clocking out
+      _clockOutTime = clockOutDateTime; // Menyimpan waktu clock out
     });
 
     if (_currentRecordId != null) {
@@ -364,28 +366,34 @@ class _ClockPageState extends State<ClockPage> with WidgetsBindingObserver {
             _officeLat, _officeLong, _currentPosition!.latitude, _currentPosition!.longitude);
         isClockOutApproved = distanceInMeters <= _radius;
 
-        if (!isClockOutApproved) {
-          Navigator.of(context, rootNavigator: true).pop(); // Tutup dialog loading
-          _showAlertDialog("Anda berada di luar radius yang diizinkan untuk Clock Out.");
-          return;
+        // Cek apakah clock out dilakukan pada hari yang berbeda dari clock in
+        if (_clockInTime != null && (_clockInTime!.day != _clockOutTime!.day || _clockInTime!.month != _clockOutTime!.month || _clockInTime!.year != _clockOutTime!.year)) {
+          isClockOutApproved = false; // Set approved to false jika clock out dilakukan pada hari yang berbeda
         }
 
+        // Lanjutkan dengan proses clock out meskipun tidak disetujui
         String imageUrl = await _uploadImage(_image!); // Upload image for clock out
+
+        // Hitung working hours
+        if (_clockInTime != null) {
+          _workingHours = _clockOutTime!.difference(_clockInTime!);
+        }
 
         DocumentReference userDocRef = _firestore.collection('users').doc(_userId);
         await userDocRef.collection('clockin_records').doc(_currentRecordId).update({
           'clockout_location': GeoPoint(_currentPosition!.latitude, _currentPosition!.longitude),
           'timestamp': Timestamp.now(),
           'clock_out_time': clockOutDateTime,
-          'approved': isClockOutApproved, // Approval based on distance check
+          'approved': isClockOutApproved, // Approval based on distance check and date check
           'clock_out_image_url': imageUrl,
           'clock_status': _clockStatus,
+          'working_hours': _formattedDuration(_workingHours), // Simpan working hours
         });
 
-        // Tampilkan dialog sukses clock out
+        // Tampilkan dialog sukses clock out meskipun approval false
         if (mounted) {
           Navigator.of(context, rootNavigator: true).pop(); // Tutup dialog loading
-          _showSuccessDialog("Clock out sukses");
+          _showSuccessDialog(isClockOutApproved ? "Clock out sukses" : "Clock out sukses tetapi harus meminta Approve");
         }
       } else {
         Navigator.of(context, rootNavigator: true).pop(); // Tutup dialog loading

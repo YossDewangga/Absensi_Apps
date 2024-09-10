@@ -350,6 +350,14 @@ class _VisitHistoryPageState extends State<VisitHistoryPage> {
   String _formatTimestamp(dynamic timestamp) {
     if (timestamp == null || timestamp is! Timestamp) return 'N/A';
     var dateTime = (timestamp as Timestamp).toDate();
-    return "${dateTime.day}-${dateTime.month}-${dateTime.year} ${dateTime.hour}:${dateTime.minute}:${dateTime.second}";
+
+    String day = dateTime.day.toString().padLeft(2, '0');
+    String month = dateTime.month.toString().padLeft(2, '0');
+    String year = dateTime.year.toString();
+    String hour = dateTime.hour.toString().padLeft(2, '0');
+    String minute = dateTime.minute.toString().padLeft(2, '0');
+    String second = dateTime.second.toString().padLeft(2, '0');
+
+    return "$day-$month-$year $hour:$minute:$second";
   }
 }

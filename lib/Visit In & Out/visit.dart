@@ -221,8 +221,8 @@ class _VisitInAndOutPageState extends State<VisitInAndOutPage> {
         _showAlertDialog('Visit document not found');
       }
     } catch (e) {
-      print('Error updating document: $e');
-      _showAlertDialog('Error updating document: $e');
+      print('Error updating document');
+      _showAlertDialog('Error updating document');
     }
   }
 
@@ -456,8 +456,8 @@ class _VisitInAndOutPageState extends State<VisitInAndOutPage> {
         String visitOutImageUrl = await _uploadImageToStorage(_visitOutImage!, 'visit_out_images');
 
         // Calculate total working hours
-        Duration totalWorkingHours = _visitOutTime!.difference(_visitInTime!);
-        String totalWorkingHoursStr = _formattedDuration(totalWorkingHours);
+        Duration WorkingHours = _visitOutTime!.difference(_visitInTime!);
+        String WorkingHoursStr = _formattedDuration(WorkingHours);
 
         DocumentReference clockOutDocRef = userDocRef.collection('clockin_records').doc(_clockInDocumentId);
         await clockOutDocRef.update({
@@ -467,18 +467,18 @@ class _VisitInAndOutPageState extends State<VisitInAndOutPage> {
           'approved': false, // Set approved to false for all clock out from visit
           'clock_status': 'Clock Out',
           'clock_out_image_url': visitOutImageUrl, // Save visit out image URL
-          'total_working_hours': totalWorkingHoursStr, // Save total working hours
+          'working_hours': WorkingHoursStr, // Save total working hours
         });
 
-        print("Clock out otomatis berhasil berdasarkan visit out.");
+        print("Clock out berhasil berdasarkan visit out.");
         if (!isClockOutApproved) {
           setState(() {
             _isOutsideDesignatedArea = true;
           });
         }
       } catch (e) {
-        print('Error getting location: $e');
-        _showAlertDialog('Error getting location: $e');
+        print('Error getting location');
+        _showAlertDialog('Error getting location');
       }
     }
   }
@@ -528,8 +528,8 @@ class _VisitInAndOutPageState extends State<VisitInAndOutPage> {
         print('Visit Out Address: $_visitOutAddress');
       }
     } catch (e) {
-      print('Error getting location: $e');
-      _showAlertDialog('Error getting location: $e');
+      print('Error getting location');
+      _showAlertDialog('Error getting location');
     }
   }
 
@@ -676,7 +676,7 @@ class _VisitInAndOutPageState extends State<VisitInAndOutPage> {
         setState(() {
           isLoading = false;
         });
-        _showAlertDialog('Gagal mengirim: $e');
+        _showAlertDialog('Gagal mengirim');
       }
     } else {
       setState(() {
@@ -719,7 +719,7 @@ class _VisitInAndOutPageState extends State<VisitInAndOutPage> {
         setState(() {
           isLoading = false;
         });
-        _showAlertDialog('Gagal mengirim: $e');
+        _showAlertDialog('Gagal mengirim');
       }
     } else {
       setState(() {

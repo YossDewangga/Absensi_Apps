@@ -28,7 +28,7 @@ class _AdminLeavePageState extends State<AdminLeavePage> {
         QuerySnapshot userDocs = await FirebaseFirestore.instance.collection('users').get();
         for (var doc in userDocs.docs) {
           await doc.reference.update({
-            'leave_quota': 12, // Reset ke 12 hari
+            'leave_quota': 12.0, // Reset ke 12 hari, gunakan double
           });
         }
         ScaffoldMessenger.of(context).showSnackBar(
@@ -236,7 +236,9 @@ class _AdminLeavePageState extends State<AdminLeavePage> {
 
                             var userData = userSnapshot.data!.data() as Map<String, dynamic>;
                             var displayName = userData['displayName'] ?? 'Unknown';
-                            var leaveQuota = userData['leave_quota'] ?? 12;
+                            double leaveQuota = (userData['leave_quota'] ?? 12).toDouble(); // Menggunakan double
+
+                            print('User ID: $userId, Leave Quota Before Update: $leaveQuota');
 
                             return Card(
                               margin: const EdgeInsets.all(8.0),
@@ -279,7 +281,7 @@ class _AdminLeavePageState extends State<AdminLeavePage> {
     );
   }
 
-  Table _buildTable(String title, String displayName, DateTime? startDate, DateTime? endDate, String keterangan, int leaveQuota) {
+  Table _buildTable(String title, String displayName, DateTime? startDate, DateTime? endDate, String keterangan, double leaveQuota) {
     return Table(
       border: TableBorder.all(color: Colors.grey),
       columnWidths: const {
@@ -292,7 +294,7 @@ class _AdminLeavePageState extends State<AdminLeavePage> {
         _buildTableRow('Keterangan:', keterangan),
         _buildTableRow('Tanggal Mulai:', startDate != null ? DateFormat('yyyy-MM-dd').format(startDate) : 'N/A'),
         _buildTableRow('Tanggal Selesai:', endDate != null ? DateFormat('yyyy-MM-dd').format(endDate) : 'N/A'),
-        _buildTableRow('Sisa Cuti:', leaveQuota.toString()),
+        _buildTableRow('Sisa Cuti:', leaveQuota.toStringAsFixed(1)), // Menggunakan toStringAsFixed untuk tampilan yang lebih baik
       ],
     );
   }
@@ -336,7 +338,7 @@ class _AdminLeavePageState extends State<AdminLeavePage> {
     );
   }
 
-  Widget _buildApprovalButtons(BuildContext context, String userId, String recordId, String currentStatus, DateTime? startDate, DateTime? endDate, int leaveQuota) {
+  Widget _buildApprovalButtons(BuildContext context, String userId, String recordId, String currentStatus, DateTime? startDate, DateTime? endDate, double leaveQuota) {
     return Column(
       children: [
         Row(
@@ -347,9 +349,22 @@ class _AdminLeavePageState extends State<AdminLeavePage> {
                 IconButton(
                   icon: Icon(Icons.check_circle, color: Colors.green),
                   onPressed: () async {
-                    int leaveDays = endDate!.difference(startDate!).inDays + 1;
+                    var recordSnapshot = await FirebaseFirestore.instance.collection('users').doc(userId)
+                        .collection('leave_applications').doc(recordId).get();
+                    var recordData = recordSnapshot.data() as Map<String, dynamic>;
+                    bool isHalfDay = recordData['is_half_day'] ?? false;
+
+                    double leaveDays = endDate!.difference(startDate!).inDays + 1;
+
+                    if (isHalfDay) {
+                      leaveDays -= 0.5; // Kurangi 0.5 dari leaveDays jika cuti setengah hari
+                    }
+
+                    print('Leave Days: $leaveDays');
+                    print('Leave Quota Before Approval: $leaveQuota');
+
                     if (leaveQuota >= leaveDays) {
-                      await _updateApprovalStatus(userId, recordId, 'Approved', startDate, endDate, leaveQuota);
+                      await _updateApprovalStatus(userId, recordId, 'Approved', startDate, endDate, leaveQuota, leaveDays);
                     } else {
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(content: Text('Leave quota insufficient for approval.')),
@@ -365,7 +380,7 @@ class _AdminLeavePageState extends State<AdminLeavePage> {
                 IconButton(
                   icon: Icon(Icons.cancel, color: Colors.red),
                   onPressed: () {
-                    _updateApprovalStatus(userId, recordId, 'Rejected', startDate, endDate, leaveQuota);
+                    _updateApprovalStatus(userId, recordId, 'Rejected', startDate, endDate, leaveQuota, 0.0);
                   },
                 ),
                 Text('Reject', style: TextStyle(color: Colors.red, fontSize: 12)),
@@ -395,7 +410,7 @@ class _AdminLeavePageState extends State<AdminLeavePage> {
     );
   }
 
-  Future<void> _updateApprovalStatus(String userId, String recordId, String newStatus, DateTime? startDate, DateTime? endDate, int leaveQuota) async {
+  Future<void> _updateApprovalStatus(String userId, String recordId, String newStatus, DateTime? startDate, DateTime? endDate, double leaveQuota, double leaveDays) async {
     try {
       await FirebaseFirestore.instance.collection('users').doc(userId)
           .collection('leave_applications').doc(recordId).update({
@@ -403,8 +418,11 @@ class _AdminLeavePageState extends State<AdminLeavePage> {
       });
 
       if (newStatus == 'Approved' && startDate != null && endDate != null) {
-        int leaveDays = endDate.difference(startDate).inDays + 1;
-        await _updateUserLeaveQuota(userId, leaveQuota - leaveDays);
+        double newQuota = leaveQuota - leaveDays;
+
+        print('Updating Leave Quota. User ID: $userId, Leave Days: $leaveDays, New Quota: $newQuota');
+
+        await _updateUserLeaveQuota(userId, newQuota);
       }
 
       ScaffoldMessenger.of(context).showSnackBar(
@@ -421,8 +439,9 @@ class _AdminLeavePageState extends State<AdminLeavePage> {
     }
   }
 
-  Future<void> _updateUserLeaveQuota(String userId, int newQuota) async {
+  Future<void> _updateUserLeaveQuota(String userId, double newQuota) async {
     try {
+      print('Updating leave quota for user: $userId, new quota: $newQuota');
       await FirebaseFirestore.instance.collection('users').doc(userId).update({
         'leave_quota': newQuota,
       });

@@ -2,6 +2,7 @@ import 'package:absensi_apps/Login_Register/login_page.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../Lend App/lend_app.dart';
 import 'admin_password.dart';  // Ganti dengan path halaman edit password yang sesuai
 
 class ProfilePage extends StatelessWidget {
@@ -92,12 +93,15 @@ class ProfilePage extends StatelessWidget {
                         color: Colors.white.withOpacity(0.1),
                         shape: BoxShape.circle,
                       ),
-                      child: Icon(Icons.help_outline, color: Colors.black),
+                      child: Icon(Icons.all_inclusive, color: Colors.black), // Ganti ikon jika perlu
                     ),
-                    title: Text('Help & Support', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w500)),
+                    title: Text('Lend App', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w500)),
                     trailing: Icon(Icons.arrow_forward_ios),
                     onTap: () {
-                      // Tambahkan aksi untuk help & support
+                      Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (context)=> LendAppPage()),
+                      );
                     },
                   ),
                   Divider(),
@@ -177,13 +181,14 @@ Future<void> logout(BuildContext context) async {
     // Logout dari Firebase
     await FirebaseAuth.instance.signOut();
 
-    // Clear SharedPreferences (opsional, jika digunakan)
+    // Clear SharedPreferences
     SharedPreferences prefs = await SharedPreferences.getInstance();
     await prefs.clear();
 
-    // Navigasi ke halaman logout atau login
-    Navigator.of(context).pushReplacement(
-      MaterialPageRoute(builder: (context) => LoginPage()), // Arahkan ke halaman login atau logout
+    // Navigasi ke halaman login dan hapus semua halaman sebelumnya
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(builder: (context) => LoginPage()),
+          (Route<dynamic> route) => false,
     );
   } catch (error) {
     print('Gagal logout: $error');

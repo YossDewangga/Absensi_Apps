@@ -17,14 +17,21 @@ class _AdminAbsensiPageState extends State<AdminAbsensiPage> {
   TimeOfDay? _designatedEndTime;
   bool _isCalendarExpanded = false;
   String? _editableRecordId;
+  DateTime? _clockInDate;
+  bool _showEditIcon = false;
 
   @override
   void initState() {
     super.initState();
-    _loadDesignatedTimes();
+    _initializeSettings();
   }
 
-  void _loadDesignatedTimes() async {
+  Future<void> _initializeSettings() async {
+    await _loadDesignatedTimes();
+    _evaluateEditIconVisibility();
+  }
+
+  Future<void> _loadDesignatedTimes() async {
     try {
       DocumentSnapshot settingsSnapshot = await FirebaseFirestore.instance
           .collection('settings')
@@ -48,6 +55,14 @@ class _AdminAbsensiPageState extends State<AdminAbsensiPage> {
             _designatedEndTime = TimeOfDay(hour: endDateTime.hour, minute: endDateTime.minute);
           });
         }
+
+        if (data.containsKey('clockInDate')) {
+          Timestamp clockInTimestamp = data['clockInDate'];
+          DateTime clockInDate = clockInTimestamp.toDate();
+          setState(() {
+            _clockInDate = clockInDate;
+          });
+        }
       }
     } catch (e) {
       print('Error loading designated times: $e');
@@ -55,15 +70,48 @@ class _AdminAbsensiPageState extends State<AdminAbsensiPage> {
     }
   }
 
-  void _saveDesignatedTime(TimeOfDay time, String key) {
-    DateTime now = DateTime.now();
-    DateTime designatedTime = DateTime(now.year, now.month, now.day, time.hour, time.minute);
+  void _evaluateEditIconVisibility() {
+    if (_clockInDate != null) {
+      DateTime now = DateTime.now();
 
+      if (_clockInDate!.isBefore(DateTime(now.year, now.month, now.day))) {
+        setState(() {
+          _showEditIcon = true;
+        });
+      } else if (_clockInDate!.isSameDay(now)) {
+        if (_designatedStartTime != null) {
+          TimeOfDay nowTime = TimeOfDay.now();
+          if (nowTime.hour > _designatedStartTime!.hour ||
+              (nowTime.hour == _designatedStartTime!.hour && nowTime.minute >= _designatedStartTime!.minute)) {
+            setState(() {
+              _showEditIcon = true;
+            });
+          } else {
+            setState(() {
+              _showEditIcon = false;
+            });
+          }
+        }
+      } else {
+        setState(() {
+          _showEditIcon = false;
+        });
+      }
+    }
+  }
+
+  void _saveClockInDate() async {
+    DateTime now = DateTime.now();
     FirebaseFirestore.instance.collection('settings').doc('absensi_times').set({
-      key: Timestamp.fromDate(designatedTime),
+      'clockInDate': Timestamp.fromDate(now),
     }, SetOptions(merge: true)).catchError((error) {
-      print('Error saving designated time: $error');
-      _showAlertDialog('Error saving designated time: $error');
+      print('Error saving clock-in date: $error');
+      _showAlertDialog('Error saving clock-in date: $error');
+    });
+
+    setState(() {
+      _clockInDate = now;
+      _evaluateEditIconVisibility();
     });
   }
 
@@ -86,6 +134,18 @@ class _AdminAbsensiPageState extends State<AdminAbsensiPage> {
         _showAlertDialog('You selected the $timeType time: ${picked.format(context)}');
       });
     }
+  }
+
+  void _saveDesignatedTime(TimeOfDay time, String key) {
+    DateTime now = DateTime.now();
+    DateTime designatedTime = DateTime(now.year, now.month, now.day, time.hour, time.minute);
+
+    FirebaseFirestore.instance.collection('settings').doc('absensi_times').set({
+      key: Timestamp.fromDate(designatedTime),
+    }, SetOptions(merge: true)).catchError((error) {
+      print('Error saving designated time: $error');
+      _showAlertDialog('Error saving designated time: $error');
+    });
   }
 
   void _approveRecord(String recordId, String userId, bool isApproved) async {
@@ -141,6 +201,13 @@ class _AdminAbsensiPageState extends State<AdminAbsensiPage> {
         elevation: 4.0,
         iconTheme: const IconThemeData(color: Colors.white),
         actions: [
+          if (_showEditIcon)
+            IconButton(
+              icon: Icon(Icons.edit, color: Colors.white),
+              onPressed: () {
+                // Tindakan yang dilakukan saat tombol edit ditekan
+              },
+            ),
           IconButton(
             icon: FaIcon(color: Colors.white, FontAwesomeIcons.cog),
             onPressed: () {
@@ -254,6 +321,13 @@ class _AdminAbsensiPageState extends State<AdminAbsensiPage> {
                     var clockOutTime = data['clock_out_time'] != null
                         ? (data['clock_out_time'] as Timestamp).toDate()
                         : null;
+
+                    var isApproved = data['approved'] ?? false;
+
+                    var now = TimeOfDay.now();
+
+                    bool showEditButton = !isApproved && (now.hour > 8 || (now.hour == 8 && now.minute >= 0));
+
                     var workingHours = clockInTime != null && clockOutTime != null
                         ? clockOutTime.difference(clockInTime)
                         : null;
@@ -266,7 +340,6 @@ class _AdminAbsensiPageState extends State<AdminAbsensiPage> {
                         ? _calculateLateDuration(clockInTime, _designatedStartTime!)
                         : null;
                     var lateReason = data['late_reason'] ?? 'N/A';
-                    var isApproved = data['approved'] ?? false;
                     var userId = record.reference.parent.parent!.id;
                     var recordId = record.id;
 
@@ -277,43 +350,36 @@ class _AdminAbsensiPageState extends State<AdminAbsensiPage> {
                         borderRadius: BorderRadius.circular(10),
                       ),
                       child: Container(
-                        decoration: BoxDecoration(
-                          // image: DecorationImage(
-                          //   image: AssetImage('assets/images/Tridaya.png'),
-                          //   fit: BoxFit.cover,
-                          //   colorFilter: ColorFilter.mode(
-                          //     Colors.black.withOpacity(0.2),
-                          //     BlendMode.dstATop,
-                          //   ),
-                          // ),
-                        ),
+                        decoration: BoxDecoration(),
                         child: Padding(
                           padding: const EdgeInsets.all(16.0),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text('Clock In', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.teal.shade900)),
-                              _buildTable('Time In', userName, clockInTime, clockInImageUrl, data['clockin_location'] as GeoPoint?, lateReason),
+                              _buildTable('Time In', userName, clockInTime, clockInImageUrl, data['clockin_location'] as GeoPoint?, lateReason, null),
+                              if (lateDuration != null)
+                                _buildDurationTable('Late Duration', _formattedDuration(lateDuration)),
                               Divider(thickness: 1, color: Colors.teal.shade700),
                               Text('Clock Out', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.teal.shade900)),
-                              _buildTable('Time Out', null, clockOutTime, clockOutImageUrl, data['clockout_location'] as GeoPoint?, null, isApproved),
+                              _buildTable('Time Out', null, clockOutTime, clockOutImageUrl, null, null, null),
                               Divider(thickness: 1, color: Colors.teal.shade700),
                               if (workingHours != null)
                                 _buildDurationTable('Working Hours', _formattedDuration(workingHours)),
-                              if (lateDuration != null)
-                                _buildDurationTable('Late Duration', _formattedDuration(lateDuration)),
-                              if (!isApproved && clockOutTime != null)
+                              _buildApprovalTable(isApproved),
+
+                              if (showEditButton)
                                 _buildEditButton(recordId),
                               if (_editableRecordId == recordId)
                                 _buildApprovalButtons(context, recordId, userId, isApproved),
+
                               if (logbookEntries.isNotEmpty)
                                 Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(
-                                      'Logbook Entries:',
-                                      style: TextStyle(fontWeight: FontWeight.bold, color: Colors.teal.shade900),
-                                    ),
+                                        'Logbook Entries:',
+                                        style: TextStyle(fontWeight: FontWeight.bold, color: Colors.teal.shade900)),
                                     Table(
                                       border: TableBorder.all(color: Colors.teal.shade700),
                                       columnWidths: const {
@@ -424,8 +490,6 @@ class _AdminAbsensiPageState extends State<AdminAbsensiPage> {
           ),
         if (lateReason != null && timeType == 'Time In')
           _buildTableRow('Late Reason:', lateReason),
-        if (timeType == 'Time Out' && isApproved != null)
-          _buildTableRow('Approved:', isApproved ? 'Approved' : 'Pending', isBold: true, isApproved: isApproved),
       ],
     );
   }
@@ -440,6 +504,20 @@ class _AdminAbsensiPageState extends State<AdminAbsensiPage> {
       defaultVerticalAlignment: TableCellVerticalAlignment.middle,
       children: [
         _buildTableRow(title, content, isLateDuration: title == 'Late Duration'),
+      ],
+    );
+  }
+
+  Table _buildApprovalTable(bool isApproved) {
+    return Table(
+      border: TableBorder.all(color: Colors.teal.shade700),
+      columnWidths: const {
+        0: FixedColumnWidth(150),
+        1: FlexColumnWidth(),
+      },
+      defaultVerticalAlignment: TableCellVerticalAlignment.middle,
+      children: [
+        _buildTableRow('Approved:', isApproved ? 'Approved' : 'Pending', isBold: true, isApproved: isApproved),
       ],
     );
   }
@@ -705,5 +783,13 @@ class _AdminAbsensiPageState extends State<AdminAbsensiPage> {
         ],
       ),
     );
+  }
+}
+
+extension DateTimeExtensions on DateTime {
+  bool isSameDay(DateTime other) {
+    return this.year == other.year &&
+        this.month == other.month &&
+        this.day == other.day;
   }
 }

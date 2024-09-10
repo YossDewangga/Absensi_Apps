@@ -417,13 +417,21 @@ class _BreakStartEndPageState extends State<BreakStartEndPage> {
                     Divider(thickness: 2, color: Colors.teal.shade700),
                     SizedBox(height: 5),
                     SizedBox(height: 15),
-                    Divider(thickness: 1, color: Colors.teal.shade700),
+                    Divider(thickness: 2, color: Colors.teal.shade700),
                     ListTile(
                       title: Text(
                         'Lihat Log Break',
-                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.blue),
+                        style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.teal.shade700
+                        ),
                       ),
-                      trailing: Icon(Icons.arrow_forward, size: 24, color: Colors.blue),
+                      trailing: Icon(
+                          Icons.arrow_forward,
+                          size: 24,
+                          color: Colors.teal.shade700
+                      ),
                       onTap: () {
                         Navigator.push(
                           context,
@@ -431,7 +439,7 @@ class _BreakStartEndPageState extends State<BreakStartEndPage> {
                         );
                       },
                     ),
-                    Divider(thickness: 1, color: Colors.teal.shade700),
+                    Divider(thickness: 2, color: Colors.teal.shade700),
                     if (_isAdmin) ...[
                       SizedBox(height: 20),
                       _buildLogBox(

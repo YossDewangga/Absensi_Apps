@@ -27,7 +27,7 @@ class _AdminPageState extends State<AdminPage> {
 
   void _onItemTapped(int index) {
     if (index == 0) {
-      _showAbsensiOptions(context);  // Menampilkan bottom sheet untuk Absensi
+      _showAbsensiOptions(context); // Menampilkan bottom sheet untuk Absensi
     } else {
       setState(() {
         _selectedIndex = index;
@@ -50,9 +50,9 @@ class _AdminPageState extends State<AdminPage> {
               leading: const Icon(Icons.access_time),
               title: const Text('Absensi'),
               onTap: () {
-                Navigator.pop(context);  // Tutup bottom sheet
+                Navigator.pop(context); // Tutup bottom sheet
                 setState(() {
-                  _selectedIndex = 0;  // Pilih halaman Absensi Utama
+                  _selectedIndex = 0; // Pilih halaman Absensi Utama
                 });
               },
             ),
@@ -60,7 +60,7 @@ class _AdminPageState extends State<AdminPage> {
               leading: const Icon(Icons.access_alarm),
               title: const Text('Activity'),
               onTap: () {
-                Navigator.pop(context);  // Tutup bottom sheet
+                Navigator.pop(context); // Tutup bottom sheet
                 Navigator.push(
                   context,
                   MaterialPageRoute(builder: (context) => AdminActivityPage()),
@@ -71,7 +71,7 @@ class _AdminPageState extends State<AdminPage> {
               leading: const Icon(Icons.report),
               title: const Text('Visit'),
               onTap: () {
-                Navigator.pop(context);  // Tutup bottom sheet
+                Navigator.pop(context); // Tutup bottom sheet
                 Navigator.push(
                   context,
                   MaterialPageRoute(builder: (context) => AdminApprovalPage()),
@@ -82,7 +82,7 @@ class _AdminPageState extends State<AdminPage> {
               leading: const Icon(Icons.coffee),
               title: const Text('Break'),
               onTap: () {
-                Navigator.pop(context);  // Tutup bottom sheet
+                Navigator.pop(context); // Tutup bottom sheet
                 Navigator.push(
                   context,
                   MaterialPageRoute(builder: (context) => const AdminBreakPage()),
@@ -107,35 +107,41 @@ class _AdminPageState extends State<AdminPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: Center(
-        child: _pages.elementAt(_selectedIndex),
-      ),
-      bottomNavigationBar: BottomNavigationBar(
-        items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.access_time),
-            label: 'Absensi',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.people),
-            label: 'Karyawan',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.beach_access), // Icon for Cuti
-            label: 'Cuti',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.settings),
-            label: 'Pengaturan',
-          ),
-        ],
-        currentIndex: _selectedIndex,
-        selectedItemColor: Colors.blue,
-        unselectedItemColor: Colors.grey,
-        onTap: _onItemTapped,
-        showSelectedLabels: true,
-        showUnselectedLabels: true,
+    return WillPopScope(
+      onWillPop: () async {
+        // Prevent back navigation
+        return false;
+      },
+      child: Scaffold(
+        body: Center(
+          child: _pages.elementAt(_selectedIndex),
+        ),
+        bottomNavigationBar: BottomNavigationBar(
+          items: const [
+            BottomNavigationBarItem(
+              icon: Icon(Icons.access_time),
+              label: 'Absensi',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.people),
+              label: 'Karyawan',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.beach_access), // Icon for Cuti
+              label: 'Cuti',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.settings),
+              label: 'Pengaturan',
+            ),
+          ],
+          currentIndex: _selectedIndex,
+          selectedItemColor: Colors.blue,
+          unselectedItemColor: Colors.grey,
+          onTap: _onItemTapped,
+          showSelectedLabels: true,
+          showUnselectedLabels: true,
+        ),
       ),
     );
   }

@@ -1,11 +1,11 @@
 import 'package:absensi_apps/Admin/admin_page.dart';
 import 'package:absensi_apps/Login_Register/login_page.dart';
 import 'package:absensi_apps/User/user_page.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+
 
 class CheckLoginStatus extends StatefulWidget {
   @override
@@ -31,14 +31,16 @@ class _CheckLoginStatusState extends State<CheckLoginStatus> {
 
       if (userData.exists && userData.data()!['isLoggedIn'] == true) {
         if (role == 'Admin') {
-          Navigator.pushReplacement(
+          Navigator.pushAndRemoveUntil(
             context,
             MaterialPageRoute(builder: (context) => AdminPage()),
+                (Route<dynamic> route) => false,
           );
         } else if (role == 'Karyawan') {
-          Navigator.pushReplacement(
+          Navigator.pushAndRemoveUntil(
             context,
             MaterialPageRoute(builder: (context) => UserPage()),
+                (Route<dynamic> route) => false,
           );
         }
       } else {

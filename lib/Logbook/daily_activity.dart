@@ -2,17 +2,8 @@ import 'package:absensi_apps/Logbook/history_activity_page.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_core/firebase_core.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
-
-void main() async {
-  WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp();
-  runApp(MaterialApp(
-    home: LogbookPage(),
-  ));
-}
 
 class LogbookPage extends StatefulWidget {
   @override
@@ -91,7 +82,6 @@ class _LogbookPageState extends State<LogbookPage> {
 
   Future<void> _submitLogbook() async {
     if (_logbookEntries.isEmpty || _userId == null) return;
-
     for (var entry in _logbookEntries) {
       if (entry['start_time'] == null || entry['end_time'] == null || entry['activity'].isEmpty) {
         _showWarningDialog("Harap pastikan semua entri memiliki waktu mulai, selesai, dan aktivitas.");
@@ -203,13 +193,19 @@ class _LogbookPageState extends State<LogbookPage> {
             children: [
               Icon(Icons.check_circle, color: Colors.green),
               SizedBox(width: 10),
-              Text("Sukses"),
+              Text(
+                  "Sukses"
+              ),
             ],
           ),
           content: Text(message),
           actions: <Widget>[
             TextButton(
-              child: Text("OK", style: TextStyle(color: Colors.teal.shade700)),
+              child: Text(
+                  "OK",
+                  style: TextStyle(
+                      color: Colors.teal.shade700
+                  )),
               onPressed: () {
                 Navigator.of(context).pop();
               },
@@ -224,9 +220,19 @@ class _LogbookPageState extends State<LogbookPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text("Logbook Harian", style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.teal.shade900)),
+        Text(
+            "Logbook Harian",
+            style: TextStyle(
+            fontSize: 24,
+            fontWeight: FontWeight.bold,
+            color: Colors.teal.shade900
+        )),
         SizedBox(height: 10),
-        Text("Catat aktivitas harian Anda dengan detail", style: TextStyle(color: Colors.teal.shade700)),
+        Text(
+            "Catat aktivitas harian Anda dengan detail",
+            style: TextStyle(
+                color: Colors.teal.shade900
+            )),
       ],
     );
   }
@@ -354,7 +360,7 @@ class _LogbookPageState extends State<LogbookPage> {
                   border: OutlineInputBorder(),
                   labelStyle: TextStyle(color: Colors.teal.shade900),
                   focusedBorder: OutlineInputBorder(
-                    borderSide: BorderSide(color: Colors.teal.shade700),
+                    borderSide: BorderSide(color: Colors.teal.shade900),
                   ),
                 ),
                 style: TextStyle(color: Colors.teal.shade900),
@@ -362,16 +368,24 @@ class _LogbookPageState extends State<LogbookPage> {
               SizedBox(height: 20),
               _buildButtons(),
               SizedBox(height: 20),
-              Text("Daftar Entri:", style: TextStyle(color: Colors.teal.shade900)),
+              Text("Daftar Entri:", style: TextStyle(color: Colors.teal.shade700)),
               SizedBox(height: 10),
               _buildLogbookEntries(),
               Divider(thickness: 1),
               ListTile(
                 title: Text(
                   'Lihat Log Aktivitas',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.blue),
+                  style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.teal.shade700
+                  ),
                 ),
-                trailing: Icon(Icons.arrow_forward, size: 24, color: Colors.blue),
+                trailing: Icon(
+                    Icons.arrow_forward,
+                    size: 24,
+                    color: Colors.teal.shade700
+                ),
                 onTap: () {
                   Navigator.push(
                     context,

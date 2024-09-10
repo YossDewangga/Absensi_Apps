@@ -12,6 +12,9 @@ class KaryawanListPage extends StatefulWidget {
 
 class _KaryawanListPageState extends State<KaryawanListPage> {
   bool showAdmins = true;
+  String? selectedDepartment;
+  List<String> departments = ['Direktur', 'Purchasing', 'Finance', 'Account Manager',
+    'Marketing', 'Mobile Apps Development', 'Technical Support'];
 
   @override
   Widget build(BuildContext context) {
@@ -32,68 +35,107 @@ class _KaryawanListPageState extends State<KaryawanListPage> {
           alignment: Alignment.topCenter,
         ),
       ),
-      body: StreamBuilder<QuerySnapshot>(
-        stream: FirebaseFirestore.instance.collection('users').snapshots(),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
-
-          if (snapshot.hasError) {
-            return Center(child: Text('Error: ${snapshot.error}'));
-          }
-
-          if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-            return const Center(child: Text('No employees found.'));
-          }
-
-          final employees = snapshot.data!.docs;
-          final karyawanList = employees.where((employee) => employee['role'] == 'Karyawan').toList();
-          final adminList = employees.where((employee) => employee['role'] == 'Admin').toList();
-
-          return Column(
-            children: [
-              Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: ToggleButtons(
-                  isSelected: [showAdmins, !showAdmins],
-                  onPressed: (int index) {
-                    setState(() {
-                      showAdmins = index == 0;
-                    });
-                  },
-                  children: [
-                    Container(
-                      width: 80,
-                      height: 30,
-                      alignment: Alignment.center,
-                      child: Text('Admin', style: TextStyle(color: Colors.teal.shade900)),
-                    ),
-                    Container(
-                      width: 80,
-                      height: 30,
-                      alignment: Alignment.center,
-                      child: Text('Karyawan', style: TextStyle(color: Colors.teal.shade900)),
-                    ),
-                  ],
+      body: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: ToggleButtons(
+              isSelected: [showAdmins, !showAdmins],
+              onPressed: (int index) {
+                setState(() {
+                  showAdmins = index == 0;
+                  // Reset the selected department if Admin is selected
+                  if (showAdmins) {
+                    selectedDepartment = null;
+                  }
+                });
+              },
+              children: [
+                Container(
+                  width: 80,
+                  height: 30,
+                  alignment: Alignment.center,
+                  child: Text('Admin', style: TextStyle(color: Colors.teal.shade900)),
                 ),
-              ),
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.all(5.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _buildSectionHeader(showAdmins ? 'Admin' : 'Karyawan'),
-                      const Divider(height: 0, thickness: 2),
-                      _buildEmployeeList(showAdmins ? adminList : karyawanList),
-                    ],
+                Container(
+                  width: 80,
+                  height: 30,
+                  alignment: Alignment.center,
+                  child: Text('Karyawan', style: TextStyle(color: Colors.teal.shade900)),
+                ),
+              ],
+            ),
+          ),
+
+          // Dropdown for selecting department (only visible if Karyawan is selected)
+          if (!showAdmins)
+            Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: DropdownButtonFormField<String>(
+                decoration: InputDecoration(
+                  labelText: "Pilih Departemen",
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
                   ),
                 ),
+                value: selectedDepartment,
+                items: departments.map((String department) {
+                  return DropdownMenuItem<String>(
+                    value: department,
+                    child: Text(department),
+                  );
+                }).toList(),
+                onChanged: (String? newValue) {
+                  setState(() {
+                    selectedDepartment = newValue;
+                    print('Departemen yang dipilih: $selectedDepartment');
+                  });
+                },
               ),
-            ],
-          );
-        },
+            ),
+
+          Expanded(
+            child: StreamBuilder<QuerySnapshot>(
+              stream: FirebaseFirestore.instance.collection('users').snapshots(),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+
+                if (snapshot.hasError) {
+                  return Center(child: Text('Error: ${snapshot.error}'));
+                }
+
+                if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                  return const Center(child: Text('No employees found.'));
+                }
+
+                final employees = snapshot.data!.docs;
+
+                // Filter employees based on selected role and department
+                final filteredList = employees.where((employee) {
+                  final roleMatch = employee['role'] == (showAdmins ? 'Admin' : 'Karyawan');
+                  final departmentExists = employee.data().toString().contains('department');
+                  final departmentMatch = selectedDepartment == null ||
+                      (departmentExists && employee['department'] == selectedDepartment);
+
+                  return roleMatch && departmentMatch;
+                }).toList();
+
+                print('Jumlah pengguna yang ditampilkan: ${filteredList.length}');
+
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildSectionHeader(showAdmins ? 'Admin' : 'Karyawan'),
+                    const Divider(height: 0, thickness: 2),
+                    _buildEmployeeList(filteredList),
+                  ],
+                );
+              },
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -128,8 +170,12 @@ class _KaryawanListPageState extends State<KaryawanListPage> {
         itemCount: employeeList.length,
         itemBuilder: (context, index) {
           final employee = employeeList[index];
-          String displayName = employee.data().toString().contains('displayName') ? employee['displayName'] : 'No Display Name';
-          String role = employee.data().toString().contains('role') ? employee['role'] : 'No Role';
+          String displayName = employee.data().toString().contains('displayName')
+              ? employee['displayName']
+              : 'No Display Name';
+          String department = employee.data().toString().contains('department')
+              ? employee['department']
+              : 'No Department'; // Menggunakan department alih-alih role
 
           return Card(
             elevation: 3,
@@ -139,7 +185,7 @@ class _KaryawanListPageState extends State<KaryawanListPage> {
             ),
             child: ListTile(
               leading: CircleAvatar(
-                backgroundColor: _getAvatarColor(role),
+                backgroundColor: _getAvatarColor(department),
                 child: Text(
                   displayName[0],
                   style: const TextStyle(color: Colors.white),
@@ -149,7 +195,7 @@ class _KaryawanListPageState extends State<KaryawanListPage> {
                 displayName,
                 style: const TextStyle(fontWeight: FontWeight.bold),
               ),
-              subtitle: Text(role),
+              subtitle: Text(department), // Menampilkan department
               onTap: () => _navigateToEmployeeHistoryPage(employee.id, displayName),
             ),
           );
@@ -158,12 +204,8 @@ class _KaryawanListPageState extends State<KaryawanListPage> {
     );
   }
 
-  Color _getAvatarColor(String role) {
-    switch (role) {
-      case 'Admin':
-        return Colors.blueAccent;
-      case 'Karyawan':
-        return Colors.redAccent;
+  Color _getAvatarColor(String department) {
+    switch (department) {
       default:
         return Colors.grey;
     }
