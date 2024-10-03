@@ -198,7 +198,7 @@ class _RegisterPageState extends State<RegisterPage> {
                     borderRadius: BorderRadius.circular(20),
                   ),
                   focusedBorder: OutlineInputBorder(
-                    borderSide: BorderSide(color: Colors.blueAccent),
+                    borderSide: BorderSide(color: Colors.teal.shade900),
                     borderRadius: BorderRadius.circular(20),
                   ),
                   hintText: 'Last Name',
@@ -216,7 +216,7 @@ class _RegisterPageState extends State<RegisterPage> {
                     borderRadius: BorderRadius.circular(20),
                   ),
                   focusedBorder: OutlineInputBorder(
-                    borderSide: BorderSide(color: Colors.blueAccent),
+                    borderSide: BorderSide(color: Colors.teal.shade900),
                     borderRadius: BorderRadius.circular(20),
                   ),
                   fillColor: Colors.grey[200],
@@ -248,7 +248,7 @@ class _RegisterPageState extends State<RegisterPage> {
                     borderRadius: BorderRadius.circular(20),
                   ),
                   focusedBorder: OutlineInputBorder(
-                    borderSide: BorderSide(color: Colors.blueAccent),
+                    borderSide: BorderSide(color: Colors.teal.shade900),
                     borderRadius: BorderRadius.circular(20),
                   ),
                   hintText: 'Email',
@@ -279,7 +279,7 @@ class _RegisterPageState extends State<RegisterPage> {
                     borderRadius: BorderRadius.circular(20),
                   ),
                   focusedBorder: OutlineInputBorder(
-                    borderSide: BorderSide(color: Colors.blueAccent),
+                    borderSide: BorderSide(color: Colors.teal.shade900),
                     borderRadius: BorderRadius.circular(20),
                   ),
                   hintText: 'Password',
@@ -311,7 +311,7 @@ class _RegisterPageState extends State<RegisterPage> {
                     borderRadius: BorderRadius.circular(20),
                   ),
                   focusedBorder: OutlineInputBorder(
-                    borderSide: BorderSide(color: Colors.blueAccent),
+                    borderSide: BorderSide(color: Colors.teal.shade900),
                     borderRadius: BorderRadius.circular(20),
                   ),
                   hintText: 'Confirm Password',

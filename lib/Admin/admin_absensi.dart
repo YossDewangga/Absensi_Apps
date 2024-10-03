@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:table_calendar/table_calendar.dart';
-import 'package:url_launcher/url_launcher.dart';
+import 'package:intl/intl.dart';
+
 
 class AdminAbsensiPage extends StatefulWidget {
   const AdminAbsensiPage({Key? key}) : super(key: key);
@@ -169,12 +170,14 @@ class _AdminAbsensiPageState extends State<AdminAbsensiPage> {
     }
   }
 
-  Future<void> _launchMaps(double lat, double long) async {
-    final String googleMapsUrl = "https://www.google.com/maps/search/?api=1&query=$lat,$long";
-    if (await canLaunch(googleMapsUrl)) {
-      await launch(googleMapsUrl);
+  // Fungsi untuk menghitung early leave duration
+  Duration _calculateEarlyLeaveDuration(DateTime clockOutTime, TimeOfDay designatedEndTime) {
+    DateTime designatedEndDateTime = DateTime(
+        clockOutTime.year, clockOutTime.month, clockOutTime.day, designatedEndTime.hour, designatedEndTime.minute);
+    if (clockOutTime.isBefore(designatedEndDateTime)) {
+      return designatedEndDateTime.difference(clockOutTime);
     } else {
-      throw 'Could not open the map.';
+      return Duration.zero;
     }
   }
 
@@ -188,7 +191,7 @@ class _AdminAbsensiPageState extends State<AdminAbsensiPage> {
             Container(
               margin: const EdgeInsets.only(top: 4.0),
               height: 4.0,
-              width: 60.0,
+              width: 100.0,
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(2.0),
@@ -336,6 +339,12 @@ class _AdminAbsensiPageState extends State<AdminAbsensiPage> {
                         : <Map<String, dynamic>>[];
                     var clockInImageUrl = data['image_url'] ?? '';
                     var clockOutImageUrl = data['clock_out_image_url'] ?? '';
+
+                    // Durasi Early Leave
+                    var earlyLeaveDuration = clockOutTime != null && _designatedEndTime != null
+                        ? _calculateEarlyLeaveDuration(clockOutTime, _designatedEndTime!)
+                        : null;
+
                     var lateDuration = clockInTime != null && _designatedStartTime != null
                         ? _calculateLateDuration(clockInTime, _designatedStartTime!)
                         : null;
@@ -356,18 +365,41 @@ class _AdminAbsensiPageState extends State<AdminAbsensiPage> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text('Clock In', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.teal.shade900)),
-                              _buildTable('Time In', userName, clockInTime, clockInImageUrl, data['clockin_location'] as GeoPoint?, lateReason, null),
+                              Center(
+                                child: Text(
+                                  'Clock In',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 16,
+                                    color: Colors.teal.shade900,
+                                  ),
+                                ),
+                              ),
+                              SizedBox(height: 5),
+                              _buildTable('Time In', userName, clockInTime, clockInImageUrl, null, lateReason, null),
                               if (lateDuration != null)
                                 _buildDurationTable('Late Duration', _formattedDuration(lateDuration)),
-                              Divider(thickness: 1, color: Colors.teal.shade700),
-                              Text('Clock Out', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.teal.shade900)),
-                              _buildTable('Time Out', null, clockOutTime, clockOutImageUrl, null, null, null),
-                              Divider(thickness: 1, color: Colors.teal.shade700),
+                              SizedBox(height: 10),
+                              Center(
+                                child: Text(
+                                  'Clock Out',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 16,
+                                    color: Colors.teal.shade900,
+                                  ),
+                                ),
+                              ),
+                              SizedBox(height: 5),
+
+                              // Early leave duration di atas gambar clock out
+                              _buildTable('Time Out', null, clockOutTime, clockOutImageUrl, null),
+                              if (earlyLeaveDuration != null && earlyLeaveDuration > Duration.zero)
+                                _buildDurationTable('Early Leave Duration', _formattedDuration(earlyLeaveDuration)),
                               if (workingHours != null)
                                 _buildDurationTable('Working Hours', _formattedDuration(workingHours)),
+                              SizedBox(height: 20),
                               _buildApprovalTable(isApproved),
-
                               if (showEditButton)
                                 _buildEditButton(recordId),
                               if (_editableRecordId == recordId)
@@ -383,7 +415,7 @@ class _AdminAbsensiPageState extends State<AdminAbsensiPage> {
                                     Table(
                                       border: TableBorder.all(color: Colors.teal.shade700),
                                       columnWidths: const {
-                                        0: FixedColumnWidth(100),
+                                        0: FixedColumnWidth(10),
                                         1: FlexColumnWidth(),
                                       },
                                       children: logbookEntries.map((entry) {
@@ -422,51 +454,39 @@ class _AdminAbsensiPageState extends State<AdminAbsensiPage> {
     return Table(
       border: TableBorder.all(color: Colors.teal.shade700),
       columnWidths: const {
-        0: FixedColumnWidth(150),
-        1: FlexColumnWidth(),
+        0: FixedColumnWidth(200),
+        1: FlexColumnWidth(1000),
       },
       defaultVerticalAlignment: TableCellVerticalAlignment.middle,
       children: [
         if (userName != null) _buildTableRow('User Name:', userName),
         _buildTableRow('$timeType:', time != null ? _formattedDateTime(time) : 'N/A'),
-        if (location != null)
-          TableRow(
-            children: [
-              Padding(
-                padding: const EdgeInsets.all(8.0),
-                child: Text(
-                  '$timeType Location:',
-                  style: TextStyle(fontWeight: FontWeight.bold, color: Colors.teal.shade900),
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.all(8.0),
-                child: IconButton(
-                  icon: Icon(Icons.location_on, color: Colors.teal.shade700),
-                  onPressed: () => _launchMaps(location.latitude, location.longitude),
-                ),
-              ),
-            ],
-          ),
         if (imageUrl != null && imageUrl.isNotEmpty)
           TableRow(
             children: [
               Padding(
-                padding: const EdgeInsets.all(8.0),
+                padding: const EdgeInsets.all(50.0),
                 child: Text(
                   'Image:',
                   style: TextStyle(fontWeight: FontWeight.bold, color: Colors.teal.shade900),
                 ),
               ),
               Padding(
-                padding: const EdgeInsets.all(8.0),
+                padding: const EdgeInsets.all(30.0),
                 child: GestureDetector(
                   onTap: () => _showFullImage(context, imageUrl),
-                  child: Image.network(
-                    imageUrl,
-                    height: 100,
-                    width: 100,
-                    fit: BoxFit.cover,
+                  child: Container(
+                    width: 50,
+                    height: 150,// Sesuaikan lebar gambar
+                    child: AspectRatio(
+                      aspectRatio: 2 / 3, // Rasio 2x3
+                      child: Image.network(
+                        imageUrl,
+                        errorBuilder: (context, error, stackTrace) {
+                          return const Icon(Icons.broken_image, color: Colors.red);
+                        },
+                      ),
+                    ),
                   ),
                 ),
               ),
@@ -561,12 +581,14 @@ class _AdminAbsensiPageState extends State<AdminAbsensiPage> {
     );
   }
 
+  // Update this method to format date and time with leading zeros
   String _formattedDateTime(DateTime dateTime) {
-    return "${dateTime.day}-${dateTime.month}-${dateTime.year} ${dateTime.hour}:${dateTime.minute}";
+    return DateFormat('dd-MM-yyyy HH:mm').format(dateTime); // Adding leading zeros with intl package
   }
 
+  // Update this method to format date with leading zeros
   String _formattedDate(DateTime date) {
-    return "${date.day}-${date.month}-${date.year}";
+    return DateFormat('dd-MM-yyyy').format(date); // Adding leading zeros with intl package
   }
 
   String _formattedDuration(Duration duration) {
@@ -705,6 +727,9 @@ class _AdminAbsensiPageState extends State<AdminAbsensiPage> {
               child: Image.network(
                 imageUrl,
                 fit: BoxFit.contain,
+                errorBuilder: (context, error, stackTrace) {
+                  return const Icon(Icons.broken_image, color: Colors.red);
+                },
               ),
             ),
           ),

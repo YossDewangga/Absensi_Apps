@@ -1,13 +1,14 @@
 import 'dart:io';
 import 'package:absensi_apps/User/user_page.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/cupertino.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:firebase_storage/firebase_storage.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';
+import 'package:google_mlkit_face_detection/google_mlkit_face_detection.dart';
+import 'package:flutter/foundation.dart'; // Untuk mendeteksi platform (web atau mobile)
 import 'history_clock_page.dart';
 
 class ClockPage extends StatefulWidget {
@@ -40,7 +41,6 @@ class _ClockPageState extends State<ClockPage> with WidgetsBindingObserver {
 
   FirebaseFirestore _firestore = FirebaseFirestore.instance;
   FirebaseStorage _storage = FirebaseStorage.instance;
-
   final ImagePicker _picker = ImagePicker();
 
   @override
@@ -62,12 +62,30 @@ class _ClockPageState extends State<ClockPage> with WidgetsBindingObserver {
     super.dispose();
   }
 
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.detached || state == AppLifecycleState.paused) {
-      if (_clockStatus == 'Clock Out') {
-        _logbookEntries.clear();
-      }
+  void _checkLocationPermission() async {
+    LocationPermission permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+    }
+    if (permission == LocationPermission.deniedForever) {
+      _showAlertDialog("Aplikasi membutuhkan izin lokasi untuk berfungsi.");
+      return;
+    }
+    if (permission == LocationPermission.whileInUse ||
+        permission == LocationPermission.always) {
+      _getCurrentLocation();
+    }
+  }
+
+  void _getCurrentLocation() async {
+    try {
+      Position position = await Geolocator.getCurrentPosition(
+          desiredAccuracy: LocationAccuracy.best);
+      setState(() {
+        _currentPosition = position;
+      });
+    } catch (e) {
+      print("Could not get location: $e");
     }
   }
 
@@ -99,33 +117,6 @@ class _ClockPageState extends State<ClockPage> with WidgetsBindingObserver {
     }
   }
 
-  void _checkLocationPermission() async {
-    LocationPermission permission = await Geolocator.checkPermission();
-    if (permission == LocationPermission.denied) {
-      permission = await Geolocator.requestPermission();
-    }
-    if (permission == LocationPermission.deniedForever) {
-      _showAlertDialog("Aplikasi membutuhkan izin lokasi untuk berfungsi.");
-      return;
-    }
-    if (permission == LocationPermission.whileInUse ||
-        permission == LocationPermission.always) {
-      _getCurrentLocation();
-    }
-  }
-
-  void _getCurrentLocation() async {
-    try {
-      Position position = await Geolocator.getCurrentPosition(
-          desiredAccuracy: LocationAccuracy.best);
-      setState(() {
-        _currentPosition = position;
-      });
-    } catch (e) {
-      print("Could not get location: $e");
-    }
-  }
-
   Future<void> _getUserInfo() async {
     try {
       User? user = FirebaseAuth.instance.currentUser;
@@ -137,7 +128,6 @@ class _ClockPageState extends State<ClockPage> with WidgetsBindingObserver {
             .get();
 
         if (userSnapshot.exists) {
-          print("User found in Firestore: ${userSnapshot.data()}");
           setState(() {
             _userName = userSnapshot['displayName'];
             _userId = user.uid;
@@ -190,30 +180,81 @@ class _ClockPageState extends State<ClockPage> with WidgetsBindingObserver {
     return Duration(hours: hours, minutes: minutes, seconds: seconds);
   }
 
-  Future<void> _pickImage() async {
-    final pickedFile = await _picker.pickImage(source: ImageSource.camera);
+  Future<void> _pickImageForClockIn() async {
+    final pickedFile;
 
-    if (pickedFile != null) {
+    if (kIsWeb) {
+      // Gunakan kamera di web
+      pickedFile = await _picker.pickImage(source: ImageSource.camera);
+    } else {
+      // Gunakan kamera di mobile
+      pickedFile = await _picker.pickImage(
+        source: ImageSource.camera,
+        preferredCameraDevice: CameraDevice.front, // Kamera depan
+      );
+    }
+
+    if (pickedFile != null && pickedFile.path.isNotEmpty) {
       setState(() {
         _image = File(pickedFile.path);
       });
-      _clockIn();
+
+      // Deteksi wajah setelah mengambil gambar
+      bool isFaceDetected = await _detectFace(_image!);
+      if (isFaceDetected) {
+        _clockIn(); // Lanjutkan Clock In jika wajah terdeteksi
+      } else {
+        _showAlertDialog("Wajah tidak terdeteksi, silakan coba lagi.");
+      }
     } else {
-      _showAlertDialog("Anda harus mengambil foto untuk Clock In.");
+      _showAlertDialog("Anda harus mengambil foto dengan kamera depan untuk Clock In.");
     }
   }
 
   Future<void> _pickImageForClockOut() async {
-    final pickedFile = await _picker.pickImage(source: ImageSource.camera);
+    final pickedFile;
 
-    if (pickedFile != null) {
+    if (kIsWeb) {
+      // Gunakan kamera di web
+      pickedFile = await _picker.pickImage(source: ImageSource.camera);
+    } else {
+      // Gunakan kamera di mobile
+      pickedFile = await _picker.pickImage(
+        source: ImageSource.camera,
+        preferredCameraDevice: CameraDevice.front, // Kamera depan
+      );
+    }
+
+    if (pickedFile != null && pickedFile.path.isNotEmpty) {
       setState(() {
         _image = File(pickedFile.path);
       });
-      _performClockOut();
+
+      // Deteksi wajah setelah mengambil gambar
+      bool isFaceDetected = await _detectFace(_image!);
+      if (isFaceDetected) {
+        _performClockOut(); // Lanjutkan Clock Out jika wajah terdeteksi
+      } else {
+        _showAlertDialog("Wajah tidak terdeteksi, silakan coba lagi.");
+      }
     } else {
-      _showAlertDialog("Anda harus mengambil foto untuk Clock Out.");
+      _showAlertDialog("Anda harus mengambil foto dengan kamera depan untuk Clock Out.");
     }
+  }
+
+  // Fungsi deteksi wajah menggunakan Google ML Kit
+  Future<bool> _detectFace(File image) async {
+    final InputImage inputImage = InputImage.fromFile(image);
+    final FaceDetector faceDetector = FaceDetector(
+      options: FaceDetectorOptions(
+        enableContours: true,
+        enableClassification: true,
+      ),
+    );
+
+    final List<Face> faces = await faceDetector.processImage(inputImage);
+
+    return faces.isNotEmpty;
   }
 
   Future<String> _uploadImage(File image) async {
@@ -379,6 +420,21 @@ class _ClockPageState extends State<ClockPage> with WidgetsBindingObserver {
           _workingHours = _clockOutTime!.difference(_clockInTime!);
         }
 
+        // Hitung pulang cepat jika clock out lebih awal dari waktu yang ditentukan
+        DateTime designatedEndDateTime = DateTime(
+          _clockOutTime!.year,
+          _clockOutTime!.month,
+          _clockOutTime!.day,
+          _designatedEndTime!.hour,
+          _designatedEndTime!.minute,
+        );
+
+        Duration earlyLeaveDuration = Duration.zero;
+
+        if (clockOutDateTime.isBefore(designatedEndDateTime)) {
+          earlyLeaveDuration = designatedEndDateTime.difference(clockOutDateTime);
+        }
+
         DocumentReference userDocRef = _firestore.collection('users').doc(_userId);
         await userDocRef.collection('clockin_records').doc(_currentRecordId).update({
           'clockout_location': GeoPoint(_currentPosition!.latitude, _currentPosition!.longitude),
@@ -388,12 +444,17 @@ class _ClockPageState extends State<ClockPage> with WidgetsBindingObserver {
           'clock_out_image_url': imageUrl,
           'clock_status': _clockStatus,
           'working_hours': _formattedDuration(_workingHours), // Simpan working hours
+          'early_leave_duration': _formattedDuration(earlyLeaveDuration), // Simpan durasi pulang cepat jika ada
         });
 
         // Tampilkan dialog sukses clock out meskipun approval false
         if (mounted) {
           Navigator.of(context, rootNavigator: true).pop(); // Tutup dialog loading
-          _showSuccessDialog(isClockOutApproved ? "Clock out sukses" : "Clock out sukses tetapi harus meminta Approve");
+          String successMessage = "Clock out sukses";
+          if (earlyLeaveDuration > Duration.zero) {
+            successMessage += "\nAnda pulang lebih awal selama: ${_formattedDuration(earlyLeaveDuration)}";
+          }
+          _showSuccessDialog(successMessage);
         }
       } else {
         Navigator.of(context, rootNavigator: true).pop(); // Tutup dialog loading
@@ -478,7 +539,6 @@ class _ClockPageState extends State<ClockPage> with WidgetsBindingObserver {
     );
   }
 
-  // Tambahkan metode ini untuk menampilkan dialog sukses dengan ikon centang hijau
   void _showSuccessDialog(String message) {
     showDialog(
       context: context,
@@ -637,7 +697,7 @@ class _ClockPageState extends State<ClockPage> with WidgetsBindingObserver {
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                 children: <Widget>[
                   ElevatedButton(
-                    onPressed: (_clockStatus == 'Clock In') ? null : _pickImage,
+                    onPressed: (_clockStatus == 'Clock In') ? null : _pickImageForClockIn,
                     child: Text('Clock In'),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: (_clockStatus == 'Clock In') ? Colors.grey : Colors.teal.shade700, // Warna teal untuk tombol aktif

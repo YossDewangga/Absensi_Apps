@@ -72,6 +72,11 @@ dependencies {
     implementation 'com.google.android.gms:play-services-auth:21.1.0'
     implementation 'com.google.firebase:firebase-appcheck:16.0.0-beta01'
     implementation 'com.google.firebase:firebase-appcheck-playintegrity:16.0.0-beta01'
+
+
+
+
+
 }
 
 allprojects {

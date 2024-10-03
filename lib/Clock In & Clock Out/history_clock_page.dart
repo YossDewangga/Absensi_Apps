@@ -161,6 +161,7 @@ class _ClockHistoryPageState extends State<ClockHistoryPage> {
                     var lateDuration = data['late_duration'] ?? '-';
                     var lateReason = data['late_reason'] ?? '-';
                     var totalWorkingHours = data['working_hours'] ?? '-';
+                    var earlyLeaveDuration = data['early_leave_duration'] ?? '-';
 
                     return Card(
                       margin: const EdgeInsets.all(8.0),
@@ -175,7 +176,7 @@ class _ClockHistoryPageState extends State<ClockHistoryPage> {
                           children: [
                             _buildTable(context, 'Clock In', clockInTime, imageUrl, lateDuration, lateReason),
                             Divider(thickness: 1),
-                            _buildTable(context, 'Clock Out', clockOutTime, clockOutImageUrl, approved, totalWorkingHours),
+                            _buildTable(context, 'Clock Out', clockOutTime, clockOutImageUrl, totalWorkingHours, earlyLeaveDuration, approved),
                           ],
                         ),
                       ),
@@ -190,7 +191,7 @@ class _ClockHistoryPageState extends State<ClockHistoryPage> {
     );
   }
 
-  Widget _buildTable(BuildContext context, String title, DateTime? time, String? imageUrl, dynamic extraData, [String? lateReason]) {
+  Widget _buildTable(BuildContext context, String title, DateTime? time, String? imageUrl, dynamic extraData, [String? lateReason, bool? approved]) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -207,15 +208,18 @@ class _ClockHistoryPageState extends State<ClockHistoryPage> {
           },
           children: [
             _buildTableRow('Time', time != null ? _formattedDateTime(time) : '-'),
-            if (imageUrl != null && imageUrl.isNotEmpty)
-              _buildTableRowImage(context, 'Image', imageUrl),
             if (title == 'Clock In') ...[
               _buildTableRow('Late Duration', extraData.toString()),
               _buildTableRow('Late Reason', lateReason ?? '-'),
             ],
             if (title == 'Clock Out') ...[
-              _buildTableRow('Working Hours', lateReason ?? '-'),
-              _buildTableRow('Status', extraData ? 'Approved' : 'Pending', extraData),
+              _buildTableRow('Early Leave Duration', lateReason ?? '-'), // Memindahkan ini ke atas image
+            ],
+            if (imageUrl != null && imageUrl.isNotEmpty)
+              _buildTableRowImage(context, 'Image', imageUrl), // Ditempatkan setelah Early Leave Duration
+            if (title == 'Clock Out') ...[
+              _buildTableRow('Working Hours', extraData ?? '-'), // Memastikan Working Hours ada di bawah image
+              _buildTableRow('Status', approved != null ? (approved ? 'Approved' : 'Pending') : '-', approved),
             ],
           ],
         ),
@@ -263,10 +267,10 @@ class _ClockHistoryPageState extends State<ClockHistoryPage> {
           padding: const EdgeInsets.all(8.0),
           child: imageUrl != null && imageUrl.isNotEmpty
               ? GestureDetector(
-              onTap: () {
+            onTap: () {
               _showFullImage(context, imageUrl);
-              },
-              child: Center(
+            },
+            child: Center(
               child: Container(
                 width: 100,
                 height: 100,

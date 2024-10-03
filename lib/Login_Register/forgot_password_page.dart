@@ -47,7 +47,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: Colors.blue[500],
+        backgroundColor: Colors.teal.shade900,
         elevation: 0,
       ),
       body: Column(
@@ -74,7 +74,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                     borderRadius: BorderRadius.circular(20),
                   ),
                   focusedBorder: OutlineInputBorder(
-                    borderSide: BorderSide(color: Colors.blue),
+                    borderSide: BorderSide(color: Colors.teal.shade900),
                     borderRadius: BorderRadius.circular(20),
                   ),
                   hintText: 'Email',
@@ -91,7 +91,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                 'Reset Password',
               style: TextStyle(color: Colors.white),
               ),
-              color: Colors.blue[500],
+              color: Colors.teal.shade900,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(20), // Mengatur sudut menjadi bulat
               ),

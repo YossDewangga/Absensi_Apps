@@ -202,7 +202,7 @@ class _EditPasswordPageState extends State<EditPasswordPage> {
                   ),
                   style: ElevatedButton.styleFrom(
                     foregroundColor: Colors.white,
-                    backgroundColor: Colors.blueAccent,
+                    backgroundColor: Colors.teal.shade900,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(50),
                     ),

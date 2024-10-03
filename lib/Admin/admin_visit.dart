@@ -187,6 +187,7 @@ class _AdminApprovalPageState extends State<AdminApprovalPage> {
                           var visitInLocation = data['visit_in_location'];
                           var visitInAddress = data['visit_in_address'] ?? 'Unknown';
                           var visitInImageUrl = data['visit_in_imageUrl'] ?? '';
+                          var destinationCompany = data['destination_company'] ?? 'N/A';
 
                           var visitOutTimestamp = data['visit_out_time'] != null
                               ? (data['visit_out_time'] as Timestamp).toDate()
@@ -228,6 +229,8 @@ class _AdminApprovalPageState extends State<AdminApprovalPage> {
                                         visitInLocation,
                                         visitInAddress,
                                         visitInImageUrl,
+                                        null,
+                                        destinationCompany,  // Tampilkan destination_company di Visit In
                                       ),
                                       Divider(thickness: 1, color: Colors.teal.shade700),
                                       Text('Visit Out', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.teal.shade900)),
@@ -265,7 +268,7 @@ class _AdminApprovalPageState extends State<AdminApprovalPage> {
     );
   }
 
-  Table _buildVisitLog(BuildContext context, String visitType, DateTime? timestamp, dynamic location, String address, String imageUrl, [String? nextDestination]) {
+  Table _buildVisitLog(BuildContext context, String visitType, DateTime? timestamp, dynamic location, String address, String imageUrl, [String? nextDestination, String? destinationCompany]) {
     return Table(
       border: TableBorder.all(color: Colors.grey),
       columnWidths: const {
@@ -274,6 +277,8 @@ class _AdminApprovalPageState extends State<AdminApprovalPage> {
       },
       defaultVerticalAlignment: TableCellVerticalAlignment.middle,
       children: [
+        if (visitType == 'Visit In' && destinationCompany != null) // Menampilkan destination_company di atas visit_in_time
+          _buildTableRow('Destination :', destinationCompany),
         _buildTableRow('$visitType Time:', timestamp != null ? _formattedDateTime(timestamp) : 'N/A'),
         TableRow(
           children: [

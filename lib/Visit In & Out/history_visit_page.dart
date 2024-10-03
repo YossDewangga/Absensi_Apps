@@ -144,7 +144,7 @@ class _VisitHistoryPageState extends State<VisitHistoryPage> {
                       child: Padding(
                         padding: const EdgeInsets.all(16.0),
                         child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+                          crossAxisAlignment: CrossAxisAlignment.center, // Menyelaraskan konten di tengah
                           children: [
                             if (data['visit_in_time'] != null)
                               _buildTable(
@@ -154,6 +154,10 @@ class _VisitHistoryPageState extends State<VisitHistoryPage> {
                                 data['visit_in_location'] as String?,
                                 data['visit_in_address'] as String?,
                                 data['visit_in_imageUrl'] as String?,
+                                null,
+                                null,
+                                null,
+                                data['destination_company'] as String?,  // Menampilkan destination_company
                               ),
                             if (data['visit_out_time'] != null)
                               _buildTable(
@@ -181,9 +185,9 @@ class _VisitHistoryPageState extends State<VisitHistoryPage> {
     );
   }
 
-  Widget _buildTable(BuildContext context, String title, String? time, String? location, String? address, String? imageUrl, [String? nextDestination, String? statusText, Color? statusColor]) {
+  Widget _buildTable(BuildContext context, String title, String? time, String? location, String? address, String? imageUrl, [String? nextDestination, String? statusText, Color? statusColor, String? destinationCompany]) {
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.center, // Menyelaraskan konten di tengah
       children: [
         Text(
           title,
@@ -197,12 +201,14 @@ class _VisitHistoryPageState extends State<VisitHistoryPage> {
             1: FlexColumnWidth(2),
           },
           children: [
+            if (title == 'Visit In' && destinationCompany != null)  // Tampilkan destination_company untuk Visit In
+              _buildTableRow('Destination', destinationCompany),
             _buildTableRow('Time', time ?? 'N/A'),
             _buildLocationRow(context, 'Location', location ?? 'N/A'),
             _buildTableRow('Address', address ?? 'N/A'),
+            _buildTableRowImage(context, 'Image', imageUrl),
             if (title == 'Visit Out' && nextDestination != null)
               _buildTableRow('Next Destination', nextDestination),
-            _buildTableRowImage(context, 'Image', imageUrl),
             if (title == 'Visit Out' && statusText != null && statusColor != null)
               _buildTableRow('Status', statusText, statusColor: statusColor),
           ],

@@ -107,6 +107,10 @@ class _AdminPageState extends State<AdminPage> {
 
   @override
   Widget build(BuildContext context) {
+    // Menggunakan MediaQuery untuk mendapatkan ukuran layar
+    var screenSize = MediaQuery.of(context).size;
+    bool isWideScreen = screenSize.width > 600; // Menentukan jika layar lebih lebar (seperti di web)
+
     return WillPopScope(
       onWillPop: () async {
         // Prevent back navigation
@@ -114,9 +118,52 @@ class _AdminPageState extends State<AdminPage> {
       },
       child: Scaffold(
         body: Center(
-          child: _pages.elementAt(_selectedIndex),
+          child: isWideScreen
+              ? Row(
+            children: [
+              NavigationRail(
+                selectedIndex: _selectedIndex,
+                onDestinationSelected: (int index) {
+                  setState(() {
+                    _selectedIndex = index;
+                  });
+                },
+                destinations: const [
+                  NavigationRailDestination(
+                    icon: Icon(Icons.access_time),
+                    label: Text('Absensi'),
+                  ),
+                  NavigationRailDestination(
+                    icon: Icon(Icons.people),
+                    label: Text('Karyawan'),
+                  ),
+                  NavigationRailDestination(
+                    icon: Icon(Icons.beach_access),
+                    label: Text('Cuti'),
+                  ),
+                  NavigationRailDestination(
+                    icon: Icon(Icons.settings),
+                    label: Text('Pengaturan'),
+                  ),
+                ],
+                selectedLabelTextStyle: TextStyle(
+                  color: Colors.blue,
+                ),
+                unselectedLabelTextStyle: TextStyle(
+                  color: Colors.grey,
+                ),
+              ),
+              const VerticalDivider(thickness: 1, width: 1),
+              Expanded(
+                child: _pages[_selectedIndex],
+              ),
+            ],
+          )
+              : _pages[_selectedIndex], // Tetap menggunakan layout biasa untuk layar kecil (mobile)
         ),
-        bottomNavigationBar: BottomNavigationBar(
+        bottomNavigationBar: isWideScreen
+            ? null // Tidak menggunakan bottom navigation di layar lebar (web)
+            : BottomNavigationBar(
           items: const [
             BottomNavigationBarItem(
               icon: Icon(Icons.access_time),

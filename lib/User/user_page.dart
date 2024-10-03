@@ -1,12 +1,12 @@
 import 'package:absensi_apps/Logbook/daily_activity.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart'; // Untuk mendeteksi apakah aplikasi berjalan di web
 import 'package:absensi_apps/Admin/setting_page.dart';
 import 'package:absensi_apps/Break/start_&_end_break.dart';
 import 'package:absensi_apps/Cuti/leave_page.dart';
 import '../Clock In & Clock Out/clock_in_out.dart';
 import '../Visit In & Out/visit.dart';
-import 'dart:ui';
 
 class UserPage extends StatefulWidget {
   UserPage({Key? key}) : super(key: key);
@@ -55,7 +55,7 @@ class _UserPageState extends State<UserPage> {
                   child: Column(
                     children: [
                       Container(
-                        padding: EdgeInsets.only(top: 60, left: 20, right: 30, bottom: 0), // Ubah left dan right
+                        padding: EdgeInsets.only(top: 60, left: 20, right: 30, bottom: 0),
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.only(
                             bottomLeft: Radius.circular(20),
@@ -114,79 +114,81 @@ class _UserPageState extends State<UserPage> {
                         padding: const EdgeInsets.symmetric(horizontal: 20.0),
                         child: Column(
                           children: [
-                            GridView.count(
-                              crossAxisCount: 2,
-                              crossAxisSpacing: 20,
-                              mainAxisSpacing: 20,
-                              shrinkWrap: true,
-                              physics: NeverScrollableScrollPhysics(),
-                              children: [
-                                _buildCard(
-                                  context: context,
-                                  icon: Icons.access_time,
-                                  label: 'Absensi',
-                                  onTap: () {
-                                    Navigator.push(
-                                      context,
-                                      MaterialPageRoute(builder: (context) => ClockPage()),
-                                    );
-                                  },
-                                ),
-                                _buildCard(
-                                  context: context,
-                                  icon: Icons.book,
-                                  label: 'Daily Activity',
-                                  onTap: () {
-                                    Navigator.push(
-                                      context,
-                                      MaterialPageRoute(builder: (context) => LogbookPage()),
-                                    );
-                                  },
-                                ),
-                                _buildCard(
-                                  context: context,
-                                  icon: Icons.free_breakfast,
-                                  label: 'Break',
-                                  onTap: () {
-                                    Navigator.push(
-                                      context,
-                                      MaterialPageRoute(builder: (context) => BreakStartEndPage()),
-                                    );
-                                  },
-                                ),
-                                _buildCard(
-                                  context: context,
-                                  icon: Icons.work,
-                                  label: 'Visit',
-                                  onTap: () {
-                                    Navigator.push(
-                                      context,
-                                      MaterialPageRoute(builder: (context) => VisitInAndOutPage()),
-                                    );
-                                  },
-                                ),
-                              ],
-                            ),
-                            Padding(
-                              padding: const EdgeInsets.only(top: 20.0),
-                              child: Align(
-                                alignment: Alignment.center,
-                                child: SizedBox(
-                                  width: 170, // Atur lebar sesuai kebutuhan
-                                  height: 170, // Atur tinggi sesuai kebutuhan
-                                  child: _buildCard(
-                                    context: context,
-                                    icon: Icons.airplane_ticket,
-                                    label: 'Cuti',
-                                    onTap: () {
-                                      Navigator.push(
-                                        context,
-                                        MaterialPageRoute(builder: (context) => LeaveApplicationPage()),
-                                      );
-                                    },
-                                  ),
-                                ),
-                              ),
+                            // Menggunakan kondisi kIsWeb untuk platform web
+                            LayoutBuilder(
+                              builder: (context, constraints) {
+                                int crossAxisCount = 2; // Default 2 kolom untuk mobile
+
+                                // Jika di web dan lebar lebih dari 600px, gunakan 3 kolom
+                                if (kIsWeb && constraints.maxWidth > 600) {
+                                  crossAxisCount = 3;
+                                }
+
+                                return GridView.count(
+                                  crossAxisCount: crossAxisCount, // Kolom responsif
+                                  crossAxisSpacing: 20,
+                                  mainAxisSpacing: 20,
+                                  shrinkWrap: true,
+                                  physics: NeverScrollableScrollPhysics(),
+                                  children: [
+                                    _buildCard(
+                                      context: context,
+                                      icon: Icons.access_time,
+                                      label: 'Absensi',
+                                      onTap: () {
+                                        Navigator.push(
+                                          context,
+                                          MaterialPageRoute(builder: (context) => ClockPage()),
+                                        );
+                                      },
+                                    ),
+                                    _buildCard(
+                                      context: context,
+                                      icon: Icons.book,
+                                      label: 'Daily Activity',
+                                      onTap: () {
+                                        Navigator.push(
+                                          context,
+                                          MaterialPageRoute(builder: (context) => LogbookPage()),
+                                        );
+                                      },
+                                    ),
+                                    _buildCard(
+                                      context: context,
+                                      icon: Icons.free_breakfast,
+                                      label: 'Break',
+                                      onTap: () {
+                                        Navigator.push(
+                                          context,
+                                          MaterialPageRoute(builder: (context) => BreakStartEndPage()),
+                                        );
+                                      },
+                                    ),
+                                    _buildCard(
+                                      context: context,
+                                      icon: Icons.work,
+                                      label: 'Visit',
+                                      onTap: () {
+                                        Navigator.push(
+                                          context,
+                                          MaterialPageRoute(builder: (context) => VisitInAndOutPage()),
+                                        );
+                                      },
+                                    ),
+                                    _buildCard(
+                                      context: context,
+                                      icon: Icons.airplane_ticket,
+                                      label: 'Cuti',
+                                      onTap: () {
+                                        Navigator.push(
+                                          context,
+                                          MaterialPageRoute(builder: (context) => LeaveApplicationPage()),
+                                        );
+                                      },
+                                    ),
+                                  ],
+                                );
+                              },
                             ),
                           ],
                         ),
@@ -223,7 +225,7 @@ class _UserPageState extends State<UserPage> {
               Icon(
                 icon,
                 size: 30,
-                color: Colors.teal.shade700, // Warna ikon
+                color: Colors.teal.shade700,
               ),
               SizedBox(height: 5),
               Text(

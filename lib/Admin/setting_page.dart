@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../Lend App/lend_app.dart';
-import 'admin_password.dart';  // Ganti dengan path halaman edit password yang sesuai
+import 'admin_password.dart';
 
 class ProfilePage extends StatelessWidget {
   @override
@@ -47,9 +47,7 @@ class ProfilePage extends StatelessWidget {
                     ),
                     SizedBox(height: 20),
                     ElevatedButton(
-                      onPressed: () {
-                        // Tambahkan aksi untuk edit profil
-                      },
+                      onPressed: () {},
                       style: ElevatedButton.styleFrom(
                         foregroundColor: Colors.black,
                         backgroundColor: Colors.white,
@@ -81,29 +79,27 @@ class ProfilePage extends StatelessWidget {
                     ),
                     title: Text('Settings', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w500)),
                     trailing: Icon(Icons.arrow_forward_ios),
-                    onTap: () {
-                      // Tambahkan aksi untuk settings
-                    },
+                    onTap: () {},
                   ),
-                  Divider(),
-                  ListTile(
-                    leading: Container(
-                      padding: EdgeInsets.all(6),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.1),
-                        shape: BoxShape.circle,
-                      ),
-                      child: Icon(Icons.all_inclusive, color: Colors.black), // Ganti ikon jika perlu
-                    ),
-                    title: Text('Lend App', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w500)),
-                    trailing: Icon(Icons.arrow_forward_ios),
-                    onTap: () {
-                      Navigator.push(
-                          context,
-                          MaterialPageRoute(builder: (context)=> LendAppPage()),
-                      );
-                    },
-                  ),
+                  // Divider(),
+                  // ListTile(
+                  //   leading: Container(
+                  //     padding: EdgeInsets.all(6),
+                  //     decoration: BoxDecoration(
+                  //       color: Colors.white.withOpacity(0.1),
+                  //       shape: BoxShape.circle,
+                  //     ),
+                  //     child: Icon(Icons.all_inclusive, color: Colors.black),
+                  //   ),
+                  //   title: Text('Lend App', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w500)),
+                  //   trailing: Icon(Icons.arrow_forward_ios),
+                  //   onTap: () {
+                  //     Navigator.push(
+                  //       context,
+                  //       MaterialPageRoute(builder: (context) => LendAppPage()),
+                  //     );
+                  //   },
+                  // ),
                   Divider(),
                   ListTile(
                     leading: Container(
@@ -136,8 +132,16 @@ class ProfilePage extends StatelessWidget {
                     title: Text('Logout', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w500)),
                     trailing: Icon(Icons.arrow_forward_ios),
                     onTap: () {
-                      showLogoutDialog(context); // Panggil dialog konfirmasi logout
+                      showLogoutDialog(context);
                     },
+                  ),
+                  Divider(),
+                  SizedBox(height: 150),
+                  Center(
+                    child: Text(
+                      'version 1.0',
+                      style: TextStyle(fontSize: 16, color: Colors.black54),
+                    ),
                   ),
                 ],
               ),
@@ -159,14 +163,14 @@ void showLogoutDialog(BuildContext context) {
         actions: [
           TextButton(
             onPressed: () {
-              Navigator.of(context).pop(); // Menutup dialog
+              Navigator.of(context).pop();
             },
             child: Text('Tidak'),
           ),
           TextButton(
             onPressed: () {
-              Navigator.of(context).pop(); // Menutup dialog
-              logout(context); // Panggil fungsi logout
+              Navigator.of(context).pop();
+              logout(context);
             },
             child: Text('Ya'),
           ),
@@ -178,14 +182,9 @@ void showLogoutDialog(BuildContext context) {
 
 Future<void> logout(BuildContext context) async {
   try {
-    // Logout dari Firebase
     await FirebaseAuth.instance.signOut();
-
-    // Clear SharedPreferences
     SharedPreferences prefs = await SharedPreferences.getInstance();
     await prefs.clear();
-
-    // Navigasi ke halaman login dan hapus semua halaman sebelumnya
     Navigator.of(context).pushAndRemoveUntil(
       MaterialPageRoute(builder: (context) => LoginPage()),
           (Route<dynamic> route) => false,

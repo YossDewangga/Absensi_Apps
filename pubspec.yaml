@@ -65,6 +65,19 @@ dependencies:
   csv: ^6.0.0
   excel: ^4.0.6
   connectivity_plus: ^2.3.0
+  google_mlkit_face_detection: ^0.11.0
+  face_recognition: ^0.0.2
+  camera: ^0.11.0+2
+  image_picker_for_web: ^2.1.6
+  cached_network_image: ^3.0.0
+  sqflite: ^2.0.0+3
+
+
+
+
+
+
+
 
 
 
@@ -135,3 +148,4 @@ flutter:
   #
   # For details regarding fonts from package dependencies,
   # see https://flutter.dev/custom-fonts/#from-packages
+

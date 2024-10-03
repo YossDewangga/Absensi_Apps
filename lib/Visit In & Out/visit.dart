@@ -45,10 +45,11 @@ class _VisitInAndOutPageState extends State<VisitInAndOutPage> {
   bool _isOtherOptionSelected = false; // Variabel untuk mengatur opsi "Lainnya"
 
   TimeOfDay? _designatedStartTime;
+  TimeOfDay? _designatedEndTime;  // Menyimpan designatedEndTime
   Duration _lateDuration = Duration.zero;
-  String? _lateReason;
+  Duration _earlyLeaveDuration = Duration.zero;  // Durasi early leave
 
-  final double _radius = 2000; // Ubah radius menjadi 2000 meter
+  final double _radius = 500; // Ubah radius menjadi 500 meter
   bool isLoading = false;
   bool _isOutsideDesignatedArea = false;
 
@@ -84,8 +85,12 @@ class _VisitInAndOutPageState extends State<VisitInAndOutPage> {
       if (startSnapshot.exists) {
         Timestamp startTimestamp = startSnapshot['designatedStartTime'];
         DateTime startDateTime = startTimestamp.toDate();
+        Timestamp endTimestamp = startSnapshot['designatedEndTime'];  // Ambil designatedEndTime dari Firestore
+        DateTime endDateTime = endTimestamp.toDate();
+
         setState(() {
           _designatedStartTime = TimeOfDay(hour: startDateTime.hour, minute: startDateTime.minute);
+          _designatedEndTime = TimeOfDay(hour: endDateTime.hour, minute: endDateTime.minute);
         });
       } else {
         print("Designated times document does not exist");
@@ -163,6 +168,27 @@ class _VisitInAndOutPageState extends State<VisitInAndOutPage> {
     await _takePicture(true);
   }
 
+  Future<void> _visitOut() async {
+    await _takePicture(false);
+
+    if (_selectedOption == 'Pulang' && _designatedEndTime != null) {
+      final DateTime nowDateTime = DateTime.now();
+      final DateTime endDateTime = DateTime(
+        nowDateTime.year,
+        nowDateTime.month,
+        nowDateTime.day,
+        _designatedEndTime!.hour,
+        _designatedEndTime!.minute,
+      );
+
+      if (nowDateTime.isBefore(endDateTime)) {
+        setState(() {
+          _earlyLeaveDuration = endDateTime.difference(nowDateTime);
+        });
+      }
+    }
+  }
+
   Future<String> _saveVisitInToFirestore(String downloadUrl) async {
     DocumentReference userDocRef = FirebaseFirestore.instance.collection('users').doc(_userId);
     DocumentReference visitDocRef = await userDocRef.collection('visits').add({
@@ -172,30 +198,11 @@ class _VisitInAndOutPageState extends State<VisitInAndOutPage> {
       'visit_in_imageUrl': downloadUrl,
       'visit_status': 'Visit In',
       'displayName': _displayName,
-      'approved': true,
+      'approved': false,
+      'destination_company': _nextDestination, // Simpan nama perusahaan
     });
 
     return visitDocRef.id;
-  }
-
-  Future<void> _saveVisitStatus() async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    prefs.setString('visit_status', _visitStatus);
-    prefs.setBool('visit_in_completed', _visitInCompleted);
-    prefs.setBool('visit_out_completed', _visitOutCompleted);
-    prefs.setString('visit_in_document_id', _visitInDocumentId);
-    prefs.setString('clock_in_document_id', _clockInDocumentId); // Save clock in document ID
-    prefs.setString('visit_in_date_time', _visitInDateTime);
-    prefs.setString('visit_out_date_time', _visitOutDateTime);
-    prefs.setString('visit_in_location', _visitInLocation);
-    prefs.setString('visit_in_address', _visitInAddress);
-    prefs.setString('visit_out_location', _visitOutLocation);
-    prefs.setString('visit_out_address', _visitOutAddress);
-    prefs.setString('next_destination', _nextDestination); // Save next destination
-  }
-
-  Future<void> _visitOut() async {
-    await _takePicture(false);
   }
 
   Future<void> _saveVisitOutToFirestore(String downloadUrl, bool isApproved) async {
@@ -229,8 +236,8 @@ class _VisitInAndOutPageState extends State<VisitInAndOutPage> {
   Future<void> _showNextDestinationDialog() async {
     TimeOfDay now = TimeOfDay.now();
     TimeOfDay startTime1 = TimeOfDay(hour: 0, minute: 0);
-    TimeOfDay endTime1 = TimeOfDay(hour: 16, minute: 0);
-    TimeOfDay startTime2 = TimeOfDay(hour: 16, minute: 1);
+    TimeOfDay endTime1 = TimeOfDay(hour: 15, minute: 34);
+    TimeOfDay startTime2 = TimeOfDay(hour: 15, minute: 35);
     TimeOfDay endTime2 = TimeOfDay(hour: 23, minute: 59);
 
     bool withinFirstRange = _isTimeWithinRange(now, startTime1, endTime1);
@@ -239,6 +246,7 @@ class _VisitInAndOutPageState extends State<VisitInAndOutPage> {
     if (withinSecondRange) {
       return showDialog(
         context: context,
+        barrierDismissible: false, // Prevent dialog from closing when clicking outside
         builder: (context) => StatefulBuilder(
           builder: (context, setState) => AlertDialog(
             title: Text('Masukkan Tujuan Selanjutnya !', style: TextStyle(color: Colors.teal.shade900)),
@@ -303,6 +311,7 @@ class _VisitInAndOutPageState extends State<VisitInAndOutPage> {
     } else if (withinFirstRange) {
       return showDialog(
         context: context,
+        barrierDismissible: false, // Prevent dialog from closing when clicking outside
         builder: (context) => AlertDialog(
           title: Text('Tujuan Selanjutnya ?', style: TextStyle(color: Colors.teal.shade900)),
           content: TextField(
@@ -347,6 +356,7 @@ class _VisitInAndOutPageState extends State<VisitInAndOutPage> {
   Future<void> _showClockOutConfirmationDialog() async {
     bool confirmed = await showDialog(
       context: context,
+      barrierDismissible: false, // Prevent dialog from closing when clicking outside
       builder: (context) => AlertDialog(
         title: Text('Konfirmasi Clock Out', style: TextStyle(color: Colors.teal.shade900)),
         content: Text('Visit Out akan dijadikan Clock Out juga.', style: TextStyle(color: Colors.teal.shade900)),
@@ -393,7 +403,6 @@ class _VisitInAndOutPageState extends State<VisitInAndOutPage> {
         if (nowDateTime.isAfter(startDateTime)) {
           setState(() {
             _lateDuration = nowDateTime.difference(startDateTime);
-            _lateReason = "-"; // Set late reason to "-"
           });
         }
 
@@ -413,7 +422,6 @@ class _VisitInAndOutPageState extends State<VisitInAndOutPage> {
             'clock_in_time': visitInTime,
             'is_late': nowDateTime.isAfter(startDateTime),
             'late_duration': _formattedDuration(_lateDuration),
-            'late_reason': _lateReason,
             'image_url': visitInImageUrl,
             'clock_status': 'Clock In',
             'approved': false, // Set approved to false for all clock in from visit
@@ -459,6 +467,24 @@ class _VisitInAndOutPageState extends State<VisitInAndOutPage> {
         Duration WorkingHours = _visitOutTime!.difference(_visitInTime!);
         String WorkingHoursStr = _formattedDuration(WorkingHours);
 
+        // Calculate early leave duration
+        if (_designatedEndTime != null) {
+          final DateTime nowDateTime = _visitOutTime!;
+          final DateTime endDateTime = DateTime(
+            nowDateTime.year,
+            nowDateTime.month,
+            nowDateTime.day,
+            _designatedEndTime!.hour,
+            _designatedEndTime!.minute,
+          );
+
+          if (nowDateTime.isBefore(endDateTime)) {
+            setState(() {
+              _earlyLeaveDuration = endDateTime.difference(nowDateTime);
+            });
+          }
+        }
+
         DocumentReference clockOutDocRef = userDocRef.collection('clockin_records').doc(_clockInDocumentId);
         await clockOutDocRef.update({
           'clockout_location': GeoPoint(currentPosition.latitude, currentPosition.longitude),
@@ -468,6 +494,8 @@ class _VisitInAndOutPageState extends State<VisitInAndOutPage> {
           'clock_status': 'Clock Out',
           'clock_out_image_url': visitOutImageUrl, // Save visit out image URL
           'working_hours': WorkingHoursStr, // Save total working hours
+          if (_earlyLeaveDuration > Duration.zero)
+            'early_leave_duration': _formattedDuration(_earlyLeaveDuration), // Save early leave duration
         });
 
         print("Clock out berhasil berdasarkan visit out.");
@@ -513,22 +541,21 @@ class _VisitInAndOutPageState extends State<VisitInAndOutPage> {
       List<Placemark> placemarks = await placemarkFromCoordinates(position.latitude, position.longitude);
       Placemark placemark = placemarks.first;
 
+      String fullAddress = '${placemark.name ?? ''}, '
+          '${placemark.street ?? ''}, '
+          '${placemark.subLocality ?? ''}, '
+          '${placemark.locality ?? ''}, '
+          '${placemark.administrativeArea ?? ''}';
+
       if (isVisitIn) {
         setState(() {
           _visitInPosition = position;
           _visitInLocation = '${position.latitude}, ${position.longitude}';
-          _visitInAddress = '${placemark.street}, ${placemark.subLocality}, ${placemark.locality}, ${placemark.subAdministrativeArea}';
+          _visitInAddress = fullAddress; // Menyimpan alamat lengkap termasuk nama gedung
         });
-      } else {
-        setState(() {
-          _visitOutLocation = '${position.latitude}, ${position.longitude}';
-          _visitOutAddress = '${placemark.street}, ${placemark.subLocality}, ${placemark.locality}, ${placemark.subAdministrativeArea}';
-        });
-        print('Visit Out Location: $_visitOutLocation');
-        print('Visit Out Address: $_visitOutAddress');
       }
     } catch (e) {
-      print('Error getting location');
+      print('Error getting location: $e');
       _showAlertDialog('Error getting location');
     }
   }
@@ -567,6 +594,7 @@ class _VisitInAndOutPageState extends State<VisitInAndOutPage> {
   void _showAlertDialog(String message) {
     showDialog(
       context: context,
+      barrierDismissible: false, // Prevent dialog from closing when clicking outside
       builder: (BuildContext context) {
         return AlertDialog(
           title: Text('Peringatan', style: TextStyle(color: Colors.teal.shade900)),
@@ -587,6 +615,7 @@ class _VisitInAndOutPageState extends State<VisitInAndOutPage> {
   void _showSuccessDialog(String message, {bool additionalDialog = false}) {
     showDialog(
       context: context,
+      barrierDismissible: false, // Prevent dialog from closing when clicking outside
       builder: (context) => AlertDialog(
         title: Row(
           children: [
@@ -617,6 +646,7 @@ class _VisitInAndOutPageState extends State<VisitInAndOutPage> {
   void _showOutsideDesignatedAreaDialog() {
     showDialog(
       context: context,
+      barrierDismissible: false, // Prevent dialog from closing when clicking outside
       builder: (context) => AlertDialog(
         title: Row(
           children: [
@@ -649,6 +679,22 @@ class _VisitInAndOutPageState extends State<VisitInAndOutPage> {
     );
   }
 
+  Future<void> _saveVisitStatus() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    await prefs.setString('visit_status', _visitStatus);
+    await prefs.setBool('visit_in_completed', _visitInCompleted);
+    await prefs.setBool('visit_out_completed', _visitOutCompleted);
+    await prefs.setString('visit_in_document_id', _visitInDocumentId);
+    await prefs.setString('clock_in_document_id', _clockInDocumentId);
+    await prefs.setString('visit_in_date_time', _visitInDateTime);
+    await prefs.setString('visit_out_date_time', _visitOutDateTime);
+    await prefs.setString('visit_in_location', _visitInLocation);
+    await prefs.setString('visit_in_address', _visitInAddress);
+    await prefs.setString('visit_out_location', _visitOutLocation);
+    await prefs.setString('visit_out_address', _visitOutAddress);
+    await prefs.setString('next_destination', _nextDestination);
+  }
+
   Future<void> _startVisitInProcess() async {
     setState(() {
       isLoading = true;
@@ -660,6 +706,9 @@ class _VisitInAndOutPageState extends State<VisitInAndOutPage> {
         _updateVisitInDateTime();
       });
       try {
+        // Setelah mengambil gambar, tampilkan dialog untuk memasukkan nama perusahaan
+        await _showCompanyNameDialog(); // Menambahkan dialog
+
         String downloadUrl = await _uploadImageToStorage(_visitInImage!, 'visit_in_images');
         String documentId = await _saveVisitInToFirestore(downloadUrl);
         setState(() {
@@ -689,8 +738,11 @@ class _VisitInAndOutPageState extends State<VisitInAndOutPage> {
   Future<void> _startVisitOutProcess() async {
     setState(() {
       isLoading = true;
+      _nextDestination = "Pulang";  // Set default value for next destination to "Pulang"
     });
+
     await _getCurrentPosition(false);
+
     if (_visitOutImage != null && _visitInPosition != null) {
       Position position = await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high);
       double distanceInMeters = Geolocator.distanceBetween(
@@ -700,10 +752,12 @@ class _VisitInAndOutPageState extends State<VisitInAndOutPage> {
         position.longitude,
       );
       bool isApproved = distanceInMeters <= _radius;
+
       setState(() {
         _visitOutTime = DateTime.now();
         _updateVisitOutDateTime();
       });
+
       await _showNextDestinationDialog();
       try {
         String downloadUrl = await _uploadImageToStorage(_visitOutImage!, 'visit_out_images');
@@ -714,6 +768,7 @@ class _VisitInAndOutPageState extends State<VisitInAndOutPage> {
           _visitInCompleted = false;
           _isOutsideDesignatedArea = !isApproved;
         });
+
         await _saveVisitStatus();
       } catch (e) {
         setState(() {
@@ -728,6 +783,87 @@ class _VisitInAndOutPageState extends State<VisitInAndOutPage> {
       _showAlertDialog('Gagal mendapatkan lokasi.');
     }
   }
+
+  Future<void> _showCompanyNameDialog() async {
+    String companyName = '';
+    return showDialog(
+      context: context,
+      barrierDismissible: false, // Prevent dialog from closing when clicking outside
+      builder: (context) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(15.0),
+          ),
+          title: Center( // Center the title
+            child: Text(
+              'Masukkan Nama Perusahaan Yang Sedang Dikunjungi',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: Colors.teal.shade900,
+                fontWeight: FontWeight.bold,
+                fontSize: 18,
+              ),
+            ),
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              SizedBox(height: 15),
+              TextField(
+                onChanged: (value) {
+                  companyName = value;
+                },
+                decoration: InputDecoration(
+                  labelText: "Nama Perusahaan",
+                  labelStyle: TextStyle(color: Colors.teal.shade700),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10.0),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderSide: BorderSide(color: Colors.teal.shade700, width: 2.0),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8.0),
+              child: Center( // Center the button
+                child: ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.teal.shade700,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10.0),
+                    ),
+                  ),
+                  onPressed: () {
+                    if (companyName.isEmpty) {
+                      _showAlertDialog('Nama Perusahaan harus diisi.');
+                    } else {
+                      Navigator.of(context).pop();
+                      setState(() {
+                        _nextDestination = companyName; // Simpan nama perusahaan ke _nextDestination
+                      });
+                    }
+                  },
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 10.0, horizontal: 20.0),
+                    child: Text(
+                      'Submit',
+                      style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+
 
   @override
   Widget build(BuildContext context) {
