@@ -1,10 +1,9 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
 import 'absensi_karyawan.dart';
-import 'break_karyawan.dart';
 import 'cuti_karyawan.dart';
-import 'overtime_karyawan.dart';
 import 'visit_karyawan.dart';
 
 class EmployeeHistoryPage extends StatefulWidget {
@@ -27,6 +26,7 @@ class _EmployeeHistoryPageState extends State<EmployeeHistoryPage> {
   int selectedYear = DateTime.now().year;
   int workingDays = 0;
   int attendedWorkingDays = 0;
+  int notApprovedCount = 0;
 
   @override
   void initState() {
@@ -35,12 +35,16 @@ class _EmployeeHistoryPageState extends State<EmployeeHistoryPage> {
   }
 
   void _updateData() async {
+    print('DEBUG: Memulai _updateData untuk bulan: $selectedMonth, tahun: $selectedYear');
     DateTime date = DateTime(selectedYear, selectedMonth, 22);
+    int tempWorkingDays = await _calculateWorkingDays(date);
+    var (tempAttendedDays, tempNotApprovedCount) = await _calculateAttendedWorkingDays();
     setState(() {
-      workingDays = _calculateWorkingDays(date);
+      workingDays = tempWorkingDays;
+      attendedWorkingDays = tempAttendedDays;
+      notApprovedCount = tempNotApprovedCount;
+      print('DEBUG: Update state - workingDays: $workingDays, attendedWorkingDays: $attendedWorkingDays, notApprovedCount: $notApprovedCount');
     });
-    attendedWorkingDays = await _calculateAttendedWorkingDays();
-    setState(() {});
   }
 
   @override
@@ -49,12 +53,12 @@ class _EmployeeHistoryPageState extends State<EmployeeHistoryPage> {
       appBar: AppBar(
         title: Text(
           'History for ${widget.displayName}',
-          style: TextStyle(color: Colors.white), // Teks AppBar berwarna putih
+          style: TextStyle(color: Colors.white),
         ),
         centerTitle: true,
         backgroundColor: Colors.teal.shade700,
         elevation: 2.0,
-        iconTheme: IconThemeData(color: Colors.white), // Ikon AppBar berwarna putih
+        iconTheme: IconThemeData(color: Colors.white),
       ),
       body: Column(
         children: [
@@ -85,6 +89,7 @@ class _EmployeeHistoryPageState extends State<EmployeeHistoryPage> {
                           if (newMonth != null) {
                             setState(() {
                               selectedMonth = newMonth;
+                              print('DEBUG: Bulan berubah menjadi: $newMonth');
                               _updateData();
                             });
                           }
@@ -105,6 +110,7 @@ class _EmployeeHistoryPageState extends State<EmployeeHistoryPage> {
                           if (newYear != null) {
                             setState(() {
                               selectedYear = newYear;
+                              print('DEBUG: Tahun berubah menjadi: $newYear');
                               _updateData();
                             });
                           }
@@ -128,6 +134,11 @@ class _EmployeeHistoryPageState extends State<EmployeeHistoryPage> {
                           'Attended Working Days: $attendedWorkingDays',
                           style: TextStyle(
                               fontSize: 18, fontWeight: FontWeight.w600, color: Colors.teal.shade600),
+                        ),
+                        Text(
+                          'Not approved yet: $notApprovedCount',
+                          style: TextStyle(
+                              fontSize: 14, fontWeight: FontWeight.w300, color: Colors.black),
                         ),
                       ],
                     ),
@@ -170,84 +181,6 @@ class _EmployeeHistoryPageState extends State<EmployeeHistoryPage> {
                               Icon(Icons.access_time, color: Colors.teal.shade700),
                               Text(
                                 'Absensi',
-                                style: TextStyle(
-                                    fontSize: 16, fontWeight: FontWeight.bold, color: Colors.teal.shade700),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-              Expanded(
-                child: GestureDetector(
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (context) => OvertimePage()),
-                    );
-                  },
-                  child: Card(
-                    color: Colors.teal.shade50,
-                    margin: const EdgeInsets.all(8.0),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16.0),
-                    ),
-                    elevation: 4.0,
-                    child: Padding(
-                      padding: const EdgeInsets.all(8.0),
-                      child: SizedBox(
-                        height: 80,
-                        child: Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(Icons.schedule, color: Colors.teal.shade700),
-                              Text(
-                                'Overtime',
-                                style: TextStyle(
-                                    fontSize: 16, fontWeight: FontWeight.bold, color: Colors.teal.shade700),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-          Row(
-            children: [
-              Expanded(
-                child: GestureDetector(
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (context) => BreakPage()),
-                    );
-                  },
-                  child: Card(
-                    color: Colors.teal.shade50,
-                    margin: const EdgeInsets.all(8.0),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16.0),
-                    ),
-                    elevation: 4.0,
-                    child: Padding(
-                      padding: const EdgeInsets.all(8.0),
-                      child: SizedBox(
-                        height: 80,
-                        child: Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(Icons.free_breakfast, color: Colors.teal.shade700),
-                              Text(
-                                'Break',
                                 style: TextStyle(
                                     fontSize: 16, fontWeight: FontWeight.bold, color: Colors.teal.shade700),
                               ),
@@ -339,60 +272,115 @@ class _EmployeeHistoryPageState extends State<EmployeeHistoryPage> {
     );
   }
 
-  int _calculateWorkingDays(DateTime selectedDate) {
+  Future<int> _calculateWorkingDays(DateTime selectedDate) async {
     DateTime startDate = DateTime(selectedYear, selectedMonth - 1, 22);
     DateTime endDate = DateTime(selectedYear, selectedMonth, 21);
 
-    List<DateTime> holidays = [
-      DateTime(selectedDate.year, 1, 1), // New Year's Day
-      DateTime(selectedDate.year, 5, 1), // Labor Day
-      DateTime(selectedDate.year, 8, 17), // Indonesian Independence Day
-      // Tambahkan tanggal merah lainnya di sini
-    ];
+    List<DateTime> holidays = await _fetchHolidays();
+    print('DEBUG: Tanggal merah: $holidays');
 
     int workingDays = 0;
 
     for (DateTime day = startDate;
-    day.isBefore(endDate) || day.isAtSameMomentAs(endDate);
-    day = day.add(Duration(days: 1))) {
+        day.isBefore(endDate) || day.isAtSameMomentAs(endDate);
+        day = day.add(Duration(days: 1))) {
       if (day.weekday != DateTime.saturday &&
           day.weekday != DateTime.sunday &&
-          !holidays.contains(day)) {
+          !holidays.any((holiday) => holiday.year == day.year && holiday.month == day.month && holiday.day == day.day)) {
         workingDays++;
       }
     }
 
+    print('DEBUG: Jumlah hari kerja: $workingDays');
     return workingDays;
   }
 
-  Future<int> _calculateAttendedWorkingDays() async {
+  Future<List<DateTime>> _fetchHolidays() async {
+    final currentUser = FirebaseAuth.instance.currentUser;
+    if (currentUser == null) {
+      print('DEBUG: Tidak ada pengguna yang login');
+      return [];
+    }
+    final adminDoc = await FirebaseFirestore.instance.collection('users').doc(currentUser.uid).get();
+    if (!adminDoc.exists) {
+      print('DEBUG: Dokumen pengguna tidak ditemukan');
+      return [];
+    }
+    final adminData = adminDoc.data() as Map<String, dynamic>;
+    String? companyName = adminData['Company Name']?.toString().trim();
+    if (companyName == null || companyName.isEmpty) {
+      print('DEBUG: Nama perusahaan kosong');
+      return [];
+    }
+    final companyDoc = await FirebaseFirestore.instance.collection('companies').doc(companyName).get();
+    final data = companyDoc.data();
+    if (data == null || !data.containsKey('public_holidays')) {
+      print('DEBUG: Tidak ada tanggal merah untuk perusahaan: $companyName');
+      return [];
+    }
+    return (data['public_holidays'] as List<dynamic>)
+        .map((item) => (item['date'] as Timestamp).toDate())
+        .toList();
+  }
+
+  Future<(int, int)> _calculateAttendedWorkingDays() async {
     DateTime startDate = DateTime(selectedYear, selectedMonth - 1, 22);
     DateTime endDate = DateTime(selectedYear, selectedMonth, 21);
 
-    QuerySnapshot snapshot = await FirebaseFirestore.instance
-        .collection('users')
-        .doc(widget.employeeId)
-        .collection('clockin_records')
-        .where('clock_in_time', isGreaterThanOrEqualTo: Timestamp.fromDate(startDate))
-        .where('clock_in_time', isLessThanOrEqualTo: Timestamp.fromDate(endDate))
-        .where('approved', isEqualTo: true)
-        .orderBy('clock_in_time')
-        .get();
+    print('DEBUG: Mengambil data untuk userId: ${widget.employeeId}');
+    print('DEBUG: Rentang tanggal: $startDate hingga $endDate');
 
-    Set<String> uniqueDays = Set();
+    try {
+      QuerySnapshot snapshot = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(widget.employeeId)
+          .collection('clockin_records')
+          .where('clock_in_time', isGreaterThanOrEqualTo: Timestamp.fromDate(startDate))
+          .where('clock_in_time', isLessThanOrEqualTo: Timestamp.fromDate(endDate))
+          .orderBy('clock_in_time')
+          .get();
 
-    for (var doc in snapshot.docs) {
-      var data = doc.data() as Map<String, dynamic>;
-      var clockInTime = data['clock_in_time'] != null
-          ? (data['clock_in_time'] as Timestamp).toDate()
-          : null;
-
-      if (clockInTime != null) {
-        String formattedDate = DateFormat('yyyy-MM-dd').format(clockInTime);
-        uniqueDays.add(formattedDate);
+      print('DEBUG: Jumlah dokumen ditemukan: ${snapshot.docs.length}');
+      if (snapshot.docs.isEmpty) {
+        print('DEBUG: Tidak ada dokumen ditemukan dalam rentang tanggal');
       }
-    }
 
-    return uniqueDays.length;
+      Set<String> uniqueDays = {};
+      int notApprovedCount = 0;
+
+      for (var doc in snapshot.docs) {
+        var data = doc.data() as Map<String, dynamic>;
+        print('DEBUG: Dokumen ID: ${doc.id}, Data: $data');
+
+        var clockInTime = data['clock_in_time'] != null
+            ? (data['clock_in_time'] as Timestamp).toDate()
+            : null;
+        var approved = data.containsKey('approved') ? data['approved'] : null;
+
+        print('DEBUG: clock_in_time: $clockInTime, approved: $approved (tipe: ${approved.runtimeType})');
+
+        if (clockInTime != null) {
+          String formattedDate = DateFormat('yyyy-MM-dd').format(clockInTime);
+          uniqueDays.add(formattedDate);
+          print('DEBUG: Tanggal unik ditambahkan: $formattedDate');
+        } else {
+          print('DEBUG: Dokumen tanpa clock_in_time valid: $data');
+        }
+
+        if (approved == false) {
+          notApprovedCount++;
+          print('DEBUG: Dokumen dengan approved: false ditemukan, notApprovedCount: $notApprovedCount');
+        } else {
+          print('DEBUG: Dokumen ini tidak dihitung untuk notApprovedCount (approved: $approved)');
+        }
+      }
+
+      print('DEBUG: Jumlah hari unik (attendedWorkingDays): ${uniqueDays.length}');
+      print('DEBUG: Jumlah catatan dengan approved false (notApprovedCount): $notApprovedCount');
+      return (uniqueDays.length, notApprovedCount);
+    } catch (e) {
+      print('DEBUG: Error saat mengambil data clockin_records: $e');
+      return (0, 0);
+    }
   }
 }

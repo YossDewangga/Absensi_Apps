@@ -2,6 +2,7 @@ import 'package:absensi_apps/Admin/History%20Karyawan/history_karyawan_page.dart
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:absensi_apps/Login_Register/register_page.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class KaryawanListPage extends StatefulWidget {
   const KaryawanListPage({super.key});
@@ -13,11 +14,75 @@ class KaryawanListPage extends StatefulWidget {
 class _KaryawanListPageState extends State<KaryawanListPage> {
   bool showAdmins = true;
   String? selectedDepartment;
-  List<String> departments = ['Direktur', 'Purchasing', 'Finance', 'Account Manager',
-    'Marketing', 'Mobile Apps Development', 'Technical Support'];
+  List<String> departments = [
+    'Direktur', 'Purchasing', 'Finance', 'Account Manager',
+    'Marketing', 'Mobile Apps Development', 'Technical Support'
+  ];
+
+  String? adminCompanyName;
+  bool _isLoadingCompany = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchAdminCompanyName();
+  }
+
+  // Function to fetch the Admin's company name
+  Future<void> _fetchAdminCompanyName() async {
+    final currentUser = FirebaseAuth.instance.currentUser;
+    if (currentUser != null) {
+      final adminDoc = await FirebaseFirestore.instance.collection('users').doc(currentUser.uid).get();
+
+      if (adminDoc.exists) {
+        final adminData = adminDoc.data() as Map<String, dynamic>;
+
+        // Debugging: Log the entire admin data to see what is coming from Firestore
+        print('DEBUG: Admin Data Retrieved: $adminData');
+
+        // Extract the 'Company Name' and trim it safely
+        String? rawCompanyName = adminData['Company Name'];
+        String companyName = (rawCompanyName is String) ? rawCompanyName.trim() : '';
+        
+        // Debugging: Log the raw company name
+        print('DEBUG: Retrieved Company Name (raw): "${adminData['Company Name']}"');
+
+        // Check if the company name is empty
+        if (companyName.isEmpty) {
+          print('DEBUG: Company Name is empty or missing for admin');
+        }
+
+        // Set the company name to state
+        setState(() {
+          adminCompanyName = companyName;
+          _isLoadingCompany = false;
+        });
+      } else {
+        print('DEBUG: Admin document does not exist in Firestore');
+        setState(() {
+          _isLoadingCompany = false;
+        });
+      }
+    } else {
+      setState(() {
+        _isLoadingCompany = false;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
+    if (_isLoadingCompany) {
+      return Scaffold(
+        appBar: AppBar(
+          title: const Text('Karyawan List', style: TextStyle(color: Colors.white)),
+          centerTitle: true,
+          backgroundColor: Colors.teal.shade700,
+        ),
+        body: const Center(child: CircularProgressIndicator()),
+      );
+    }
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Karyawan List', style: TextStyle(color: Colors.white)),
@@ -29,11 +94,6 @@ class _KaryawanListPageState extends State<KaryawanListPage> {
             onPressed: _navigateToRegisterPage,
           ),
         ],
-        titleSpacing: 0.0,
-        toolbarHeight: 70.0,
-        flexibleSpace: Align(
-          alignment: Alignment.topCenter,
-        ),
       ),
       body: Column(
         children: [
@@ -44,9 +104,8 @@ class _KaryawanListPageState extends State<KaryawanListPage> {
               onPressed: (int index) {
                 setState(() {
                   showAdmins = index == 0;
-                  // Reset the selected department if Admin is selected
                   if (showAdmins) {
-                    selectedDepartment = null;
+                    selectedDepartment = null; // Reset department when switching to Admin view
                   }
                 });
               },
@@ -66,8 +125,6 @@ class _KaryawanListPageState extends State<KaryawanListPage> {
               ],
             ),
           ),
-
-          // Dropdown for selecting department (only visible if Karyawan is selected)
           if (!showAdmins)
             Padding(
               padding: const EdgeInsets.all(16.0),
@@ -93,7 +150,6 @@ class _KaryawanListPageState extends State<KaryawanListPage> {
                 },
               ),
             ),
-
           Expanded(
             child: StreamBuilder<QuerySnapshot>(
               stream: FirebaseFirestore.instance.collection('users').snapshots(),
@@ -112,14 +168,44 @@ class _KaryawanListPageState extends State<KaryawanListPage> {
 
                 final employees = snapshot.data!.docs;
 
-                // Filter employees based on selected role and department
-                final filteredList = employees.where((employee) {
-                  final roleMatch = employee['role'] == (showAdmins ? 'Admin' : 'Karyawan');
-                  final departmentExists = employee.data().toString().contains('department');
-                  final departmentMatch = selectedDepartment == null ||
-                      (departmentExists && employee['department'] == selectedDepartment);
+                // Check if adminCompanyName is available
+                if (adminCompanyName == null || adminCompanyName!.isEmpty) {
+                  print('DEBUG: Admin Company Name is missing or empty.');
+                  return const Center(child: Text('Admin Company Name is missing.'));
+                }
 
-                  return roleMatch && departmentMatch;
+                print('DEBUG: Total employees fetched: ${employees.length}');
+                for (var employee in employees) {
+                  print('DEBUG: employee data: ${employee.data()}');
+                }
+
+                // Filter based on company name, then role, then department
+                final filteredList = employees.where((employee) {
+                  final data = employee.data() as Map<String, dynamic>;
+
+                  // Cari key "Company Name" yang benar-benar ada (abaikan case dan spasi)
+                  final companyKey = data.keys.firstWhere(
+                    (k) => k.trim().toLowerCase() == 'company name',
+                    orElse: () => '',
+                  );
+                  final employeeCompanyName = (companyKey.isNotEmpty && data[companyKey] is String)
+                      ? data[companyKey].toString().trim()
+                      : '';
+
+                  print('DEBUG: employeeCompanyName: "$employeeCompanyName"');
+
+                  final companyMatch = adminCompanyName != null &&
+                      adminCompanyName!.isNotEmpty &&
+                      employeeCompanyName.toLowerCase() == adminCompanyName!.toLowerCase();
+
+                  print('DEBUG: companyMatch: $companyMatch');
+
+                  final roleMatch = companyMatch && data['role'] == (showAdmins ? 'Admin' : 'Karyawan');
+                  final departmentMatch = selectedDepartment == null ||
+                      (data.containsKey('department') && data['department'] == selectedDepartment);
+
+                  print('DEBUG: user ${data['displayName']} | role: ${data['role']} | company: $employeeCompanyName | match: $companyMatch');
+                  return roleMatch && departmentMatch && companyMatch;
                 }).toList();
 
                 print('Jumlah pengguna yang ditampilkan: ${filteredList.length}');
@@ -175,7 +261,7 @@ class _KaryawanListPageState extends State<KaryawanListPage> {
               : 'No Display Name';
           String department = employee.data().toString().contains('department')
               ? employee['department']
-              : 'No Department'; // Menggunakan department alih-alih role
+              : 'No Department';
 
           return Card(
             elevation: 3,
@@ -195,7 +281,7 @@ class _KaryawanListPageState extends State<KaryawanListPage> {
                 displayName,
                 style: const TextStyle(fontWeight: FontWeight.bold),
               ),
-              subtitle: Text(department), // Menampilkan department
+              subtitle: Text(department),
               onTap: () => _navigateToEmployeeHistoryPage(employee.id, displayName),
             ),
           );

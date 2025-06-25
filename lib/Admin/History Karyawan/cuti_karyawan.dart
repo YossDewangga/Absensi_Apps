@@ -1,6 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:table_calendar/table_calendar.dart';
+import 'package:intl/intl.dart';
+import 'package:csv/csv.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:permission_handler/permission_handler.dart';
+import 'dart:io';
+import 'dart:async';
 
 class CutiPage extends StatefulWidget {
   final String? userId;
@@ -12,145 +17,144 @@ class CutiPage extends StatefulWidget {
 }
 
 class _CutiPageState extends State<CutiPage> {
-  DateTime _selectedDate = DateTime.now();
-  bool _isCalendarExpanded = false;
-
   @override
   Widget build(BuildContext context) {
     if (widget.userId == null) {
       return Scaffold(
         appBar: AppBar(
-          title: Text('Riwayat Cuti'),
+          title: const Text('Riwayat Cuti', style: TextStyle(color: Colors.white)),
+          backgroundColor: Colors.teal.shade700,
+          iconTheme: const IconThemeData(color: Colors.white),
         ),
-        body: Center(child: Text('User ID tidak ditemukan')),
+        body: const Center(child: Text('User ID tidak ditemukan')),
       );
     }
 
     return Scaffold(
       appBar: AppBar(
-        title: Text('Riwayat Cuti'),
+        title: const Text('Riwayat Cuti', style: TextStyle(color: Colors.white)),
+        centerTitle: true,
+        backgroundColor: Colors.teal.shade700,
+        elevation: 4.0,
+        iconTheme: const IconThemeData(color: Colors.white),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.download),
+            onPressed: _exportToCSV,
+          ),
+        ],
       ),
       body: Column(
         children: [
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-            child: ExpansionPanelList(
-              expansionCallback: (int index, bool isExpanded) {
-                setState(() {
-                  _isCalendarExpanded = !_isCalendarExpanded;
-                });
-              },
-              children: [
-                ExpansionPanel(
-                  headerBuilder: (BuildContext context, bool isExpanded) {
-                    return ListTile(
-                      title: Text('Pilih Tanggal', style: TextStyle(fontWeight: FontWeight.bold)),
-                    );
-                  },
-                  body: TableCalendar(
-                    focusedDay: _selectedDate,
-                    firstDay: DateTime(2000),
-                    lastDay: DateTime(2100),
-                    calendarFormat: CalendarFormat.month,
-                    selectedDayPredicate: (day) {
-                      return isSameDay(_selectedDate, day);
-                    },
-                    onDaySelected: (selectedDay, focusedDay) {
-                      setState(() {
-                        _selectedDate = selectedDay;
-                      });
-                    },
-                    calendarStyle: CalendarStyle(
-                      selectedDecoration: BoxDecoration(
-                        color: Colors.blueAccent,
-                        shape: BoxShape.circle,
-                      ),
-                      todayDecoration: BoxDecoration(
-                        color: Colors.orangeAccent,
-                        shape: BoxShape.circle,
-                      ),
-                    ),
-                  ),
-                  isExpanded: _isCalendarExpanded,
-                ),
-              ],
-            ),
-          ),
           Expanded(
-            child: StreamBuilder<QuerySnapshot>(
-              stream: FirebaseFirestore.instance
-                  .collection('users')
-                  .doc(widget.userId)
-                  .collection('leave_applications')
-                  .orderBy('submitted_at', descending: true)
-                  .snapshots(),
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return Center(child: CircularProgressIndicator());
-                }
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: SingleChildScrollView(
+                scrollDirection: Axis.vertical,
+                child: StreamBuilder<QuerySnapshot>(
+                  stream: FirebaseFirestore.instance
+                      .collection('users')
+                      .doc(widget.userId)
+                      .collection('leave_applications')
+                      .orderBy('submitted_at', descending: true)
+                      .snapshots(),
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState == ConnectionState.waiting) {
+                      return const Center(child: CircularProgressIndicator());
+                    }
 
-                if (snapshot.hasError) {
-                  return Center(child: Text('Error: ${snapshot.error}'));
-                }
+                    if (snapshot.hasError) {
+                      print('DEBUG: Error mengambil data cuti: ${snapshot.error}');
+                      return Center(child: Text('Error: ${snapshot.error}'));
+                    }
 
-                if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                  return Center(child: Text('Belum ada data cuti'));
-                }
+                    if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                      print('DEBUG: Tidak ada data cuti ditemukan untuk userId: ${widget.userId}');
+                      return const Center(child: Text('Belum ada data cuti'));
+                    }
 
-                var records = snapshot.data!.docs;
+                    var records = snapshot.data!.docs;
+                    print('DEBUG: Jumlah dokumen cuti ditemukan: ${records.length}');
 
-                records = records.where((record) {
-                  var data = record.data() as Map<String, dynamic>;
-                  var submittedAt = (data['submitted_at'] as Timestamp).toDate();
-                  return isSameDay(submittedAt, _selectedDate);
-                }).toList();
-
-                if (records.isEmpty) {
-                  return const Center(child: Text('No records found for the selected date.', style: TextStyle(color: Colors.black)));
-                }
-
-                return ListView.builder(
-                  itemCount: records.length,
-                  itemBuilder: (context, index) {
-                    var record = records[index];
-                    var data = record.data() as Map<String, dynamic>;
-                    var startDate = (data['start_date'] as Timestamp).toDate();
-                    var endDate = (data['end_date'] as Timestamp).toDate();
-                    var keterangan = data['Keterangan'] ?? 'N/A';
-                    var status = data['status'] ?? 'N/A';
-                    var displayName = data['displayName'] ?? 'N/A';
-
-                    return Card(
-                      margin: const EdgeInsets.all(8.0),
-                      elevation: 3.0,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
+                    return DataTable(
+                      border: TableBorder.all(
+                        color: Colors.teal.shade700,
+                        width: 1.0,
                       ),
-                      child: Padding(
-                        padding: const EdgeInsets.all(16.0),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Pengajuan Cuti',
-                              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                            ),
-                            SizedBox(height: 8),
-                            Text('Nama: $displayName', style: TextStyle(fontWeight: FontWeight.bold)),
-                            _buildTable(
-                              context,
-                              _formatDate(startDate),
-                              _formatDate(endDate),
-                              keterangan,
-                              status,
+                      columns: [
+                        DataColumn(
+                          label: Text(
+                            'Nama',
+                            style: TextStyle(fontWeight: FontWeight.bold, color: Colors.teal.shade900),
+                          ),
+                        ),
+                        DataColumn(
+                          label: Text(
+                            'Tanggal Mulai',
+                            style: TextStyle(fontWeight: FontWeight.bold, color: Colors.teal.shade900),
+                          ),
+                        ),
+                        DataColumn(
+                          label: Text(
+                            'Tanggal Selesai',
+                            style: TextStyle(fontWeight: FontWeight.bold, color: Colors.teal.shade900),
+                          ),
+                        ),
+                        DataColumn(
+                          label: Text(
+                            'Keterangan',
+                            style: TextStyle(fontWeight: FontWeight.bold, color: Colors.teal.shade900),
+                          ),
+                        ),
+                        DataColumn(
+                          label: Text(
+                            'Status',
+                            style: TextStyle(fontWeight: FontWeight.bold, color: Colors.teal.shade900),
+                          ),
+                        ),
+                      ],
+                      rows: records.asMap().entries.map((entry) {
+                        int index = entry.key;
+                        var record = entry.value;
+                        var data = record.data() as Map<String, dynamic>;
+
+                        var displayName = data['displayName'] ?? 'N/A';
+                        var startDate = data['start_date'] != null
+                            ? (data['start_date'] as Timestamp).toDate()
+                            : null;
+                        var endDate = data['end_date'] != null
+                            ? (data['end_date'] as Timestamp).toDate()
+                            : null;
+                        var keterangan = data['Keterangan'] ?? 'N/A';
+                        var status = data['status'] ?? 'Pending';
+
+                        Color rowColor = index.isEven ? Colors.teal.shade50 : Colors.white;
+
+                        print('DEBUG: Dokumen cuti: ID=${record.id}, displayName=$displayName, startDate=$startDate, endDate=$endDate, keterangan=$keterangan, status=$status');
+
+                        return DataRow(
+                          color: MaterialStateProperty.resolveWith<Color?>((Set<MaterialState> states) {
+                            return rowColor;
+                          }),
+                          cells: [
+                            DataCell(Text(displayName)),
+                            DataCell(Text(startDate != null ? _formattedDate(startDate) : 'N/A')),
+                            DataCell(Text(endDate != null ? _formattedDate(endDate) : 'N/A')),
+                            DataCell(Text(keterangan)),
+                            DataCell(
+                              status.toLowerCase() == 'pending'
+                                  ? const Icon(Icons.pending, color: Colors.orange)
+                                  : status.toLowerCase() == 'approved'
+                                      ? const Icon(Icons.check_circle, color: Colors.green)
+                                      : const Icon(Icons.cancel, color: Colors.red),
                             ),
                           ],
-                        ),
-                      ),
+                        );
+                      }).toList(),
                     );
                   },
-                );
-              },
+                ),
+              ),
             ),
           ),
         ],
@@ -158,77 +162,121 @@ class _CutiPageState extends State<CutiPage> {
     );
   }
 
-  Widget _buildTable(BuildContext context, String? startDate, String? endDate, String? keterangan, String? status) {
-    return Table(
-      border: TableBorder.all(color: Colors.grey),
-      columnWidths: const {
-        0: FlexColumnWidth(1),
-        1: FlexColumnWidth(2),
-      },
-      children: [
-        _buildTableRow('Tanggal Mulai', startDate ?? 'N/A'),
-        _buildTableRow('Tanggal Selesai', endDate ?? 'N/A'),
-        _buildTableRow('Keterangan', keterangan ?? 'N/A'),
-        _buildStatusRow('Status', status ?? 'N/A'),
-      ],
-    );
+  String _formattedDate(DateTime dateTime) {
+    return DateFormat('dd-MM-yyyy').format(dateTime);
   }
 
-  TableRow _buildTableRow(String key, String value) {
-    return TableRow(
-      children: [
-        Padding(
-          padding: const EdgeInsets.all(8.0),
-          child: Text(
-            key,
-            style: TextStyle(fontWeight: FontWeight.bold),
+  Future<void> _exportToCSV() async {
+    try {
+      if (await _requestPermission()) {
+        QuerySnapshot snapshot = await FirebaseFirestore.instance
+            .collection('users')
+            .doc(widget.userId)
+            .collection('leave_applications')
+            .orderBy('submitted_at', descending: true)
+            .get();
+
+        List<List<dynamic>> rows = [];
+
+        rows.add([
+          "Nama",
+          "Tanggal Mulai",
+          "Tanggal Selesai",
+          "Keterangan",
+          "Status",
+        ]);
+
+        for (var record in snapshot.docs) {
+          var data = record.data() as Map<String, dynamic>;
+          var displayName = data['displayName'] ?? 'N/A';
+          var startDate = data['start_date'] != null
+              ? (data['start_date'] as Timestamp).toDate()
+              : null;
+          var endDate = data['end_date'] != null
+              ? (data['end_date'] as Timestamp).toDate()
+              : null;
+          var keterangan = data['Keterangan'] ?? 'N/A';
+          var status = data['status'] ?? 'Pending';
+
+          List<dynamic> row = [
+            _padRight(displayName, 20),
+            _padRight(startDate != null ? _formattedDate(startDate) : 'N/A', 15),
+            _padRight(endDate != null ? _formattedDate(endDate) : 'N/A', 15),
+            _padRight(keterangan, 30),
+            _padRight(status, 10),
+          ];
+          rows.add(row);
+        }
+
+        String csv = const ListToCsvConverter().convert(rows);
+        final directory = await _getDownloadDirectory();
+
+        String currentTime = DateFormat('yyyyMMdd_HHmmss').format(DateTime.now());
+        final path = "${directory.path}/cuti_${widget.userId}_$currentTime.csv";
+
+        final File file = File(path);
+        await file.writeAsString(csv);
+
+        print('DEBUG: CSV disimpan di: $path');
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Data cuti berhasil diunduh ke $path')),
+        );
+      } else {
+        print('DEBUG: Izin penyimpanan ditolak');
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('Izin akses penyimpanan ditolak.'),
+            action: SnackBarAction(
+              label: 'Pengaturan',
+              onPressed: _openAppSettings,
+            ),
           ),
-        ),
-        Padding(
-          padding: const EdgeInsets.all(8.0),
-          child: Text(value),
-        ),
-      ],
-    );
+        );
+      }
+    } catch (e) {
+      print('DEBUG: Error saat ekspor CSV: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Terjadi kesalahan: $e')),
+      );
+    }
   }
 
-  TableRow _buildStatusRow(String key, String value) {
-    Color textColor;
-    FontWeight fontWeight = FontWeight.bold;
+  String _padRight(String text, int width) {
+    return text.padRight(width);
+  }
 
-    switch (value.toLowerCase()) {
-      case 'approved':
-        textColor = Colors.green;
-        break;
-      case 'rejected':
-        textColor = Colors.red;
-        break;
-      default:
-        textColor = Colors.black;
-        fontWeight = FontWeight.normal;
+  Future<bool> _requestPermission() async {
+    var status = await Permission.storage.status;
+    print('DEBUG: Status izin penyimpanan: $status');
+
+    if (!status.isGranted) {
+      status = await Permission.storage.request();
+      print('DEBUG: Status izin penyimpanan setelah permintaan: $status');
     }
 
-    return TableRow(
-      children: [
-        Padding(
-          padding: const EdgeInsets.all(8.0),
-          child: Text(
-            key,
-            style: TextStyle(fontWeight: FontWeight.bold),
-          ),
-        ),
-        Padding(
-          padding: const EdgeInsets.all(8.0),
-          child: Text(
-            value,
-            style: TextStyle(color: textColor, fontWeight: fontWeight),
-          ),
-        ),
-      ],
-    );
+    if (status.isGranted) {
+      return true;
+    } else if (status.isPermanentlyDenied) {
+      print('DEBUG: Izin penyimpanan ditolak secara permanen');
+      return false;
+    }
+
+    if (await Permission.manageExternalStorage.request().isGranted) {
+      return true;
+    }
+
+    return false;
   }
 
-  String _formatDate(DateTime dateTime) {
-    return "${dateTime.day}-${dateTime.month}-${dateTime.year}";
+  Future<Directory> _getDownloadDirectory() async {
+    if (Platform.isAndroid) {
+      return Directory('/storage/emulated/0/Download');
+    } else {
+      return await getApplicationDocumentsDirectory();
+    }
+  }
+
+  void _openAppSettings() {
+    openAppSettings();
   }
 }

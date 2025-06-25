@@ -3,37 +3,54 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 class RegisterPage extends StatefulWidget {
-  final Function()? onTap;
+  final Function()? onRegister;
 
-  const RegisterPage({Key? key, this.onTap});
+  const RegisterPage({Key? key, this.onRegister}) : super(key: key);
 
   @override
   State<RegisterPage> createState() => _RegisterPageState();
 }
 
 class _RegisterPageState extends State<RegisterPage> {
+  // Kontroler untuk menangkap input pengguna
   final TextEditingController emailController = TextEditingController();
   final TextEditingController passwordController = TextEditingController();
   final TextEditingController confirmPasswordController = TextEditingController();
-  final TextEditingController userIdController = TextEditingController();
+  final TextEditingController userIdController = TextEditingController(); // Untuk Company Name
   final TextEditingController firstnameController = TextEditingController();
   final TextEditingController lastnameController = TextEditingController();
   String? selectedDepartment;
   User? user;
 
-  String role = "Karyawan";
+  // Status UI
   bool _isLoading = false;
   bool _isPasswordVisible = false;
   bool _isConfirmPasswordVisible = false;
+  String selectedRole = 'Admin'; // Nilai default untuk dropdown role
+  String? adminCompanyName; // Untuk menyimpan Company Name dari admin
 
   @override
   void initState() {
     super.initState();
+    _fetchAdminCompanyName();
+  }
+
+  Future<void> _fetchAdminCompanyName() async {
+    final currentUser = FirebaseAuth.instance.currentUser;
+    if (currentUser != null) {
+      final userDoc = await FirebaseFirestore.instance.collection('users').doc(currentUser.uid).get();
+      if (userDoc.exists) {
+        final userData = userDoc.data() as Map<String, dynamic>;
+        setState(() {
+          adminCompanyName = userData['Company Name'] ?? 'TES'; // Fallback ke 'TES' jika kosong
+          userIdController.text = adminCompanyName!;
+        });
+      }
+    }
   }
 
   @override
   void dispose() {
-    // Dispose controllers to prevent memory leaks
     emailController.dispose();
     passwordController.dispose();
     confirmPasswordController.dispose();
@@ -46,6 +63,38 @@ class _RegisterPageState extends State<RegisterPage> {
   Future<void> signUserUp() async {
     if (!mounted) return;
 
+    if (userIdController.text.isEmpty ||
+        emailController.text.isEmpty ||
+        passwordController.text.isEmpty ||
+        confirmPasswordController.text.isEmpty ||
+        firstnameController.text.isEmpty ||
+        lastnameController.text.isEmpty ||
+        selectedDepartment == null ||
+        selectedRole == null) {
+      _showErrorMessage('Semua field harus diisi!');
+      return;
+    }
+
+    if (userIdController.text.length < 3) {
+      _showErrorMessage('Nama perusahaan harus minimal 3 karakter!');
+      return;
+    }
+
+    if (userIdController.text.length > 50) {
+      _showErrorMessage('Nama perusahaan maksimal 50 karakter!');
+      return;
+    }
+
+    if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(emailController.text)) {
+      _showErrorMessage('Alamat email tidak valid!');
+      return;
+    }
+
+    if (!RegExp(r'^(?=.*[A-Z])(?=.*\d).{6,}$').hasMatch(passwordController.text)) {
+      _showErrorMessage('Kata sandi harus minimal 6 karakter, mengandung huruf besar dan angka!');
+      return;
+    }
+
     setState(() {
       _isLoading = true;
     });
@@ -53,15 +102,13 @@ class _RegisterPageState extends State<RegisterPage> {
     try {
       if (passwordController.text == confirmPasswordController.text) {
         UserCredential userCredential =
-        await FirebaseAuth.instance.createUserWithEmailAndPassword(
+            await FirebaseAuth.instance.createUserWithEmailAndPassword(
           email: emailController.text,
           password: passwordController.text,
         );
 
-        // Ambil user dari userCredential
         user = userCredential.user;
 
-        // Set displayName to full name
         String fullName = '${firstnameController.text} ${lastnameController.text}';
         await user!.updateProfile(displayName: fullName);
 
@@ -70,33 +117,36 @@ class _RegisterPageState extends State<RegisterPage> {
 
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Account created successfully!'),
+            content: Text('Akun berhasil dibuat!'),
             duration: Duration(seconds: 5),
           ),
         );
 
-        // Clear text fields
         emailController.clear();
         passwordController.clear();
         confirmPasswordController.clear();
-        userIdController.clear();
         firstnameController.clear();
         lastnameController.clear();
+        setState(() {
+          selectedDepartment = null;
+          selectedRole = 'Admin';
+          userIdController.text = adminCompanyName ?? 'TES'; // Kembalikan ke Company Name admin
+        });
       } else {
-        _showErrorMessage("Passwords don't match!");
+        _showErrorMessage("Kata sandi tidak cocok!");
       }
     } on FirebaseAuthException catch (e) {
-      String errorMessage = 'An error occurred';
+      String errorMessage = 'Terjadi kesalahan';
       if (e.code == 'email-already-in-use') {
-        errorMessage = 'The email address is already in use by another account';
+        errorMessage = 'Email sudah digunakan oleh akun lain';
       } else if (e.code == 'invalid-email') {
-        errorMessage = 'Invalid email address';
+        errorMessage = 'Alamat email tidak valid';
       } else if (e.code == 'weak-password') {
-        errorMessage = 'The password provided is too weak';
+        errorMessage = 'Kata sandi terlalu lemah';
       }
       _showErrorMessage(errorMessage);
     } catch (e) {
-      _showErrorMessage('An error occurred');
+      _showErrorMessage('Terjadi kesalahan: $e');
     } finally {
       if (mounted) {
         setState(() {
@@ -109,19 +159,18 @@ class _RegisterPageState extends State<RegisterPage> {
   Future<void> postDetailsToFirestore(String userId) async {
     try {
       await FirebaseFirestore.instance.collection('users').doc(userId).set({
-        'User ID': userIdController.text,
+        'Company Name': userIdController.text,
         'First Name': firstnameController.text,
         'Last Name': lastnameController.text,
         'Email': emailController.text,
-        'Password': passwordController.text,
-        'role': role,
-        'department': selectedDepartment, // Menyimpan department yang dipilih
+        'role': selectedRole,
+        'department': selectedDepartment,
         'displayName': '${firstnameController.text} ${lastnameController.text}',
       });
-      print('User data added to Firestore successfully');
+      print('Data pengguna berhasil ditambahkan ke Firestore');
     } catch (e) {
-      print('Failed to add user data to Firestore: $e');
-      _showErrorMessage('Failed to add user data to Firestore');
+      print('Gagal menambahkan data pengguna ke Firestore: $e');
+      _showErrorMessage('Gagal menambahkan data pengguna ke Firestore');
     }
   }
 
@@ -129,7 +178,7 @@ class _RegisterPageState extends State<RegisterPage> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),
-        duration: Duration(seconds: 2),
+        duration: Duration(seconds: 3),
       ),
     );
   }
@@ -146,32 +195,36 @@ class _RegisterPageState extends State<RegisterPage> {
             children: [
               SizedBox(height: 20.0),
               Text(
-                'Let\'s create an account for you!',
+                'Mari buat akun untuk Anda!',
                 style: TextStyle(
                   color: Colors.grey[700],
                   fontSize: 16,
                 ),
               ),
               SizedBox(height: 10.0),
+
+              // TextField untuk Company Name (tidak dapat diedit)
               TextField(
                 controller: userIdController,
+                enabled: false,
                 decoration: InputDecoration(
                   enabledBorder: OutlineInputBorder(
                     borderSide: BorderSide(color: Colors.white),
                     borderRadius: BorderRadius.circular(20),
                   ),
-                  focusedBorder: OutlineInputBorder(
-                    borderSide: BorderSide(color: Colors.blueAccent),
+                  disabledBorder: OutlineInputBorder(
+                    borderSide: BorderSide(color: Colors.grey),
                     borderRadius: BorderRadius.circular(20),
                   ),
-                  hintText: 'User ID',
+                  labelText: 'Nama Perusahaan',
+                  hintText: adminCompanyName ?? 'TES',
                   fillColor: Colors.grey[200],
                   filled: true,
                 ),
               ),
               SizedBox(height: 10.0),
 
-
+              // TextField untuk Nama Depan
               TextField(
                 controller: firstnameController,
                 decoration: InputDecoration(
@@ -183,13 +236,15 @@ class _RegisterPageState extends State<RegisterPage> {
                     borderSide: BorderSide(color: Colors.blueAccent),
                     borderRadius: BorderRadius.circular(20),
                   ),
-                  hintText: 'First Name',
+                  labelText: 'Nama Depan',
+                  hintText: 'Masukkan Nama Depan',
                   fillColor: Colors.grey[200],
                   filled: true,
                 ),
               ),
               SizedBox(height: 10.0),
 
+              // TextField untuk Nama Belakang
               TextField(
                 controller: lastnameController,
                 decoration: InputDecoration(
@@ -201,16 +256,48 @@ class _RegisterPageState extends State<RegisterPage> {
                     borderSide: BorderSide(color: Colors.teal.shade900),
                     borderRadius: BorderRadius.circular(20),
                   ),
-                  hintText: 'Last Name',
+                  labelText: 'Nama Belakang',
+                  hintText: 'Masukkan Nama Belakang',
                   fillColor: Colors.grey[200],
                   filled: true,
                 ),
               ),
               SizedBox(height: 10.0),
-              // Dropdown untuk pilihan department
+
+              // Dropdown untuk Role
               DropdownButtonFormField<String>(
                 decoration: InputDecoration(
-                  labelText: "Department",
+                  labelText: 'Role',
+                  enabledBorder: OutlineInputBorder(
+                    borderSide: BorderSide(color: Colors.white),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderSide: BorderSide(color: Colors.teal.shade900),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  fillColor: Colors.grey[200],
+                  filled: true,
+                ),
+                value: selectedRole,
+                items: <String>['Admin', 'SecondAdmin', 'Karyawan'].map((String item) {
+                  return DropdownMenuItem<String>(
+                    value: item,
+                    child: Text(item),
+                  );
+                }).toList(),
+                onChanged: (String? newValue) {
+                  setState(() {
+                    selectedRole = newValue!;
+                  });
+                },
+              ),
+              SizedBox(height: 10.0),
+
+              // Dropdown untuk Departemen
+              DropdownButtonFormField<String>(
+                decoration: InputDecoration(
+                  labelText: 'Departemen',
                   enabledBorder: OutlineInputBorder(
                     borderSide: BorderSide(color: Colors.white),
                     borderRadius: BorderRadius.circular(20),
@@ -223,9 +310,15 @@ class _RegisterPageState extends State<RegisterPage> {
                   filled: true,
                 ),
                 value: selectedDepartment,
-                items: <String>['Direktur', 'Purchasing','Finance','Account Manager',
-                  'Marketing', 'Mobile Apps Development','Technical Support']
-                    .map((String department) {
+                items: <String>[
+                  'Direktur',
+                  'Purchasing',
+                  'Finance',
+                  'Account Manager',
+                  'Marketing',
+                  'Mobile Apps Development',
+                  'Technical Support',
+                ].map((String department) {
                   return DropdownMenuItem<String>(
                     value: department,
                     child: Text(department),
@@ -239,7 +332,7 @@ class _RegisterPageState extends State<RegisterPage> {
               ),
               SizedBox(height: 10.0),
 
-
+              // TextField untuk Email
               TextField(
                 controller: emailController,
                 decoration: InputDecoration(
@@ -251,13 +344,15 @@ class _RegisterPageState extends State<RegisterPage> {
                     borderSide: BorderSide(color: Colors.teal.shade900),
                     borderRadius: BorderRadius.circular(20),
                   ),
-                  hintText: 'Email',
+                  labelText: 'Email',
+                  hintText: 'Masukkan Email',
                   fillColor: Colors.grey[200],
                   filled: true,
                 ),
               ),
               SizedBox(height: 10.0),
 
+              // TextField untuk Kata Sandi
               TextField(
                 obscureText: !_isPasswordVisible,
                 controller: passwordController,
@@ -282,13 +377,15 @@ class _RegisterPageState extends State<RegisterPage> {
                     borderSide: BorderSide(color: Colors.teal.shade900),
                     borderRadius: BorderRadius.circular(20),
                   ),
-                  hintText: 'Password',
+                  labelText: 'Kata Sandi',
+                  hintText: 'Masukkan Kata Sandi',
                   fillColor: Colors.grey[200],
                   filled: true,
                 ),
               ),
               SizedBox(height: 10.0),
 
+              // TextField untuk Konfirmasi Kata Sandi
               TextField(
                 obscureText: !_isConfirmPasswordVisible,
                 controller: confirmPasswordController,
@@ -301,8 +398,7 @@ class _RegisterPageState extends State<RegisterPage> {
                     ),
                     onPressed: () {
                       setState(() {
-                        _isConfirmPasswordVisible =
-                        !_isConfirmPasswordVisible;
+                        _isConfirmPasswordVisible = !_isConfirmPasswordVisible;
                       });
                     },
                   ),
@@ -314,18 +410,20 @@ class _RegisterPageState extends State<RegisterPage> {
                     borderSide: BorderSide(color: Colors.teal.shade900),
                     borderRadius: BorderRadius.circular(20),
                   ),
-                  hintText: 'Confirm Password',
+                  labelText: 'Konfirmasi Kata Sandi',
+                  hintText: 'Masukkan Konfirmasi Kata Sandi',
                   fillColor: Colors.grey[200],
                   filled: true,
                 ),
               ),
               SizedBox(height: 20.0),
 
+              // Tombol Register
               ElevatedButton(
                 onPressed: _isLoading ? null : signUserUp,
                 child: _isLoading
                     ? CircularProgressIndicator()
-                    : Text("Register"),
+                    : Text('Register'),
               ),
               SizedBox(height: 20.0),
             ],

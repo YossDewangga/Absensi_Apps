@@ -11,7 +11,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-
+import '../Super Admin/super_admin_page.dart';
 import 'history_visit_page.dart';
 
 class VisitInAndOutPage extends StatefulWidget {
@@ -33,7 +33,7 @@ class _VisitInAndOutPageState extends State<VisitInAndOutPage> {
   String _visitOutLocation = 'Unknown';
   String _visitOutAddress = 'Unknown';
   String _visitInDocumentId = '';
-  String _clockInDocumentId = ''; // Untuk menyimpan ID dokumen clock in
+  String _clockInDocumentId = '';
   Position? _visitInPosition;
   String? _userId;
   DateTime? _visitInTime;
@@ -41,17 +41,21 @@ class _VisitInAndOutPageState extends State<VisitInAndOutPage> {
   String _nextDestination = '';
   String _visitStatus = 'Not Visited';
   String? _displayName;
-  String _selectedOption = 'Pulang'; // Set default to 'Pulang'
-  bool _isOtherOptionSelected = false; // Variabel untuk mengatur opsi "Lainnya"
-
+  String? _companyName; // Menyimpan Company Name dari profil pengguna
+  String _selectedOption = 'Pulang';
+  bool _isOtherOptionSelected = false;
   TimeOfDay? _designatedStartTime;
-  TimeOfDay? _designatedEndTime;  // Menyimpan designatedEndTime
+  TimeOfDay? _designatedEndTime;
   Duration _lateDuration = Duration.zero;
-  Duration _earlyLeaveDuration = Duration.zero;  // Durasi early leave
-
-  final double _radius = 500; // Ubah radius menjadi 500 meter
+  Duration _earlyLeaveDuration = Duration.zero;
+  final double _officeLat = -6.12333;
+  final double _officeLong = 106.79869;
+  final double _radius = 100;
   bool isLoading = false;
   bool _isOutsideDesignatedArea = false;
+  Map<String, dynamic>? _userData;
+  List<dynamic> _userAccess = [];
+  bool _isLoadingUserAccess = true;
 
   @override
   void initState() {
@@ -60,13 +64,14 @@ class _VisitInAndOutPageState extends State<VisitInAndOutPage> {
     _checkPermission();
     _getUserInfo();
     _getDesignatedTimes();
+    _fetchUserAccess();
   }
 
   Future<void> _checkPermission() async {
     var status = await Permission.location.status;
     if (status.isDenied) {
       if (await Permission.location.request().isGranted) {
-        // Izin diberikan, tidak ada tindakan lebih lanjut yang diperlukan
+        // Izin diberikan
       } else {
         _showSnackBar('Izin lokasi diperlukan untuk mengakses GPS.');
       }
@@ -85,7 +90,7 @@ class _VisitInAndOutPageState extends State<VisitInAndOutPage> {
       if (startSnapshot.exists) {
         Timestamp startTimestamp = startSnapshot['designatedStartTime'];
         DateTime startDateTime = startTimestamp.toDate();
-        Timestamp endTimestamp = startSnapshot['designatedEndTime'];  // Ambil designatedEndTime dari Firestore
+        Timestamp endTimestamp = startSnapshot['designatedEndTime'];
         DateTime endDateTime = endTimestamp.toDate();
 
         setState(() {
@@ -108,9 +113,31 @@ class _VisitInAndOutPageState extends State<VisitInAndOutPage> {
         _userId = user.uid;
         _displayName = user.displayName;
       });
+      await _getUserCompanyName(); // Ambil Company Name dari Firestore
       await _loadVisitStatus();
     } else {
       _showSnackBar('Pengguna belum masuk.');
+    }
+  }
+
+  Future<void> _getUserCompanyName() async {
+    try {
+      DocumentSnapshot userSnapshot = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(_userId)
+          .get();
+      if (userSnapshot.exists) {
+        setState(() {
+          _companyName = userSnapshot['Company Name'] ?? ''; // Menggunakan 'Company Name' dengan spasi
+          print('Company Name from User: $_companyName');
+        });
+      } else {
+        print('Dokumen pengguna tidak ditemukan');
+        _showAlertDialog('Dokumen pengguna tidak ditemukan');
+      }
+    } catch (e) {
+      print('Error saat mengambil Company Name: $e');
+      _showAlertDialog('Gagal mengambil nama perusahaan: $e');
     }
   }
 
@@ -121,7 +148,7 @@ class _VisitInAndOutPageState extends State<VisitInAndOutPage> {
       _visitInCompleted = prefs.getBool('visit_in_completed') ?? false;
       _visitOutCompleted = prefs.getBool('visit_out_completed') ?? false;
       _visitInDocumentId = prefs.getString('visit_in_document_id') ?? '';
-      _clockInDocumentId = prefs.getString('clock_in_document_id') ?? ''; // Load clock in document ID
+      _clockInDocumentId = prefs.getString('clock_in_document_id') ?? '';
       _visitInDateTime = prefs.getString('visit_in_date_time') ?? 'Unknown';
       _visitOutDateTime = prefs.getString('visit_out_date_time') ?? 'Unknown';
       _visitInLocation = prefs.getString('visit_in_location') ?? 'Unknown';
@@ -145,7 +172,6 @@ class _VisitInAndOutPageState extends State<VisitInAndOutPage> {
           _visitInAddress = visitSnapshot['visit_in_address'];
           _visitInTime = (visitSnapshot['visit_in_time'] as Timestamp).toDate();
           _updateVisitInDateTime();
-
           List<String> locationParts = _visitInLocation.split(',');
           _visitInPosition = Position(
             latitude: double.parse(locationParts[0]),
@@ -190,6 +216,9 @@ class _VisitInAndOutPageState extends State<VisitInAndOutPage> {
   }
 
   Future<String> _saveVisitInToFirestore(String downloadUrl) async {
+    if (_companyName == null || _companyName!.isEmpty) {
+      await _getUserCompanyName(); // Pastikan Company Name diambil jika belum ada
+    }
     DocumentReference userDocRef = FirebaseFirestore.instance.collection('users').doc(_userId);
     DocumentReference visitDocRef = await userDocRef.collection('visits').add({
       'visit_in_time': _visitInTime,
@@ -198,10 +227,12 @@ class _VisitInAndOutPageState extends State<VisitInAndOutPage> {
       'visit_in_imageUrl': downloadUrl,
       'visit_status': 'Visit In',
       'displayName': _displayName,
+      'Company Name': _companyName ?? 'Unknown', // Menggunakan 'Company Name' dengan spasi
+      'destination_company': _nextDestination, // Dari dialog
       'approved': false,
-      'destination_company': _nextDestination, // Simpan nama perusahaan
     });
-
+    print('Company Name saved: ${_companyName ?? 'Unknown'}');
+    print('Destination Company: $_nextDestination');
     return visitDocRef.id;
   }
 
@@ -216,164 +247,19 @@ class _VisitInAndOutPageState extends State<VisitInAndOutPage> {
           'visit_out_time': _visitOutTime,
           'visit_out_location': _visitOutLocation,
           'visit_out_address': _visitOutAddress,
-          'visit_out_imageUrl': downloadUrl, // Save image URL to visit_out_imageUrl
+          'visit_out_imageUrl': downloadUrl,
           'next_destination': _nextDestination,
           'visit_status': 'Visit Out',
           'approved': isApproved,
         });
-
         print('Data updated successfully');
       } else {
         print('Visit document not found');
         _showAlertDialog('Visit document not found');
       }
     } catch (e) {
-      print('Error updating document');
+      print('Error updating document: $e');
       _showAlertDialog('Error updating document');
-    }
-  }
-
-  Future<void> _showNextDestinationDialog() async {
-    TimeOfDay now = TimeOfDay.now();
-    TimeOfDay startTime1 = TimeOfDay(hour: 0, minute: 0);
-    TimeOfDay endTime1 = TimeOfDay(hour: 15, minute: 34);
-    TimeOfDay startTime2 = TimeOfDay(hour: 15, minute: 35);
-    TimeOfDay endTime2 = TimeOfDay(hour: 23, minute: 59);
-
-    bool withinFirstRange = _isTimeWithinRange(now, startTime1, endTime1);
-    bool withinSecondRange = _isTimeWithinRange(now, startTime2, endTime2);
-
-    if (withinSecondRange) {
-      return showDialog(
-        context: context,
-        barrierDismissible: false, // Prevent dialog from closing when clicking outside
-        builder: (context) => StatefulBuilder(
-          builder: (context, setState) => AlertDialog(
-            title: Text('Masukkan Tujuan Selanjutnya !', style: TextStyle(color: Colors.teal.shade900)),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                RadioListTile<String>(
-                  title: Text('Pulang', style: TextStyle(color: Colors.teal.shade900)),
-                  value: 'Pulang',
-                  groupValue: _selectedOption,
-                  onChanged: (value) {
-                    setState(() {
-                      _selectedOption = value!;
-                      _isOtherOptionSelected = false;
-                      _nextDestination = 'Pulang'; // Set default value to 'Pulang'
-                    });
-                  },
-                  activeColor: Colors.teal.shade700,
-                ),
-                RadioListTile<String>(
-                  title: Text('Lainnya', style: TextStyle(color: Colors.teal.shade900)),
-                  value: 'Lainnya',
-                  groupValue: _selectedOption,
-                  onChanged: (value) {
-                    setState(() {
-                      _selectedOption = value!;
-                      _isOtherOptionSelected = true;
-                    });
-                  },
-                  activeColor: Colors.teal.shade700,
-                ),
-                if (_isOtherOptionSelected)
-                  TextField(
-                    onChanged: (value) {
-                      _nextDestination = value;
-                    },
-                    decoration: InputDecoration(hintText: "Pilih tujuan selanjutnya !", hintStyle: TextStyle(color: Colors.teal.shade700)),
-                  ),
-              ],
-            ),
-            actions: [
-              TextButton(
-                onPressed: () async {
-                  if (_selectedOption == 'Lainnya' && _nextDestination.isEmpty) {
-                    _showAlertDialog('Tujuan Selanjutnya harus diisi.');
-                  } else {
-                    Navigator.of(context).pop();
-                    await _submitNextDestination();
-                    if (_selectedOption == 'Pulang') {
-                      await _showClockOutConfirmationDialog();
-                    } else {
-                      await _completeVisitOut();
-                    }
-                  }
-                },
-                child: Text('Submit', style: TextStyle(color: Colors.teal.shade700)),
-              ),
-            ],
-          ),
-        ),
-      );
-    } else if (withinFirstRange) {
-      return showDialog(
-        context: context,
-        barrierDismissible: false, // Prevent dialog from closing when clicking outside
-        builder: (context) => AlertDialog(
-          title: Text('Tujuan Selanjutnya ?', style: TextStyle(color: Colors.teal.shade900)),
-          content: TextField(
-            onChanged: (value) {
-              setState(() {
-                _nextDestination = value;
-              });
-            },
-            decoration: InputDecoration(hintText: "Masukkan tujuan selanjutnya", hintStyle: TextStyle(color: Colors.teal.shade700)),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () async {
-                if (_nextDestination.isEmpty) {
-                  _showAlertDialog('Tujuan Selanjutnya harus diisi.');
-                } else {
-                  Navigator.of(context).pop();
-                  await _submitNextDestination();
-                  await _saveVisitOutToFirestore(await _uploadImageToStorage(_visitOutImage!, 'visit_out_images'), true);
-                  _showSuccessDialog('Visit Out sukses.');
-                }
-              },
-              child: Text('Submit', style: TextStyle(color: Colors.teal.shade700)),
-            ),
-          ],
-        ),
-      );
-    } else {
-      _showAlertDialog('Waktu tidak valid untuk memasukkan tujuan selanjutnya.');
-    }
-  }
-
-  Future<void> _submitNextDestination() async {
-    // Simulate data update
-    await Future.delayed(Duration(seconds: 2));
-  }
-
-  Future<void> _completeVisitOut() async {
-    _showSuccessDialog('Visit Out sukses.');
-  }
-
-  Future<void> _showClockOutConfirmationDialog() async {
-    bool confirmed = await showDialog(
-      context: context,
-      barrierDismissible: false, // Prevent dialog from closing when clicking outside
-      builder: (context) => AlertDialog(
-        title: Text('Konfirmasi Clock Out', style: TextStyle(color: Colors.teal.shade900)),
-        content: Text('Visit Out akan dijadikan Clock Out juga.', style: TextStyle(color: Colors.teal.shade900)),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.of(context).pop(true);
-            },
-            child: Text('Ya', style: TextStyle(color: Colors.teal.shade700)),
-          ),
-        ],
-      ),
-    );
-
-    if (confirmed) {
-      await _autoClockOut();
-      _showSuccessDialog('Visit Out dan Clock Out sukses.');
     }
   }
 
@@ -382,6 +268,319 @@ class _VisitInAndOutPageState extends State<VisitInAndOutPage> {
     final startMinutes = start.hour * 60 + start.minute;
     final endMinutes = end.hour * 60 + end.minute;
     return nowMinutes >= startMinutes && nowMinutes <= endMinutes;
+  }
+
+  Future<void> _showNextDestinationDialog() async {
+    TimeOfDay now = TimeOfDay.now();
+    TimeOfDay startTime1 = TimeOfDay(hour: 00, minute: 00);
+    TimeOfDay endTime1 = TimeOfDay(hour: 15, minute: 59);
+    TimeOfDay startTime2 = TimeOfDay(hour: 16, minute: 00);
+    TimeOfDay endTime2 = TimeOfDay(hour: 23, minute: 59);
+
+    if (_isTimeWithinRange(now, startTime1, endTime1)) {
+      return showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => Center(
+          child: Material(
+            color: Colors.transparent,
+            child: Container(
+              constraints: BoxConstraints(maxWidth: 400),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(24),
+                child: Container(
+                  color: Colors.white,
+                  child: StatefulBuilder(
+                    builder: (context, setStateDialog) => SingleChildScrollView(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Container(
+                            width: double.infinity,
+                            padding: EdgeInsets.symmetric(vertical: 32),
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                colors: [Colors.teal.shade400, Colors.teal.shade900],
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                              ),
+                            ),
+                            child: Column(
+                              children: [
+                                Icon(Icons.navigation_rounded, color: Colors.white, size: 60),
+                                SizedBox(height: 12),
+                                Text(
+                                  'Tujuan Selanjutnya',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 24,
+                                    color: Colors.white,
+                                    letterSpacing: 1.1,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 24),
+                            child: Column(
+                              children: [
+                                Text(
+                                  'Masukkan tujuan selanjutnya setelah Visit Out.',
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(fontSize: 17, color: Colors.teal.shade900, fontWeight: FontWeight.w500),
+                                ),
+                                SizedBox(height: 22),
+                                Container(
+                                  decoration: BoxDecoration(
+                                    color: Colors.teal.shade50,
+                                    borderRadius: BorderRadius.circular(16),
+                                  ),
+                                  child: Padding(
+                                    padding: const EdgeInsets.fromLTRB(12, 16, 12, 16),
+                                    child: TextField(
+                                      onChanged: (value) {
+                                        setStateDialog(() {
+                                          _nextDestination = value;
+                                        });
+                                      },
+                                      style: TextStyle(fontSize: 16),
+                                      decoration: InputDecoration(
+                                        hintText: "Masukkan tujuan selanjutnya",
+                                        hintStyle: TextStyle(color: Colors.teal.shade700),
+                                        filled: true,
+                                        fillColor: Colors.white,
+                                        border: OutlineInputBorder(
+                                          borderRadius: BorderRadius.circular(14),
+                                          borderSide: BorderSide(color: Colors.teal.shade200),
+                                        ),
+                                        focusedBorder: OutlineInputBorder(
+                                          borderRadius: BorderRadius.circular(14),
+                                          borderSide: BorderSide(color: Colors.teal.shade700, width: 2),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                SizedBox(height: 32),
+                                SizedBox(
+                                  width: double.infinity,
+                                  child: ElevatedButton(
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: Colors.teal.shade700,
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(14),
+                                      ),
+                                      padding: EdgeInsets.symmetric(vertical: 16),
+                                      elevation: 3,
+                                    ),
+                                    onPressed: () async {
+                                      if (_nextDestination.isEmpty) {
+                                        _showAlertDialog('Tujuan Selanjutnya harus diisi.');
+                                      } else {
+                                        Navigator.of(context).pop();
+                                        await _submitNextDestination();
+                                        String downloadUrl = await _uploadImageToStorage(_visitOutImage!, 'visit_out_images');
+                                        await _saveVisitOutToFirestore(downloadUrl, true);
+                                        _showSuccessDialog('Visit Out sukses.');
+                                      }
+                                    },
+                                    child: Text(
+                                      'Submit',
+                                      style: TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.bold, letterSpacing: 0.5),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+    } else if (_isTimeWithinRange(now, startTime2, endTime2)) {
+      return showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => Center(
+          child: Material(
+            color: Colors.transparent,
+            child: Container(
+              constraints: BoxConstraints(maxWidth: 400),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(24),
+                child: Container(
+                  color: Colors.white,
+                  child: StatefulBuilder(
+                    builder: (context, setStateDialog) => SingleChildScrollView(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Container(
+                            width: double.infinity,
+                            padding: EdgeInsets.symmetric(vertical: 32),
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                colors: [Colors.teal.shade400, Colors.teal.shade900],
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                              ),
+                            ),
+                            child: Column(
+                              children: [
+                                Icon(Icons.navigation_rounded, color: Colors.white, size: 60),
+                                SizedBox(height: 12),
+                                Text(
+                                  'Tujuan Selanjutnya',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 24,
+                                    color: Colors.white,
+                                    letterSpacing: 1.1,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 24),
+                            child: Column(
+                              children: [
+                                Text(
+                                  'Silakan pilih atau masukkan tujuan selanjutnya setelah Visit Out.',
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(fontSize: 17, color: Colors.teal.shade900, fontWeight: FontWeight.w500),
+                                ),
+                                SizedBox(height: 22),
+                                Container(
+                                  decoration: BoxDecoration(
+                                    color: Colors.teal.shade50,
+                                    borderRadius: BorderRadius.circular(16),
+                                  ),
+                                  child: Column(
+                                    children: [
+                                      RadioListTile<String>(
+                                        title: Padding(
+                                          padding: const EdgeInsets.symmetric(vertical: 6),
+                                          child: Text('Pulang', style: TextStyle(color: Colors.teal.shade900, fontWeight: FontWeight.bold, fontSize: 18)),
+                                        ),
+                                        value: 'Pulang',
+                                        groupValue: _selectedOption,
+                                        onChanged: (value) {
+                                          setStateDialog(() {
+                                            _selectedOption = value!;
+                                            _isOtherOptionSelected = false;
+                                            _nextDestination = 'Pulang';
+                                          });
+                                        },
+                                        activeColor: Colors.teal.shade700,
+                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                        contentPadding: EdgeInsets.symmetric(horizontal: 12),
+                                      ),
+                                      Divider(height: 0, color: Colors.teal.shade100),
+                                      RadioListTile<String>(
+                                        title: Padding(
+                                          padding: const EdgeInsets.symmetric(vertical: 6),
+                                          child: Text('Lainnya', style: TextStyle(color: Colors.teal.shade900, fontWeight: FontWeight.bold, fontSize: 18)),
+                                        ),
+                                        value: 'Lainnya',
+                                        groupValue: _selectedOption,
+                                        onChanged: (value) {
+                                          setStateDialog(() {
+                                            _selectedOption = value!;
+                                            _isOtherOptionSelected = true;
+                                            _nextDestination = '';
+                                          });
+                                        },
+                                        activeColor: Colors.teal.shade700,
+                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                        contentPadding: EdgeInsets.symmetric(horizontal: 12),
+                                      ),
+                                      if (_isOtherOptionSelected)
+                                        Padding(
+                                          padding: const EdgeInsets.fromLTRB(12, 8, 12, 16),
+                                          child: TextField(
+                                            onChanged: (value) {
+                                              _nextDestination = value;
+                                            },
+                                            style: TextStyle(fontSize: 16),
+                                            decoration: InputDecoration(
+                                              hintText: "Masukkan tujuan selanjutnya",
+                                              hintStyle: TextStyle(color: Colors.teal.shade700),
+                                              filled: true,
+                                              fillColor: Colors.white,
+                                              border: OutlineInputBorder(
+                                                borderRadius: BorderRadius.circular(14),
+                                                borderSide: BorderSide(color: Colors.teal.shade200),
+                                              ),
+                                              focusedBorder: OutlineInputBorder(
+                                                borderRadius: BorderRadius.circular(14),
+                                                borderSide: BorderSide(color: Colors.teal.shade700, width: 2),
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                    ],
+                                  ),
+                                ),
+                                SizedBox(height: 32),
+                                SizedBox(
+                                  width: double.infinity,
+                                  child: ElevatedButton(
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: Colors.teal.shade700,
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(14),
+                                      ),
+                                      padding: EdgeInsets.symmetric(vertical: 16),
+                                      elevation: 3,
+                                    ),
+                                    onPressed: () async {
+                                      if (_selectedOption == 'Lainnya' && _nextDestination.isEmpty) {
+                                        _showAlertDialog('Tujuan Selanjutnya harus diisi.');
+                                      } else {
+                                        Navigator.of(context).pop();
+                                        await _submitNextDestination();
+                                        if (_selectedOption == 'Pulang') {
+                                          await _autoClockOut();
+                                          _showSuccessDialog('Visit Out dan Clock Out sukses.');
+                                        } else {
+                                          _showSuccessDialog('Visit Out sukses.');
+                                        }
+                                      }
+                                    },
+                                    child: Text(
+                                      'Submit',
+                                      style: TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.bold, letterSpacing: 0.5),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+    } else {
+      _showAlertDialog('Waktu tidak valid untuk memasukkan tujuan selanjutnya.');
+    }
+  }
+
+  Future<void> _submitNextDestination() async {
+    await Future.delayed(Duration(seconds: 2));
   }
 
   Future<void> _autoClockIn(DateTime visitInTime, Position visitInPosition, String visitInImageUrl) async {
@@ -406,7 +605,6 @@ class _VisitInAndOutPageState extends State<VisitInAndOutPage> {
           });
         }
 
-        // Cek apakah sudah ada clock in hari ini
         QuerySnapshot clockInSnapshot = await userDocRef.collection('clockin_records')
             .where('date', isEqualTo: DateFormat('yyyy-MM-dd').format(nowDateTime))
             .where('clock_status', isEqualTo: 'Clock In')
@@ -417,6 +615,7 @@ class _VisitInAndOutPageState extends State<VisitInAndOutPage> {
           await clockInDocRef.set({
             'user_name': user.displayName,
             'user_id': user.uid,
+            'Company Name': _companyName ?? 'Unknown',
             'clockin_location': GeoPoint(visitInPosition.latitude, visitInPosition.longitude),
             'timestamp': Timestamp.now(),
             'clock_in_time': visitInTime,
@@ -424,7 +623,7 @@ class _VisitInAndOutPageState extends State<VisitInAndOutPage> {
             'late_duration': _formattedDuration(_lateDuration),
             'image_url': visitInImageUrl,
             'clock_status': 'Clock In',
-            'approved': false, // Set approved to false for all clock in from visit
+            'approved': false,
             'date': DateFormat('yyyy-MM-dd').format(nowDateTime),
           }, SetOptions(merge: true));
 
@@ -433,7 +632,6 @@ class _VisitInAndOutPageState extends State<VisitInAndOutPage> {
           });
 
           await _saveVisitStatus();
-
           print("Clock in otomatis berhasil berdasarkan visit in.");
         } else {
           print("Clock in sudah dilakukan hari ini.");
@@ -446,69 +644,62 @@ class _VisitInAndOutPageState extends State<VisitInAndOutPage> {
 
   Future<void> _autoClockOut() async {
     User? user = FirebaseAuth.instance.currentUser;
-    if (user != null) {
-      DocumentReference userDocRef = FirebaseFirestore.instance.collection('users').doc(user.uid);
+    if (user == null) {
+      throw Exception('User tidak terautentikasi');
+    }
 
-      try {
-        Position currentPosition = await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high);
+    final today = DateFormat('yyyy-MM-dd').format(DateTime.now());
+    final userDocRef = FirebaseFirestore.instance.collection('users').doc(user.uid);
+    final clockInQuery = await userDocRef.collection('clockin_records')
+        .where('date', isEqualTo: today)
+        .where('clock_status', isEqualTo: 'Clock In')
+        .get();
 
-        double distanceInMeters = Geolocator.distanceBetween(
-          double.parse(_visitOutLocation.split(',')[0].trim()),
-          double.parse(_visitOutLocation.split(',')[1].trim()),
-          currentPosition.latitude,
-          currentPosition.longitude,
-        );
+    if (clockInQuery.docs.isEmpty) {
+      throw Exception('Tidak ditemukan catatan Clock In hari ini');
+    }
 
-        bool isClockOutApproved = distanceInMeters <= _radius;
+    final clockInDoc = clockInQuery.docs.first;
+    final clockInTime = (clockInDoc.data()['clock_in_time'] as Timestamp).toDate();
 
-        String visitOutImageUrl = await _uploadImageToStorage(_visitOutImage!, 'visit_out_images');
+    double outLat = double.parse(_visitOutLocation.split(',')[0].trim());
+    double outLong = double.parse(_visitOutLocation.split(',')[1].trim());
+    double distanceInMeters = Geolocator.distanceBetween(_officeLat, _officeLong, outLat, outLong);
+    bool isClockOutApproved = distanceInMeters <= _radius;
 
-        // Calculate total working hours
-        Duration WorkingHours = _visitOutTime!.difference(_visitInTime!);
-        String WorkingHoursStr = _formattedDuration(WorkingHours);
+    if (!isClockOutApproved) {
+      _showAlertDialog('Anda berada di luar radius yang diizinkan untuk Clock Out.');
+      return;
+    }
 
-        // Calculate early leave duration
-        if (_designatedEndTime != null) {
-          final DateTime nowDateTime = _visitOutTime!;
-          final DateTime endDateTime = DateTime(
-            nowDateTime.year,
-            nowDateTime.month,
-            nowDateTime.day,
-            _designatedEndTime!.hour,
-            _designatedEndTime!.minute,
-          );
+    final workingHours = _visitOutTime!.difference(clockInTime);
+    final workingHoursStr = _formattedDuration(workingHours);
 
-          if (nowDateTime.isBefore(endDateTime)) {
-            setState(() {
-              _earlyLeaveDuration = endDateTime.difference(nowDateTime);
-            });
-          }
-        }
+    Duration earlyLeaveDuration = Duration.zero;
+    if (_designatedEndTime != null) {
+      final endDateTime = DateTime(
+        _visitOutTime!.year,
+        _visitOutTime!.month,
+        _visitOutTime!.day,
+        _designatedEndTime!.hour,
+        _designatedEndTime!.minute,
+      );
 
-        DocumentReference clockOutDocRef = userDocRef.collection('clockin_records').doc(_clockInDocumentId);
-        await clockOutDocRef.update({
-          'clockout_location': GeoPoint(currentPosition.latitude, currentPosition.longitude),
-          'timestamp': Timestamp.now(),
-          'clock_out_time': _visitOutTime,
-          'approved': false, // Set approved to false for all clock out from visit
-          'clock_status': 'Clock Out',
-          'clock_out_image_url': visitOutImageUrl, // Save visit out image URL
-          'working_hours': WorkingHoursStr, // Save total working hours
-          if (_earlyLeaveDuration > Duration.zero)
-            'early_leave_duration': _formattedDuration(_earlyLeaveDuration), // Save early leave duration
-        });
-
-        print("Clock out berhasil berdasarkan visit out.");
-        if (!isClockOutApproved) {
-          setState(() {
-            _isOutsideDesignatedArea = true;
-          });
-        }
-      } catch (e) {
-        print('Error getting location');
-        _showAlertDialog('Error getting location');
+      if (_visitOutTime!.isBefore(endDateTime)) {
+        earlyLeaveDuration = endDateTime.difference(_visitOutTime!);
       }
     }
+
+    await clockInDoc.reference.update({
+      'clockout_location': GeoPoint(outLat, outLong),
+      'clock_out_time': _visitOutTime,
+      'clock_status': 'Clock Out',
+      'clock_out_image_url': await _uploadImageToStorage(_visitOutImage!, 'clock_out_images'),
+      'working_hours': workingHoursStr,
+      if (earlyLeaveDuration > Duration.zero)
+        'early_leave_duration': _formattedDuration(earlyLeaveDuration),
+      'approved': true,
+    });
   }
 
   Future<void> _takePicture(bool isVisitIn) async {
@@ -537,26 +728,56 @@ class _VisitInAndOutPageState extends State<VisitInAndOutPage> {
 
   Future<void> _getCurrentPosition(bool isVisitIn) async {
     try {
-      Position position = await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high);
+      print("Mencoba mendapatkan lokasi...");
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+        if (permission == LocationPermission.denied) {
+          throw Exception('Izin lokasi ditolak');
+        }
+      }
+      if (permission == LocationPermission.deniedForever) {
+        throw Exception('Izin lokasi ditolak secara permanen. Silakan aktifkan di pengaturan.');
+      }
+      bool isLocationEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!isLocationEnabled) {
+        throw Exception('GPS tidak aktif. Silakan aktifkan GPS Anda.');
+      }
+      print("Mengambil posisi saat ini...");
+      Position position = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high,
+        timeLimit: Duration(seconds: 20),
+      );
+      print("Posisi didapat: ${position.latitude}, ${position.longitude}");
+      print("Mengambil detail alamat...");
       List<Placemark> placemarks = await placemarkFromCoordinates(position.latitude, position.longitude);
       Placemark placemark = placemarks.first;
-
+      print("Detail alamat didapat");
       String fullAddress = '${placemark.name ?? ''}, '
           '${placemark.street ?? ''}, '
           '${placemark.subLocality ?? ''}, '
           '${placemark.locality ?? ''}, '
           '${placemark.administrativeArea ?? ''}';
-
+      print("Menyimpan data lokasi untuk ${isVisitIn ? 'Visit In' : 'Visit Out'}");
       if (isVisitIn) {
         setState(() {
           _visitInPosition = position;
           _visitInLocation = '${position.latitude}, ${position.longitude}';
-          _visitInAddress = fullAddress; // Menyimpan alamat lengkap termasuk nama gedung
+          _visitInAddress = fullAddress;
         });
+        print("Data Visit In tersimpan: $_visitInLocation");
+      } else {
+        setState(() {
+          _visitOutLocation = '${position.latitude}, ${position.longitude}';
+          _visitOutAddress = fullAddress;
+        });
+        print("Data Visit Out tersimpan: $_visitOutLocation");
       }
     } catch (e) {
-      print('Error getting location: $e');
-      _showAlertDialog('Error getting location');
+      print('Error saat mendapatkan lokasi: $e');
+      String errorMessage = e.toString().contains('Exception:') ? e.toString().replaceAll('Exception: ', '') : 'Gagal mendapatkan lokasi: $e';
+      _showAlertDialog(errorMessage);
+      throw e;
     }
   }
 
@@ -594,7 +815,7 @@ class _VisitInAndOutPageState extends State<VisitInAndOutPage> {
   void _showAlertDialog(String message) {
     showDialog(
       context: context,
-      barrierDismissible: false, // Prevent dialog from closing when clicking outside
+      barrierDismissible: false,
       builder: (BuildContext context) {
         return AlertDialog(
           title: Text('Peringatan', style: TextStyle(color: Colors.teal.shade900)),
@@ -615,30 +836,83 @@ class _VisitInAndOutPageState extends State<VisitInAndOutPage> {
   void _showSuccessDialog(String message, {bool additionalDialog = false}) {
     showDialog(
       context: context,
-      barrierDismissible: false, // Prevent dialog from closing when clicking outside
-      builder: (context) => AlertDialog(
-        title: Row(
-          children: [
-            Icon(Icons.check_circle, color: Colors.green),
-            SizedBox(width: 10),
-            Text('Sukses', style: TextStyle(color: Colors.teal.shade900)),
-          ],
-        ),
-        content: Text(message, style: TextStyle(color: Colors.teal.shade900)),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.of(context).pop();
-              if (_isOutsideDesignatedArea) {
-                _showOutsideDesignatedAreaDialog();
-              }
-              setState(() {
-                isLoading = false;
-              });
-            },
-            child: Text('OK', style: TextStyle(color: Colors.teal.shade700)),
+      barrierDismissible: false,
+      builder: (context) => Center(
+        child: Material(
+          color: Colors.transparent,
+          child: Container(
+            constraints: BoxConstraints(maxWidth: 350),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(22),
+              child: Container(
+                color: Colors.white,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: double.infinity,
+                      padding: EdgeInsets.symmetric(vertical: 28),
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [Colors.green.shade400, Colors.teal.shade700],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                      ),
+                      child: Column(
+                        children: [
+                          Icon(Icons.check_circle, color: Colors.white, size: 54),
+                          SizedBox(height: 10),
+                          Text(
+                            "Sukses",
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 22,
+                              color: Colors.white,
+                              letterSpacing: 1.1,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 22),
+                      child: Text(
+                        message,
+                        textAlign: TextAlign.center,
+                        style: TextStyle(fontSize: 16, color: Colors.teal.shade900),
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 18, left: 24, right: 24),
+                      child: SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton(
+                          onPressed: () {
+                            Navigator.of(context).pop();
+                            if (_isOutsideDesignatedArea) {
+                              _showOutsideDesignatedAreaDialog();
+                            }
+                            setState(() {
+                              isLoading = false;
+                            });
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.teal.shade700,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            padding: EdgeInsets.symmetric(vertical: 14),
+                            elevation: 2,
+                          ),
+                          child: Text('OK', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
           ),
-        ],
+        ),
       ),
     );
   }
@@ -646,7 +920,7 @@ class _VisitInAndOutPageState extends State<VisitInAndOutPage> {
   void _showOutsideDesignatedAreaDialog() {
     showDialog(
       context: context,
-      barrierDismissible: false, // Prevent dialog from closing when clicking outside
+      barrierDismissible: false,
       builder: (context) => AlertDialog(
         title: Row(
           children: [
@@ -670,12 +944,12 @@ class _VisitInAndOutPageState extends State<VisitInAndOutPage> {
 
   void _showSnackBar(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-            content: Text(
-                message,
-                style: TextStyle(color: Colors.white)
-            )
-        )
+      SnackBar(
+        content: Text(
+          message,
+          style: TextStyle(color: Colors.white),
+        ),
+      ),
     );
   }
 
@@ -706,9 +980,7 @@ class _VisitInAndOutPageState extends State<VisitInAndOutPage> {
         _updateVisitInDateTime();
       });
       try {
-        // Setelah mengambil gambar, tampilkan dialog untuk memasukkan nama perusahaan
-        await _showCompanyNameDialog(); // Menambahkan dialog
-
+        await _showCompanyNameDialog(); // Ambil destination_company dari dialog
         String downloadUrl = await _uploadImageToStorage(_visitInImage!, 'visit_in_images');
         String documentId = await _saveVisitInToFirestore(downloadUrl);
         setState(() {
@@ -725,7 +997,7 @@ class _VisitInAndOutPageState extends State<VisitInAndOutPage> {
         setState(() {
           isLoading = false;
         });
-        _showAlertDialog('Gagal mengirim');
+        _showAlertDialog('Gagal mengirim: $e');
       }
     } else {
       setState(() {
@@ -738,135 +1010,260 @@ class _VisitInAndOutPageState extends State<VisitInAndOutPage> {
   Future<void> _startVisitOutProcess() async {
     setState(() {
       isLoading = true;
-      _nextDestination = "Pulang";  // Set default value for next destination to "Pulang"
+      _nextDestination = "Pulang";
     });
-
-    await _getCurrentPosition(false);
-
-    if (_visitOutImage != null && _visitInPosition != null) {
-      Position position = await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high);
+    try {
+      print("Memulai proses Visit Out...");
+      if (_visitOutImage == null) {
+        throw Exception('Foto Visit Out belum diambil');
+      }
+      print("Mengambil lokasi untuk Visit Out...");
+      await _getCurrentPosition(false);
+      if (_visitInPosition == null) {
+        print("Memuat data Visit In karena posisi tidak ditemukan...");
+        await _loadVisitInDetails();
+        if (_visitInPosition == null) {
+          throw Exception('Data Visit In tidak ditemukan');
+        }
+      }
+      print("Menghitung jarak dari lokasi Visit In...");
+      Position currentPosition = await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high);
       double distanceInMeters = Geolocator.distanceBetween(
         _visitInPosition!.latitude,
         _visitInPosition!.longitude,
-        position.latitude,
-        position.longitude,
+        currentPosition.latitude,
+        currentPosition.longitude,
       );
       bool isApproved = distanceInMeters <= _radius;
-
+      print("Jarak dari lokasi Visit In: ${distanceInMeters.toStringAsFixed(2)} meter");
+      print("Dalam radius yang diizinkan: $isApproved");
       setState(() {
         _visitOutTime = DateTime.now();
         _updateVisitOutDateTime();
       });
-
+      print("Menampilkan dialog tujuan selanjutnya...");
       await _showNextDestinationDialog();
-      try {
-        String downloadUrl = await _uploadImageToStorage(_visitOutImage!, 'visit_out_images');
-        await _saveVisitOutToFirestore(downloadUrl, isApproved);
-        setState(() {
-          _visitOutCompleted = true;
-          _visitStatus = 'Visit Out';
-          _visitInCompleted = false;
-          _isOutsideDesignatedArea = !isApproved;
-        });
-
-        await _saveVisitStatus();
-      } catch (e) {
-        setState(() {
-          isLoading = false;
-        });
-        _showAlertDialog('Gagal mengirim');
-      }
-    } else {
+      print("Mengunggah foto Visit Out...");
+      String downloadUrl = await _uploadImageToStorage(_visitOutImage!, 'visit_out_images');
+      print("Foto berhasil diunggah");
+      print("Menyimpan data Visit Out ke Firestore...");
+      await _saveVisitOutToFirestore(downloadUrl, isApproved);
+      print("Data Visit Out berhasil disimpan");
+      setState(() {
+        _visitOutCompleted = true;
+        _visitStatus = 'Visit Out';
+        _visitInCompleted = false;
+        _isOutsideDesignatedArea = !isApproved;
+        isLoading = false;
+      });
+      await _saveVisitStatus();
+      print("Proses Visit Out selesai");
+    } catch (e) {
+      print("Error dalam proses Visit Out: $e");
       setState(() {
         isLoading = false;
       });
-      _showAlertDialog('Gagal mendapatkan lokasi.');
+      String errorMessage = e.toString().contains('Exception:') ? e.toString().replaceAll('Exception: ', '') : 'Gagal melakukan Visit Out: $e';
+      _showAlertDialog(errorMessage);
     }
   }
 
   Future<void> _showCompanyNameDialog() async {
-    String companyName = '';
+    String destinationCompany = '';
     return showDialog(
       context: context,
-      barrierDismissible: false, // Prevent dialog from closing when clicking outside
+      barrierDismissible: false,
       builder: (context) {
-        return AlertDialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(15.0),
-          ),
-          title: Center( // Center the title
-            child: Text(
-              'Masukkan Nama Perusahaan Yang Sedang Dikunjungi',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: Colors.teal.shade900,
-                fontWeight: FontWeight.bold,
-                fontSize: 18,
-              ),
-            ),
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              SizedBox(height: 15),
-              TextField(
-                onChanged: (value) {
-                  companyName = value;
-                },
-                decoration: InputDecoration(
-                  labelText: "Nama Perusahaan",
-                  labelStyle: TextStyle(color: Colors.teal.shade700),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10.0),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderSide: BorderSide(color: Colors.teal.shade700, width: 2.0),
+        return Center(
+          child: Material(
+            color: Colors.transparent,
+            child: Container(
+              constraints: BoxConstraints(maxWidth: 350),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(22),
+                child: Container(
+                  color: Colors.white,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: double.infinity,
+                        padding: EdgeInsets.symmetric(vertical: 28),
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: [Colors.teal.shade400, Colors.teal.shade900],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                        ),
+                        child: Column(
+                          children: [
+                            Icon(Icons.business, color: Colors.white, size: 54),
+                            SizedBox(height: 10),
+                            Text(
+                              'Nama Perusahaan',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 22,
+                                color: Colors.white,
+                                letterSpacing: 1.1,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 22),
+                        child: Column(
+                          children: [
+                            Text(
+                              'Masukkan nama perusahaan yang sedang dikunjungi.',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(fontSize: 16, color: Colors.teal.shade900),
+                            ),
+                            SizedBox(height: 18),
+                            TextField(
+                              onChanged: (value) {
+                                destinationCompany = value;
+                              },
+                              decoration: InputDecoration(
+                                labelText: "Nama Perusahaan",
+                                labelStyle: TextStyle(color: Colors.teal.shade700, fontWeight: FontWeight.bold),
+                                filled: true,
+                                fillColor: Colors.teal.shade50,
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(14),
+                                  borderSide: BorderSide(color: Colors.teal.shade200),
+                                ),
+                                focusedBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(14),
+                                  borderSide: BorderSide(color: Colors.teal.shade700, width: 2),
+                                ),
+                              ),
+                            ),
+                            SizedBox(height: 28),
+                            SizedBox(
+                              width: double.infinity,
+                              child: ElevatedButton(
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.teal.shade700,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  padding: EdgeInsets.symmetric(vertical: 14),
+                                  elevation: 2,
+                                ),
+                                onPressed: () {
+                                  if (destinationCompany.isEmpty) {
+                                    _showAlertDialog('Nama Perusahaan harus diisi.');
+                                  } else {
+                                    Navigator.of(context).pop();
+                                    setState(() {
+                                      _nextDestination = destinationCompany;
+                                    });
+                                    print('Destination Company: $destinationCompany');
+                                  }
+                                },
+                                child: Text(
+                                  'Submit',
+                                  style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ),
-            ],
-          ),
-          actions: [
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8.0),
-              child: Center( // Center the button
-                child: ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.teal.shade700,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10.0),
-                    ),
-                  ),
-                  onPressed: () {
-                    if (companyName.isEmpty) {
-                      _showAlertDialog('Nama Perusahaan harus diisi.');
-                    } else {
-                      Navigator.of(context).pop();
-                      setState(() {
-                        _nextDestination = companyName; // Simpan nama perusahaan ke _nextDestination
-                      });
-                    }
-                  },
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 10.0, horizontal: 20.0),
-                    child: Text(
-                      'Submit',
-                      style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
-                    ),
-                  ),
-                ),
-              ),
             ),
-          ],
+          ),
         );
       },
     );
   }
 
-
+  Future<void> _fetchUserAccess() async {
+    try {
+      User? user = FirebaseAuth.instance.currentUser;
+      if (user != null) {
+        DocumentSnapshot userSnapshot = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
+        if (userSnapshot.exists) {
+          setState(() {
+            _userData = userSnapshot.data() as Map<String, dynamic>?;
+            _userAccess = _userData?['access'] ?? [];
+            _isLoadingUserAccess = false;
+          });
+        } else {
+          setState(() {
+            _isLoadingUserAccess = false;
+          });
+        }
+      } else {
+        setState(() {
+          _isLoadingUserAccess = false;
+        });
+      }
+    } catch (e) {
+      setState(() {
+        _isLoadingUserAccess = false;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
+    if (_isLoadingUserAccess) {
+      return Scaffold(
+        appBar: AppBar(
+          title: Column(
+            children: [
+              const Text('Visit In/Out', style: TextStyle(color: Colors.white)),
+              Container(
+                margin: const EdgeInsets.only(top: 4.0),
+                height: 4.0,
+                width: 60.0,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(2.0),
+                ),
+              ),
+            ],
+          ),
+          centerTitle: true,
+          backgroundColor: Colors.teal.shade700,
+          elevation: 4.0,
+          iconTheme: const IconThemeData(color: Colors.white),
+        ),
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+    if (!_userAccess.contains('visit')) {
+      return Scaffold(
+        appBar: AppBar(
+          title: Column(
+            children: [
+              const Text('Visit In/Out', style: TextStyle(color: Colors.white)),
+              Container(
+                margin: const EdgeInsets.only(top: 4.0),
+                height: 4.0,
+                width: 60.0,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(2.0),
+                ),
+              ),
+            ],
+          ),
+          centerTitle: true,
+          backgroundColor: Colors.teal.shade700,
+          elevation: 4.0,
+          iconTheme: const IconThemeData(color: Colors.white),
+        ),
+        body: NoAccessWidget(featureName: 'Visit In/Out'),
+      );
+    }
     return Scaffold(
       appBar: AppBar(
         title: Column(

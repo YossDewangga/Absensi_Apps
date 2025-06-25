@@ -1,4 +1,5 @@
-import 'package:absensi_apps/Admin/admin_absensi.dart';
+import 'package:absensi_apps/Admin/admin_page.dart';
+import 'package:absensi_apps/Company%20Super%20Admin/Company_Super_Page.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -6,10 +7,11 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../User/user_page.dart';
 import 'forgot_password_page.dart';
 import '../Components/my_button.dart';
+import 'package:absensi_apps/Super%20Admin/super_admin_page.dart';
 
 class LoginPage extends StatefulWidget {
   final Function()? onTap;
-  const LoginPage({Key? key, this.onTap});
+  const LoginPage({Key? key, this.onTap}) : super(key: key);
 
   @override
   State<LoginPage> createState() => _LoginPageState();
@@ -28,7 +30,7 @@ class _LoginPageState extends State<LoginPage> {
 
   void signUserIn() async {
     if (emailController.text.isEmpty || passwordController.text.isEmpty) {
-      _showErrorMessage('Please fill in all fields');
+      _showErrorMessage('Harap isi semua kolom');
       return;
     }
 
@@ -36,7 +38,7 @@ class _LoginPageState extends State<LoginPage> {
     showDialog(
       context: context,
       builder: (context) {
-        return Center(
+        return const Center(
           child: CircularProgressIndicator(),
         );
       },
@@ -57,10 +59,11 @@ class _LoginPageState extends State<LoginPage> {
       if (mounted && user != null) {
         // Mendapatkan data pengguna dari Firestore
         DocumentSnapshot<Map<String, dynamic>> userData =
-        await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
+            await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
 
         if (userData.exists) {
-          String role = userData.data()!['role'];
+          String role = userData.data()!['role'] ?? 'unknown';
+          print("Detected role from Firestore: $role"); // Debugging
 
           // Simpan status login ke SharedPreferences
           _saveLoginStatus(true, role);
@@ -71,28 +74,43 @@ class _LoginPageState extends State<LoginPage> {
           });
 
           // Navigasi berdasarkan peran pengguna
-          if (role == 'Admin') {
+          final roleLower = role.toLowerCase().trim();
+          if (roleLower == 'super admin') {
             Navigator.pushReplacement(
               context,
-              MaterialPageRoute(builder: (context) => AdminAbsensiPage()),
+              MaterialPageRoute(builder: (context) => SuperAdminPage()),
             );
-          } else if (role == 'Karyawan') {
+          } else if (roleLower == 'second admin' || roleLower == 'secondadmin') {
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (context) => AdminPage()),
+            );
+          } else if (roleLower == 'admin') {
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (context) => CompanySuperAdmin()),
+            );
+          } else if (roleLower == 'karyawan') {
             Navigator.pushReplacement(
               context,
               MaterialPageRoute(builder: (context) => UserPage()),
             );
+          } else {
+            _showErrorMessage('Role tidak dikenali: $role');
           }
+        } else {
+          _showErrorMessage('Data pengguna tidak ditemukan');
         }
       }
     } on FirebaseAuthException catch (e) {
       Navigator.pop(context);
       if (mounted) {
         if (e.code == 'user-not-found') {
-          _showErrorMessage('Incorrect Email');
+          _showErrorMessage('Email salah');
         } else if (e.code == 'wrong-password') {
-          _showErrorMessage('Incorrect Password');
+          _showErrorMessage('Kata sandi salah');
         } else {
-          _showErrorMessage('An error occurred');
+          _showErrorMessage('Terjadi kesalahan: ${e.code}');
         }
       }
     }
@@ -117,7 +135,7 @@ class _LoginPageState extends State<LoginPage> {
               onPressed: () {
                 Navigator.pop(context);
               },
-              child: Text('Close'),
+              child: const Text('Tutup'),
             ),
           ],
         );
@@ -127,153 +145,181 @@ class _LoginPageState extends State<LoginPage> {
 
   @override
   Widget build(BuildContext context) {
-    // Menggunakan MediaQuery untuk mendapatkan ukuran layar
     var screenWidth = MediaQuery.of(context).size.width;
+    var screenHeight = MediaQuery.of(context).size.height;
+    double logoHeight = screenHeight * 0.28;
+    double logoWidth = screenWidth * 0.5;
+    double tpiLogoHeight = screenHeight * 0.13;
+    double tpiLogoWidth = screenWidth * 0.28;
+    double inputFontSize = 18;
+    double inputPadding = screenWidth * 0.08;
+    double buttonFontSize = 20;
+    double buttonPadding = 20;
+    double verticalSpace = 24;
 
     return Scaffold(
-      appBar: AppBar(),
-      body: SingleChildScrollView(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Image.asset(
-              'assets/images/absensi.png',
-              height: screenWidth * 0.2, // Sesuaikan ukuran berdasarkan lebar layar
-              width: screenWidth * 0.4,
-              fit: BoxFit.fill,
-            ),
-            Text(
-              'Welcome back, you\'ve been missed!',
-              style: TextStyle(
-                color: Colors.grey[700],
-                fontSize: 16,
+      appBar: AppBar(elevation: 0, backgroundColor: Colors.transparent),
+      body: Center(
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Image.asset(
+                'assets/images/absensi.png',
+                height: logoHeight,
+                width: logoWidth,
+                fit: BoxFit.contain,
               ),
-            ),
-            SizedBox(height: 10.0),
-            Padding(
-              padding: EdgeInsets.symmetric(horizontal: screenWidth * 0.15), // Sesuaikan padding
-              child: TextField(
-                controller: emailController,
-                decoration: InputDecoration(
-                  enabledBorder: OutlineInputBorder(
-                    borderSide: BorderSide(color: Colors.white),
-                    borderRadius: BorderRadius.circular(15),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderSide: BorderSide(color: Colors.teal.shade900),
-                    borderRadius: BorderRadius.circular(15),
-                  ),
-                  hintText: 'Username',
-                  fillColor: Colors.grey[200],
-                  filled: true,
+              SizedBox(height: verticalSpace),
+              Text(
+                'Selamat datang kembali!',
+                style: TextStyle(
+                  color: Colors.teal.shade900,
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 0.5,
                 ),
               ),
-            ),
-            SizedBox(height: 10.0),
-            Padding(
-              padding: EdgeInsets.symmetric(horizontal: screenWidth * 0.15), // Sesuaikan padding
-              child: TextFormField(
-                controller: passwordController,
-                obscureText: _isObscure,
-                decoration: InputDecoration(
-                  enabledBorder: OutlineInputBorder(
-                    borderSide: BorderSide(color: Colors.white),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderSide: BorderSide(color: Colors.teal.shade900),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  hintText: 'Password',
-                  fillColor: Colors.grey[200],
-                  filled: true,
-                  suffixIcon: IconButton(
-                    icon: Icon(
-                      _isObscure ? Icons.visibility : Icons.visibility_off,
-                      color: _isObscure ? Colors.teal.shade900 : Colors.teal.shade900,
+              SizedBox(height: verticalSpace),
+              Padding(
+                padding: EdgeInsets.symmetric(horizontal: inputPadding),
+                child: TextField(
+                  controller: emailController,
+                  style: TextStyle(fontSize: inputFontSize),
+                  decoration: InputDecoration(
+                    enabledBorder: OutlineInputBorder(
+                      borderSide: const BorderSide(color: Colors.white),
+                      borderRadius: BorderRadius.circular(18),
                     ),
-                    onPressed: toggleObscure,
+                    focusedBorder: OutlineInputBorder(
+                      borderSide: BorderSide(color: Colors.teal.shade900),
+                      borderRadius: BorderRadius.circular(18),
+                    ),
+                    hintText: 'Email',
+                    hintStyle: TextStyle(fontSize: inputFontSize, color: Colors.grey[500]),
+                    fillColor: Colors.grey[200],
+                    filled: true,
+                    contentPadding: const EdgeInsets.symmetric(vertical: 18, horizontal: 18),
                   ),
                 ),
               ),
-            ),
-            SizedBox(height: 15),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 25.0),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  GestureDetector(
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) {
-                            return ForgotPasswordPage();
-                          },
+              const SizedBox(height: 18),
+              Padding(
+                padding: EdgeInsets.symmetric(horizontal: inputPadding),
+                child: TextFormField(
+                  controller: passwordController,
+                  obscureText: _isObscure,
+                  style: TextStyle(fontSize: inputFontSize),
+                  decoration: InputDecoration(
+                    enabledBorder: OutlineInputBorder(
+                      borderSide: const BorderSide(color: Colors.white),
+                      borderRadius: BorderRadius.circular(18),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderSide: BorderSide(color: Colors.teal.shade900),
+                      borderRadius: BorderRadius.circular(18),
+                    ),
+                    hintText: 'Kata Sandi',
+                    hintStyle: TextStyle(fontSize: inputFontSize, color: Colors.grey[500]),
+                    fillColor: Colors.grey[200],
+                    filled: true,
+                    contentPadding: const EdgeInsets.symmetric(vertical: 18, horizontal: 18),
+                    suffixIcon: IconButton(
+                      icon: Icon(
+                        _isObscure ? Icons.visibility : Icons.visibility_off,
+                        color: Colors.teal.shade900,
+                      ),
+                      onPressed: toggleObscure,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              Padding(
+                padding: EdgeInsets.symmetric(horizontal: inputPadding),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    GestureDetector(
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) {
+                              return ForgotPasswordPage();
+                            },
+                          ),
+                        );
+                      },
+                      child: Text(
+                        'Lupa Kata Sandi?',
+                        style: TextStyle(
+                          color: Colors.teal.shade700,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w500,
                         ),
-                      );
-                    },
-                    child: Text(
-                      'Forgot Password?',
-                      style: TextStyle(
-                        color: Colors.grey[600],
                       ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
-            SizedBox(height: 15),
-            MyButton(
-              text: "Sign In",
-              onTap: signUserIn,
-            ),
-            SizedBox(height: 100),
-            Image.asset(
-              'assets/images/Logo TPI web.png',
-              height: screenWidth * 0.1, // Sesuaikan ukuran berdasarkan lebar layar
-              width: screenWidth * 0.2,
-              fit: BoxFit.fill,
-            ),
-          ],
+              SizedBox(height: verticalSpace),
+              MyButton(
+                text: "Masuk",
+                onTap: signUserIn,
+                fontSize: buttonFontSize,
+                verticalPadding: buttonPadding,
+              ),
+              SizedBox(height: screenHeight * 0.08),
+              Image.asset(
+                'assets/images/Logo TPI web.png',
+                height: tpiLogoHeight,
+                width: tpiLogoWidth,
+                fit: BoxFit.contain,
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
 }
 
-// Widget MyButton yang sudah disesuaikan
 class MyButton extends StatelessWidget {
   final String text;
   final Function()? onTap;
+  final double fontSize;
+  final double verticalPadding;
 
   const MyButton({
     Key? key,
     required this.text,
     required this.onTap,
+    this.fontSize = 18,
+    this.verticalPadding = 15,
   }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
     var screenWidth = MediaQuery.of(context).size.width;
-
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: EdgeInsets.symmetric(vertical: 15),
-        margin: EdgeInsets.symmetric(horizontal: screenWidth * 0.2), // Sesuaikan margin
+        padding: EdgeInsets.symmetric(vertical: verticalPadding),
+        margin: EdgeInsets.symmetric(horizontal: screenWidth * 0.18),
         decoration: BoxDecoration(
           color: Colors.teal.shade900,
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(22),
         ),
         child: Center(
           child: Text(
             text,
             style: TextStyle(
               color: Colors.white,
-              fontSize: 18,
+              fontSize: fontSize,
               fontWeight: FontWeight.bold,
+              letterSpacing: 0.5,
             ),
           ),
         ),

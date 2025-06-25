@@ -1,8 +1,11 @@
-import 'package:absensi_apps/Cuti/history_leave_page.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:absensi_apps/Cuti/history_leave_page.dart';
+
+import '../Super Admin/super_admin_page.dart'; // Dipertahankan untuk fitur "Lihat Log Cuti"
+
 
 class LeaveApplicationPage extends StatefulWidget {
   @override
@@ -19,14 +22,18 @@ class _LeaveApplicationPageState extends State<LeaveApplicationPage> {
   bool _isLoading = true;
   String? _userId;
   String? _displayName;
+  String? _companyName; // Tambahkan variabel untuk Company Name
   double _leaveQuota = 0; // Menggunakan double untuk kuota cuti
-  bool _isHalfDay = false; // Untuk pilihan cuti setengah hari
   double _calculatedLeaveDays = 0; // Untuk menyimpan jumlah hari cuti yang dihitung
+  Map<String, dynamic>? _userData;
+  List<dynamic> _userAccess = [];
+  bool _isLoadingUserAccess = true;
 
   @override
   void initState() {
     super.initState();
     _getUserInfo();
+    _fetchUserAccess(); // Ambil akses user
   }
 
   Future<void> _getUserInfo() async {
@@ -46,6 +53,7 @@ class _LeaveApplicationPageState extends State<LeaveApplicationPage> {
             _displayName = userData?['displayName'];
             _leaveQuota = (userData?['leave_quota'] ?? 12).toDouble(); // Default 12 jika tidak disetel
           });
+          await _getUserCompanyName(); // Panggil metode terpisah untuk Company Name
         } else {
           _showSnackBar('User tidak ditemukan di Firestore.');
         }
@@ -57,6 +65,56 @@ class _LeaveApplicationPageState extends State<LeaveApplicationPage> {
     } finally {
       setState(() {
         _isLoading = false;
+      });
+    }
+  }
+
+  Future<void> _getUserCompanyName() async {
+    try {
+      DocumentSnapshot userSnapshot = await FirebaseFirestore.instance.collection('users').doc(_userId).get();
+      if (userSnapshot.exists) {
+        setState(() {
+          _companyName = userSnapshot['Company Name'] ?? ''; // Menggunakan 'Company Name' dengan spasi
+          print('Company Name from User: $_companyName');
+        });
+        if (_companyName == null || _companyName!.isEmpty) {
+          print("Nama perusahaan tidak valid");
+          _showSnackBar("Nama perusahaan tidak valid. Silakan hubungi admin.");
+        }
+      } else {
+        print('Dokumen pengguna tidak ditemukan');
+        _showSnackBar('Dokumen pengguna tidak ditemukan');
+      }
+    } catch (e) {
+      print('Error saat mengambil Company Name: $e');
+      _showSnackBar('Gagal mengambil nama perusahaan: $e');
+    }
+  }
+
+  Future<void> _fetchUserAccess() async {
+    try {
+      User? user = FirebaseAuth.instance.currentUser;
+      if (user != null) {
+        DocumentSnapshot userSnapshot = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
+        if (userSnapshot.exists) {
+          setState(() {
+            _userData = userSnapshot.data() as Map<String, dynamic>?;
+            _userAccess = _userData?['access'] ?? [];
+            _isLoadingUserAccess = false;
+          });
+        } else {
+          setState(() {
+            _isLoadingUserAccess = false;
+          });
+        }
+      } else {
+        setState(() {
+          _isLoadingUserAccess = false;
+        });
+      }
+    } catch (e) {
+      setState(() {
+        _isLoadingUserAccess = false;
       });
     }
   }
@@ -89,10 +147,7 @@ class _LeaveApplicationPageState extends State<LeaveApplicationPage> {
 
   void _calculateLeaveDays() {
     if (_startDate != null && _endDate != null) {
-      _calculatedLeaveDays = _endDate!.difference(_startDate!).inDays + 1;
-      if (_isHalfDay) {
-        _calculatedLeaveDays -= 0.5; // Mengurangi setengah hari dari total hari jika cuti setengah hari
-      }
+      _calculatedLeaveDays = _endDate!.difference(_startDate!).inDays + 1; // Hitung hari penuh
     } else {
       _calculatedLeaveDays = 0;
     }
@@ -104,7 +159,21 @@ class _LeaveApplicationPageState extends State<LeaveApplicationPage> {
       return;
     }
 
+    if (_companyName == null || _companyName!.isEmpty) {
+      await _getUserCompanyName();
+      if (_companyName == null || _companyName!.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Nama perusahaan tidak valid. Silakan hubungi admin.')));
+        return;
+      }
+    }
+
     double leaveDays = _calculatedLeaveDays;
+
+    // Validasi: Pastikan tanggal selesai tidak sebelum tanggal mulai
+    if (_endDate!.isBefore(_startDate!)) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Tanggal selesai harus setelah tanggal mulai')));
+      return;
+    }
 
     // Cek apakah sisa cuti mencukupi
     if (_leaveQuota < leaveDays) {
@@ -126,10 +195,10 @@ class _LeaveApplicationPageState extends State<LeaveApplicationPage> {
       await userDocRef.collection('leave_applications').add({
         'displayName': _displayName,
         'userId': _userId,
+        'Company Name': _companyName, // Tambahkan Company Name
         'Keterangan': _keteranganController.text,
         'start_date': _startDate,
         'end_date': _endDate,
-        'is_half_day': _isHalfDay, // Simpan informasi apakah cuti setengah hari
         'status': 'Pending', // Status awal adalah Pending
         'submitted_at': DateTime.now(),
         'leave_days': leaveDays, // Simpan jumlah hari cuti
@@ -142,7 +211,6 @@ class _LeaveApplicationPageState extends State<LeaveApplicationPage> {
         _endDate = null;
         _startDateString = 'Pilih Tanggal Mulai';
         _endDateString = 'Pilih Tanggal Selesai';
-        _isHalfDay = false; // Reset cuti setengah hari
         _calculatedLeaveDays = 0; // Reset perhitungan hari cuti
       });
     } catch (e) {
@@ -163,6 +231,26 @@ class _LeaveApplicationPageState extends State<LeaveApplicationPage> {
 
   @override
   Widget build(BuildContext context) {
+    if (_isLoadingUserAccess) {
+      return Scaffold(
+        appBar: AppBar(
+          title: const Text('Pengajuan Cuti'),
+          centerTitle: true,
+          backgroundColor: Colors.teal.shade700,
+        ),
+        body: const Center(child: CircularProgressIndicator()),
+      );
+    }
+    if (!_userAccess.contains('cuti')) {
+      return Scaffold(
+        appBar: AppBar(
+          title: const Text('Pengajuan Cuti'),
+          centerTitle: true,
+          backgroundColor: Colors.teal.shade700,
+        ),
+        body: const NoAccessWidget(featureName: 'Cuti'),
+      );
+    }
     return Scaffold(
       appBar: AppBar(
         title: const Text('Pengajuan Cuti'),
@@ -172,136 +260,128 @@ class _LeaveApplicationPageState extends State<LeaveApplicationPage> {
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : SingleChildScrollView(
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Center(
-                child: Text(
-                  'Formulir Pengajuan Cuti',
-                  style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-                ),
-              ),
-              const SizedBox(height: 20),
-              Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Center(
+                      child: Text(
+                        'Formulir Pengajuan Cuti',
+                        style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    Row(
                       children: [
-                        const Text('Tanggal Mulai'),
-                        const SizedBox(height: 10),
-                        GestureDetector(
-                          onTap: () => _selectDate(context, true),
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                                vertical: 12, horizontal: 10),
-                            decoration: BoxDecoration(
-                              border: Border.all(color: Colors.grey),
-                              borderRadius: BorderRadius.circular(5),
-                            ),
-                            child: Text(_startDateString),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text('Tanggal Mulai'),
+                              const SizedBox(height: 10),
+                              GestureDetector(
+                                onTap: () => _selectDate(context, true),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 10),
+                                  decoration: BoxDecoration(
+                                    border: Border.all(color: Colors.grey),
+                                    borderRadius: BorderRadius.circular(5),
+                                  ),
+                                  child: Text(_startDateString),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 20),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text('Tanggal Selesai'),
+                              const SizedBox(height: 10),
+                              GestureDetector(
+                                onTap: () => _selectDate(context, false),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 10),
+                                  decoration: BoxDecoration(
+                                    border: Border.all(color: Colors.grey),
+                                    borderRadius: BorderRadius.circular(5),
+                                  ),
+                                  child: Text(_endDateString),
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                       ],
                     ),
-                  ),
-                  const SizedBox(width: 20),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text('Tanggal Selesai'),
-                        const SizedBox(height: 10),
-                        GestureDetector(
-                          onTap: () => _selectDate(context, false),
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                                vertical: 12, horizontal: 10),
-                            decoration: BoxDecoration(
-                              border: Border.all(color: Colors.grey),
-                              borderRadius: BorderRadius.circular(5),
-                            ),
-                            child: Text(_endDateString),
-                          ),
+                    const SizedBox(height: 10),
+                    if (_calculatedLeaveDays > 0)
+                      Center(
+                        child: Text(
+                          'Jumlah Hari Cuti: $_calculatedLeaveDays hari',
+                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                         ),
-                      ],
+                      ),
+                    const SizedBox(height: 20),
+                    TextField(
+                      controller: _keteranganController,
+                      decoration: const InputDecoration(
+                        labelText: 'Keterangan',
+                        border: OutlineInputBorder(),
+                      ),
+                      maxLines: 3,
                     ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 10),
-              CheckboxListTile(
-                title: const Text("Cuti Setengah Hari"),
-                value: _isHalfDay,
-                activeColor: Colors.teal.shade700, // Warna teal ketika dipilih
-                onChanged: (bool? value) {
-                  setState(() {
-                    _isHalfDay = value ?? false;
-                    _calculateLeaveDays(); // Hitung ulang jumlah hari jika opsi cuti setengah hari berubah
-                  });
-                },
-              ),
-              const SizedBox(height: 10),
-              if (_calculatedLeaveDays > 0)
-                Center(
-                  child: Text(
-                    'Jumlah Hari Cuti: $_calculatedLeaveDays hari',
-                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                  ),
-                ),
-              const SizedBox(height: 20),
-              TextField(
-                controller: _keteranganController,
-                decoration: const InputDecoration(
-                  labelText: 'Keterangan',
-                  border: OutlineInputBorder(),
-                ),
-                maxLines: 3,
-              ),
-              const SizedBox(height: 20),
-              Text('Sisa Cuti: $_leaveQuota hari',
-                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 20),
-              _isSubmitting
-                  ? const Center(child: CircularProgressIndicator())
-                  : ElevatedButton(
-                onPressed: _submitLeaveApplication,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.teal.shade700, // Warna tombol
-                  minimumSize: const Size(double.infinity, 50),
-                ),
-                  child: const Text(
-                  'Kirim Pengajuan',
-                  style: TextStyle(color: Colors.white), // Teks putih
+                    const SizedBox(height: 20),
+                    Text(
+                      'Sisa Cuti: $_leaveQuota hari',
+                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(height: 20),
+                    _isSubmitting
+                        ? const Center(child: CircularProgressIndicator())
+                        : ElevatedButton(
+                            onPressed: _submitLeaveApplication,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.teal.shade700,
+                              minimumSize: const Size(double.infinity, 50),
+                            ),
+                            child: const Text(
+                              'Kirim Pengajuan',
+                              style: TextStyle(color: Colors.white),
+                            ),
+                          ),
+                    const Divider(thickness: 1),
+                    ListTile(
+                      title: Text(
+                        'Lihat Log Cuti',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.teal.shade700,
+                        ),
+                      ),
+                      trailing: Icon(
+                        Icons.arrow_forward,
+                        size: 24,
+                        color: Colors.teal.shade700,
+                      ),
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => HistoryLeavePage(userId: _userId),
+                          ),
+                        );
+                      },
+                    ),
+                    const Divider(thickness: 1),
+                  ],
                 ),
               ),
-              const Divider(thickness: 1),
-              ListTile(
-                title: Text(
-                  'Lihat Log Cuti',
-                  style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.teal.shade700),
-                ),
-                trailing: Icon(Icons.arrow_forward,
-                    size: 24, color: Colors.teal.shade700),
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                        builder: (context) =>
-                            HistoryLeavePage(userId: _userId)),
-                  );
-                },
-              ),
-              const Divider(thickness: 1),
-            ],
-          ),
-        ),
-      ),
+            ),
     );
   }
 }

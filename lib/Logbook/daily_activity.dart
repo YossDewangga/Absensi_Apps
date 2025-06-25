@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
+import 'package:absensi_apps/Super%20Admin/super_admin_page.dart';
 
 class LogbookPage extends StatefulWidget {
   @override
@@ -16,12 +17,16 @@ class _LogbookPageState extends State<LogbookPage> {
   TimeOfDay? _startTime;
   TimeOfDay? _endTime;
   String? _userId;
+  Map<String, dynamic>? _userData;
+  List<dynamic> _userAccess = [];
+  bool _isLoadingUserAccess = true;
 
   @override
   void initState() {
     super.initState();
     _getUserInfo();
     _loadLogbookEntries();
+    _fetchUserAccess();
   }
 
   @override
@@ -124,6 +129,34 @@ class _LogbookPageState extends State<LogbookPage> {
     });
     _saveLogbookEntries();
     _showSuccessDialog("Logbook submitted successfully.");
+  }
+
+  Future<void> _fetchUserAccess() async {
+    try {
+      User? user = FirebaseAuth.instance.currentUser;
+      if (user != null) {
+        DocumentSnapshot userSnapshot = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
+        if (userSnapshot.exists) {
+          setState(() {
+            _userData = userSnapshot.data() as Map<String, dynamic>?;
+            _userAccess = _userData?['access'] ?? [];
+            _isLoadingUserAccess = false;
+          });
+        } else {
+          setState(() {
+            _isLoadingUserAccess = false;
+          });
+        }
+      } else {
+        setState(() {
+          _isLoadingUserAccess = false;
+        });
+      }
+    } catch (e) {
+      setState(() {
+        _isLoadingUserAccess = false;
+      });
+    }
   }
 
   Widget _buildTimePicker(String label, TimeOfDay? selectedTime, Function(TimeOfDay) onChanged) {
@@ -318,6 +351,26 @@ class _LogbookPageState extends State<LogbookPage> {
 
   @override
   Widget build(BuildContext context) {
+    if (_isLoadingUserAccess) {
+      return Scaffold(
+        appBar: AppBar(
+          title: Text("Logbook Harian"),
+          centerTitle: true,
+          backgroundColor: Colors.teal.shade700,
+        ),
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+    if (!_userAccess.contains('daily')) {
+      return Scaffold(
+        appBar: AppBar(
+          title: Text("Logbook Harian"),
+          centerTitle: true,
+          backgroundColor: Colors.teal.shade700,
+        ),
+        body: NoAccessWidget(featureName: 'Daily Activity'),
+      );
+    }
     return Scaffold(
       appBar: AppBar(
         title: Text("Logbook Harian"),

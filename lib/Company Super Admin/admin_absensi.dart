@@ -1,9 +1,10 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:table_calendar/table_calendar.dart';
 import 'package:intl/intl.dart';
-
+import 'save_office_location_page.dart';
 
 class AdminAbsensiPage extends StatefulWidget {
   const AdminAbsensiPage({Key? key}) : super(key: key);
@@ -13,23 +14,65 @@ class AdminAbsensiPage extends StatefulWidget {
 }
 
 class _AdminAbsensiPageState extends State<AdminAbsensiPage> {
-  DateTime _selectedDate = DateTime.now();
+  DateTime _selectedDate = DateTime.now(); // Mulai dengan tanggal saat ini (18 Juni 2025, 11:07 AM WIB)
   TimeOfDay? _designatedStartTime;
   TimeOfDay? _designatedEndTime;
   bool _isCalendarExpanded = false;
   String? _editableRecordId;
   DateTime? _clockInDate;
   bool _showEditIcon = false;
+  String? _adminCompanyName;
+  String? _adminUid;
+  bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
     _initializeSettings();
+    _getAdminDetails().then((_) {
+      setState(() {
+        _isLoading = false;
+      });
+    });
   }
 
   Future<void> _initializeSettings() async {
     await _loadDesignatedTimes();
     _evaluateEditIconVisibility();
+  }
+
+  Future<void> _getAdminDetails() async {
+    try {
+      _adminUid = FirebaseAuth.instance.currentUser?.uid;
+      print('Current User UID: $_adminUid');
+      if (_adminUid == null) {
+        print('No authenticated user found');
+        setState(() {
+          _adminCompanyName = 'tes';
+        });
+        return;
+      }
+      DocumentSnapshot adminSnapshot = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(_adminUid)
+          .get();
+      if (adminSnapshot.exists && adminSnapshot['Company Name'] != null) {
+        setState(() {
+          _adminCompanyName = adminSnapshot['Company Name'] as String;
+          print('Admin UID: $_adminUid, Company Name: $_adminCompanyName');
+        });
+      } else {
+        print('Admin document does not exist or Company Name is null for UID: $_adminUid. Data: ${adminSnapshot.data()}');
+        setState(() {
+          _adminCompanyName = 'tes';
+        });
+      }
+    } catch (e) {
+      print('Error fetching admin details: $e');
+      setState(() {
+        _adminCompanyName = 'tes';
+      });
+    }
   }
 
   Future<void> _loadDesignatedTimes() async {
@@ -48,7 +91,6 @@ class _AdminAbsensiPageState extends State<AdminAbsensiPage> {
             _designatedStartTime = TimeOfDay(hour: startDateTime.hour, minute: startDateTime.minute);
           });
         }
-
         if (data.containsKey('designatedEndTime')) {
           Timestamp endTimestamp = data['designatedEndTime'];
           DateTime endDateTime = endTimestamp.toDate();
@@ -56,7 +98,6 @@ class _AdminAbsensiPageState extends State<AdminAbsensiPage> {
             _designatedEndTime = TimeOfDay(hour: endDateTime.hour, minute: endDateTime.minute);
           });
         }
-
         if (data.containsKey('clockInDate')) {
           Timestamp clockInTimestamp = data['clockInDate'];
           DateTime clockInDate = clockInTimestamp.toDate();
@@ -74,7 +115,6 @@ class _AdminAbsensiPageState extends State<AdminAbsensiPage> {
   void _evaluateEditIconVisibility() {
     if (_clockInDate != null) {
       DateTime now = DateTime.now();
-
       if (_clockInDate!.isBefore(DateTime(now.year, now.month, now.day))) {
         setState(() {
           _showEditIcon = true;
@@ -109,7 +149,6 @@ class _AdminAbsensiPageState extends State<AdminAbsensiPage> {
       print('Error saving clock-in date: $error');
       _showAlertDialog('Error saving clock-in date: $error');
     });
-
     setState(() {
       _clockInDate = now;
       _evaluateEditIconVisibility();
@@ -140,7 +179,6 @@ class _AdminAbsensiPageState extends State<AdminAbsensiPage> {
   void _saveDesignatedTime(TimeOfDay time, String key) {
     DateTime now = DateTime.now();
     DateTime designatedTime = DateTime(now.year, now.month, now.day, time.hour, time.minute);
-
     FirebaseFirestore.instance.collection('settings').doc('absensi_times').set({
       key: Timestamp.fromDate(designatedTime),
     }, SetOptions(merge: true)).catchError((error) {
@@ -156,7 +194,6 @@ class _AdminAbsensiPageState extends State<AdminAbsensiPage> {
           .doc(userId)
           .collection('clockin_records')
           .doc(recordId);
-
       await recordRef.update({'approved': isApproved});
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(isApproved ? 'Record approved successfully' : 'Record rejected successfully')),
@@ -170,7 +207,6 @@ class _AdminAbsensiPageState extends State<AdminAbsensiPage> {
     }
   }
 
-  // Fungsi untuk menghitung early leave duration
   Duration _calculateEarlyLeaveDuration(DateTime clockOutTime, TimeOfDay designatedEndTime) {
     DateTime designatedEndDateTime = DateTime(
         clockOutTime.year, clockOutTime.month, clockOutTime.day, designatedEndTime.hour, designatedEndTime.minute);
@@ -183,6 +219,12 @@ class _AdminAbsensiPageState extends State<AdminAbsensiPage> {
 
   @override
   Widget build(BuildContext context) {
+    if (_isLoading || _adminCompanyName == null) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
     return Scaffold(
       appBar: AppBar(
         title: Column(
@@ -204,17 +246,14 @@ class _AdminAbsensiPageState extends State<AdminAbsensiPage> {
         elevation: 4.0,
         iconTheme: const IconThemeData(color: Colors.white),
         actions: [
-          if (_showEditIcon)
-            IconButton(
-              icon: Icon(Icons.edit, color: Colors.white),
-              onPressed: () {
-                // Tindakan yang dilakukan saat tombol edit ditekan
-              },
-            ),
           IconButton(
-            icon: FaIcon(color: Colors.white, FontAwesomeIcons.cog),
+            icon: const Icon(Icons.settings, color: Colors.white),
+            tooltip: "Pengaturan Lokasi & Jam Kantor",
             onPressed: () {
-              _showSettingsDialog(context);
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const SaveOfficeLocationPage()),
+              );
             },
           ),
         ],
@@ -267,51 +306,28 @@ class _AdminAbsensiPageState extends State<AdminAbsensiPage> {
           ),
           Expanded(
             child: StreamBuilder<QuerySnapshot>(
-              stream: FirebaseFirestore.instance.collectionGroup('clockin_records').snapshots(),
+              stream: FirebaseFirestore.instance
+                  .collectionGroup('clockin_records')
+                  .where('Company Name', isEqualTo: _adminCompanyName ?? 'tes')
+                  .where('clock_in_time',
+                      isGreaterThanOrEqualTo: Timestamp.fromDate(DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day)))
+                  .where('clock_in_time',
+                      isLessThan: Timestamp.fromDate(DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day + 1)))
+                  .snapshots(),
               builder: (context, snapshot) {
-                if (!snapshot.hasData) {
-                  return ListView.builder(
-                    itemCount: 10,
-                    itemBuilder: (context, index) {
-                      return Card(
-                        margin: const EdgeInsets.all(8.0),
-                        elevation: 3.0,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: Padding(
-                          padding: const EdgeInsets.all(16.0),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              _buildPlaceholder(),
-                              _buildPlaceholder(),
-                              _buildPlaceholder(),
-                            ],
-                          ),
-                        ),
-                      );
-                    },
-                  );
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(child: CircularProgressIndicator());
                 }
-
-                var records = snapshot.data!.docs;
-
-                records = records.where((record) {
-                  var data = record.data() as Map<String, dynamic>;
-                  var clockInTime = data['clock_in_time'] != null
-                      ? (data['clock_in_time'] as Timestamp).toDate()
-                      : null;
-                  return clockInTime != null &&
-                      clockInTime.year == _selectedDate.year &&
-                      clockInTime.month == _selectedDate.month &&
-                      clockInTime.day == _selectedDate.day;
-                }).toList();
-
-                if (records.isEmpty) {
+                if (snapshot.hasError) {
+                  print('Stream error: ${snapshot.error}');
+                  return Center(child: Text('Error loading data: ${snapshot.error}', style: TextStyle(color: Colors.teal.shade900)));
+                }
+                if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                  print('No data received for Company Name: $_adminCompanyName, Date: $_selectedDate');
                   return Center(child: Text('No records found for the selected date.', style: TextStyle(color: Colors.teal.shade900)));
                 }
-
+                var records = snapshot.data!.docs;
+                print('Received records: ${records.map((r) => r.data()).toList()}');
                 return ListView.builder(
                   itemCount: records.length,
                   itemBuilder: (context, index) {
@@ -324,33 +340,24 @@ class _AdminAbsensiPageState extends State<AdminAbsensiPage> {
                     var clockOutTime = data['clock_out_time'] != null
                         ? (data['clock_out_time'] as Timestamp).toDate()
                         : null;
-
                     var isApproved = data['approved'] ?? false;
-
-                    var now = TimeOfDay.now();
-
-                    bool showEditButton = !isApproved && (now.hour > 8 || (now.hour == 8 && now.minute >= 0));
-
-                    var workingHours = clockInTime != null && clockOutTime != null
-                        ? clockOutTime.difference(clockInTime)
-                        : null;
-                    var logbookEntries = data['logbook_entries'] != null
-                        ? List<Map<String, dynamic>>.from(data['logbook_entries'])
-                        : <Map<String, dynamic>>[];
+                    var companyName = data['Company Name'] ?? 'Unknown';
                     var clockInImageUrl = data['image_url'] ?? '';
                     var clockOutImageUrl = data['clock_out_image_url'] ?? '';
-
-                    // Durasi Early Leave
+                    var lateDuration = data['late_duration'] != null
+                        ? _parseDuration(data['late_duration'])
+                        : null;
                     var earlyLeaveDuration = clockOutTime != null && _designatedEndTime != null
                         ? _calculateEarlyLeaveDuration(clockOutTime, _designatedEndTime!)
                         : null;
-
-                    var lateDuration = clockInTime != null && _designatedStartTime != null
-                        ? _calculateLateDuration(clockInTime, _designatedStartTime!)
+                    var workingHours = clockInTime != null && clockOutTime != null
+                        ? clockOutTime.difference(clockInTime)
                         : null;
                     var lateReason = data['late_reason'] ?? 'N/A';
                     var userId = record.reference.parent.parent!.id;
                     var recordId = record.id;
+
+                    bool showEditButton = !isApproved && _showEditIcon;
 
                     return Card(
                       margin: const EdgeInsets.all(8.0),
@@ -358,85 +365,49 @@ class _AdminAbsensiPageState extends State<AdminAbsensiPage> {
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(10),
                       ),
-                      child: Container(
-                        decoration: BoxDecoration(),
-                        child: Padding(
-                          padding: const EdgeInsets.all(16.0),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Center(
-                                child: Text(
-                                  'Clock In',
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 16,
-                                    color: Colors.teal.shade900,
-                                  ),
+                      child: Padding(
+                        padding: const EdgeInsets.all(16.0),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Center(
+                              child: Text(
+                                'Clock In - $companyName',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 16,
+                                  color: Colors.teal.shade900,
                                 ),
                               ),
-                              SizedBox(height: 5),
-                              _buildTable('Time In', userName, clockInTime, clockInImageUrl, null, lateReason, null),
-                              if (lateDuration != null)
-                                _buildDurationTable('Late Duration', _formattedDuration(lateDuration)),
-                              SizedBox(height: 10),
-                              Center(
-                                child: Text(
-                                  'Clock Out',
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 16,
-                                    color: Colors.teal.shade900,
-                                  ),
+                            ),
+                            SizedBox(height: 5),
+                            _buildTable('Time In', userName, clockInTime, clockInImageUrl, null, lateReason, null),
+                            if (lateDuration != null)
+                              _buildDurationTable('Late Duration', _formattedDuration(lateDuration)),
+                            SizedBox(height: 10),
+                            Center(
+                              child: Text(
+                                'Clock Out',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 16,
+                                  color: Colors.teal.shade900,
                                 ),
                               ),
-                              SizedBox(height: 5),
-
-                              // Early leave duration di atas gambar clock out
-                              _buildTable('Time Out', null, clockOutTime, clockOutImageUrl, null),
-                              if (earlyLeaveDuration != null && earlyLeaveDuration > Duration.zero)
-                                _buildDurationTable('Early Leave Duration', _formattedDuration(earlyLeaveDuration)),
-                              if (workingHours != null)
-                                _buildDurationTable('Working Hours', _formattedDuration(workingHours)),
-                              SizedBox(height: 20),
-                              _buildApprovalTable(isApproved),
-                              if (showEditButton)
-                                _buildEditButton(recordId),
-                              if (_editableRecordId == recordId)
-                                _buildApprovalButtons(context, recordId, userId, isApproved),
-
-                              if (logbookEntries.isNotEmpty)
-                                Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                        'Logbook Entries:',
-                                        style: TextStyle(fontWeight: FontWeight.bold, color: Colors.teal.shade900)),
-                                    Table(
-                                      border: TableBorder.all(color: Colors.teal.shade700),
-                                      columnWidths: const {
-                                        0: FixedColumnWidth(10),
-                                        1: FlexColumnWidth(),
-                                      },
-                                      children: logbookEntries.map((entry) {
-                                        return TableRow(
-                                          children: [
-                                            Padding(
-                                              padding: const EdgeInsets.all(8.0),
-                                              child: Text(entry['time_range'] ?? 'N/A', style: TextStyle(color: Colors.teal.shade900)),
-                                            ),
-                                            Padding(
-                                              padding: const EdgeInsets.all(8.0),
-                                              child: Text(entry['activity'] ?? 'N/A', style: TextStyle(color: Colors.teal.shade900)),
-                                            ),
-                                          ],
-                                        );
-                                      }).toList(),
-                                    ),
-                                  ],
-                                ),
-                            ],
-                          ),
+                            ),
+                            SizedBox(height: 5),
+                            _buildTable('Time Out', null, clockOutTime, clockOutImageUrl, null),
+                            if (earlyLeaveDuration != null && earlyLeaveDuration > Duration.zero)
+                              _buildDurationTable('Early Leave Duration', _formattedDuration(earlyLeaveDuration)),
+                            if (workingHours != null)
+                              _buildDurationTable('Working Hours', _formattedDuration(workingHours)),
+                            SizedBox(height: 20),
+                            _buildApprovalTable(isApproved),
+                            if (showEditButton)
+                              _buildEditButton(recordId),
+                            if (_editableRecordId == recordId)
+                              _buildApprovalButtons(context, recordId, userId, isApproved),
+                          ],
                         ),
                       ),
                     );
@@ -477,9 +448,9 @@ class _AdminAbsensiPageState extends State<AdminAbsensiPage> {
                   onTap: () => _showFullImage(context, imageUrl),
                   child: Container(
                     width: 50,
-                    height: 150,// Sesuaikan lebar gambar
+                    height: 150,
                     child: AspectRatio(
-                      aspectRatio: 2 / 3, // Rasio 2x3
+                      aspectRatio: 2 / 3,
                       child: Image.network(
                         imageUrl,
                         errorBuilder: (context, error, stackTrace) {
@@ -566,29 +537,8 @@ class _AdminAbsensiPageState extends State<AdminAbsensiPage> {
     );
   }
 
-  Widget _buildPlaceholder() {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8.0),
-      child: Row(
-        children: [
-          Container(
-            width: 100,
-            height: 20,
-            color: Colors.teal.shade50,
-          ),
-        ],
-      ),
-    );
-  }
-
-  // Update this method to format date and time with leading zeros
   String _formattedDateTime(DateTime dateTime) {
-    return DateFormat('dd-MM-yyyy HH:mm').format(dateTime); // Adding leading zeros with intl package
-  }
-
-  // Update this method to format date with leading zeros
-  String _formattedDate(DateTime date) {
-    return DateFormat('dd-MM-yyyy').format(date); // Adding leading zeros with intl package
+    return DateFormat('dd-MM-yyyy HH:mm').format(dateTime);
   }
 
   String _formattedDuration(Duration duration) {
@@ -605,6 +555,11 @@ class _AdminAbsensiPageState extends State<AdminAbsensiPage> {
     } else {
       return Duration.zero;
     }
+  }
+
+  Duration _parseDuration(String durationStr) {
+    var parts = durationStr.split(':');
+    return Duration(hours: int.parse(parts[0]), minutes: int.parse(parts[1]), seconds: int.parse(parts[2]));
   }
 
   void _showSettingsDialog(BuildContext context) {

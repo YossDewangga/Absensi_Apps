@@ -1,3 +1,4 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:table_calendar/table_calendar.dart';
@@ -9,21 +10,65 @@ class AdminLeavePage extends StatefulWidget {
 }
 
 class _AdminLeavePageState extends State<AdminLeavePage> {
-  DateTime _selectedDate = DateTime.now();
+  DateTime _selectedDate = DateTime.now(); // Mulai dengan tanggal saat ini (18 Juni 2025, 11:10 AM WIB)
   bool _isCalendarExpanded = false;
   String? _editableRecordId;
   Map<DateTime, List> _leaveEvents = {};
+  String? _adminCompanyName; // Tambahkan variabel untuk menyimpan Company Name
+  bool _isLoading = true; // Tambahkan flag loading
 
   @override
   void initState() {
     super.initState();
-    _loadLeaveApplications();
-    _checkAndResetLeaveQuota();
+    _getAdminDetails().then((_) {
+      _loadLeaveApplications();
+      _checkAndResetLeaveQuota();
+      setState(() {
+        _isLoading = false; // Hentikan loading setelah data admin diambil
+      });
+    });
+  }
+
+  Future<void> _getAdminDetails() async {
+    try {
+      String? adminUid = FirebaseAuth.instance.currentUser?.uid;
+      print('Current User UID: $adminUid');
+      if (adminUid == null) {
+        print('No authenticated user found');
+        setState(() {
+          _adminCompanyName = 'tes';
+          _isLoading = false;
+        });
+        return;
+      }
+      DocumentSnapshot adminSnapshot = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(adminUid)
+          .get();
+      if (adminSnapshot.exists && adminSnapshot['Company Name'] != null) {
+        setState(() {
+          _adminCompanyName = adminSnapshot['Company Name'] as String;
+          print('Admin UID: $adminUid, Company Name: $_adminCompanyName');
+        });
+      } else {
+        print('Admin document does not exist or Company Name is null for UID: $adminUid. Data: ${adminSnapshot.data()}');
+        setState(() {
+          _adminCompanyName = 'tes';
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      print('Error fetching admin details: $e');
+      setState(() {
+        _adminCompanyName = 'tes';
+        _isLoading = false;
+      });
+    }
   }
 
   Future<void> _checkAndResetLeaveQuota() async {
     DateTime now = DateTime.now();
-    if (now.month == 1 && now.day == 1) { // Misal reset setiap awal tahun
+    if (now.month == 1 && now.day == 1) { // Reset setiap awal tahun
       try {
         QuerySnapshot userDocs = await FirebaseFirestore.instance.collection('users').get();
         for (var doc in userDocs.docs) {
@@ -35,7 +80,7 @@ class _AdminLeavePageState extends State<AdminLeavePage> {
           SnackBar(content: Text('Leave quota has been reset for all users.')),
         );
       } catch (e) {
-        print('Failed to reset leave quota: $e'); // Log for debugging
+        print('Failed to reset leave quota: $e');
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Failed to reset leave quota: $e')),
         );
@@ -45,7 +90,10 @@ class _AdminLeavePageState extends State<AdminLeavePage> {
 
   Future<void> _loadLeaveApplications() async {
     try {
-      QuerySnapshot leaveDocs = await FirebaseFirestore.instance.collectionGroup('leave_applications').get();
+      QuerySnapshot leaveDocs = await FirebaseFirestore.instance
+          .collectionGroup('leave_applications')
+          .where('Company Name', isEqualTo: _adminCompanyName ?? 'tes') // Filter berdasarkan Company Name
+          .get();
       Map<DateTime, List> events = {};
       for (var doc in leaveDocs.docs) {
         var data = doc.data() as Map<String, dynamic>;
@@ -60,7 +108,7 @@ class _AdminLeavePageState extends State<AdminLeavePage> {
         _leaveEvents = events;
       });
     } catch (e) {
-      print('Failed to load leave applications: $e'); // Log for debugging
+      print('Failed to load leave applications: $e');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Failed to load leave applications: $e')),
       );
@@ -73,6 +121,12 @@ class _AdminLeavePageState extends State<AdminLeavePage> {
 
   @override
   Widget build(BuildContext context) {
+    if (_isLoading || _adminCompanyName == null) {
+      return Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
     return Scaffold(
       body: Stack(
         children: [
@@ -81,10 +135,7 @@ class _AdminLeavePageState extends State<AdminLeavePage> {
               gradient: LinearGradient(
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
-                colors: [
-                  Colors.white,
-                  Colors.white,
-                ],
+                colors: [Colors.white, Colors.white],
               ),
             ),
           ),
@@ -92,7 +143,7 @@ class _AdminLeavePageState extends State<AdminLeavePage> {
             children: [
               Container(
                 decoration: BoxDecoration(
-                  color: Colors.teal.shade700, // Mengatur warna latar belakang AppBar
+                  color: Colors.teal.shade700,
                   boxShadow: [
                     BoxShadow(
                       color: Colors.black26,
@@ -118,7 +169,7 @@ class _AdminLeavePageState extends State<AdminLeavePage> {
                   ),
                   centerTitle: true,
                   backgroundColor: Colors.transparent,
-                  elevation: 0, // Hilangkan bayangan default AppBar
+                  elevation: 0,
                   iconTheme: IconThemeData(color: Colors.white),
                 ),
               ),
@@ -149,6 +200,7 @@ class _AdminLeavePageState extends State<AdminLeavePage> {
                         onDaySelected: (selectedDay, focusedDay) {
                           setState(() {
                             _selectedDate = selectedDay;
+                            _loadLeaveApplications(); // Muat ulang data saat tanggal berubah
                           });
                         },
                         calendarStyle: CalendarStyle(
@@ -174,7 +226,10 @@ class _AdminLeavePageState extends State<AdminLeavePage> {
               ),
               Expanded(
                 child: StreamBuilder<QuerySnapshot>(
-                  stream: FirebaseFirestore.instance.collectionGroup('leave_applications').snapshots(),
+                  stream: FirebaseFirestore.instance
+                      .collectionGroup('leave_applications')
+                      .where('Company Name', isEqualTo: _adminCompanyName ?? 'tes') // Filter berdasarkan Company Name
+                      .snapshots(),
                   builder: (context, snapshot) {
                     if (!snapshot.hasData) {
                       return Center(child: CircularProgressIndicator());
@@ -236,7 +291,7 @@ class _AdminLeavePageState extends State<AdminLeavePage> {
 
                             var userData = userSnapshot.data!.data() as Map<String, dynamic>;
                             var displayName = userData['displayName'] ?? 'Unknown';
-                            double leaveQuota = (userData['leave_quota'] ?? 12).toDouble(); // Menggunakan double
+                            double leaveQuota = (userData['leave_quota'] ?? 12).toDouble();
 
                             print('User ID: $userId, Leave Quota Before Update: $leaveQuota');
 
@@ -294,7 +349,7 @@ class _AdminLeavePageState extends State<AdminLeavePage> {
         _buildTableRow('Keterangan:', keterangan),
         _buildTableRow('Tanggal Mulai:', startDate != null ? DateFormat('yyyy-MM-dd').format(startDate) : 'N/A'),
         _buildTableRow('Tanggal Selesai:', endDate != null ? DateFormat('yyyy-MM-dd').format(endDate) : 'N/A'),
-        _buildTableRow('Sisa Cuti:', leaveQuota.toStringAsFixed(1)), // Menggunakan toStringAsFixed untuk tampilan yang lebih baik
+        _buildTableRow('Sisa Cuti:', leaveQuota.toStringAsFixed(1)),
       ],
     );
   }
@@ -357,7 +412,7 @@ class _AdminLeavePageState extends State<AdminLeavePage> {
                     double leaveDays = endDate!.difference(startDate!).inDays + 1;
 
                     if (isHalfDay) {
-                      leaveDays -= 0.5; // Kurangi 0.5 dari leaveDays jika cuti setengah hari
+                      leaveDays -= 0.5;
                     }
 
                     print('Leave Days: $leaveDays');
@@ -515,5 +570,13 @@ class _AdminLeavePageState extends State<AdminLeavePage> {
         );
       },
     );
+  }
+}
+
+extension DateTimeExtensions on DateTime {
+  bool isSameDay(DateTime other) {
+    return this.year == other.year &&
+        this.month == other.month &&
+        this.day == other.day;
   }
 }

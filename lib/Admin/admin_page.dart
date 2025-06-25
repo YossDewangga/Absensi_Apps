@@ -1,12 +1,14 @@
+import 'package:absensi_apps/Admin/absensi_admin.dart';
+import 'package:absensi_apps/Admin/admin_list_gaji.dart';
+import 'package:absensi_apps/Company%20Super%20Admin/salary_karyawan.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'admin_absensi.dart';
 import 'admin_activity.dart';
 import 'admin_break.dart';
-import 'admin_cuti.dart';
+import '../Company Super Admin/admin_cuti.dart';
 import 'History Karyawan/karyawan_list_page.dart';
-import 'admin_visit.dart';
-import 'setting_page.dart';
+import '../Company Super Admin/admin_visit.dart';
+import '../Company Super Admin/setting_page.dart';
 
 class AdminPage extends StatefulWidget {
   const AdminPage({super.key});
@@ -19,20 +21,18 @@ class _AdminPageState extends State<AdminPage> {
   int _selectedIndex = 0;
 
   static final List<Widget> _pages = <Widget>[
-    const AdminAbsensiPage(), // Halaman Absensi tetap ada
+    const AdminAbsensi(),
+    const AdminApprovalPage(),
     const KaryawanListPage(),
     AdminLeavePage(),
-    ProfilePage(),
+    const AdminListGaji(),
+    const ProfilePage(), // Placeholder untuk ProfilePage, ganti dengan definisi nyata
   ];
 
   void _onItemTapped(int index) {
-    if (index == 0) {
-      _showAbsensiOptions(context); // Menampilkan bottom sheet untuk Absensi
-    } else {
-      setState(() {
-        _selectedIndex = index;
-      });
-    }
+    setState(() {
+      _selectedIndex = index;
+    });
   }
 
   void signUserOut() {
@@ -50,28 +50,17 @@ class _AdminPageState extends State<AdminPage> {
               leading: const Icon(Icons.access_time),
               title: const Text('Absensi'),
               onTap: () {
-                Navigator.pop(context); // Tutup bottom sheet
+                Navigator.pop(context);
                 setState(() {
-                  _selectedIndex = 0; // Pilih halaman Absensi Utama
+                  _selectedIndex = 0;
                 });
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.access_alarm),
-              title: const Text('Activity'),
-              onTap: () {
-                Navigator.pop(context); // Tutup bottom sheet
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => AdminActivityPage()),
-                );
               },
             ),
             ListTile(
               leading: const Icon(Icons.report),
               title: const Text('Visit'),
               onTap: () {
-                Navigator.pop(context); // Tutup bottom sheet
+                Navigator.pop(context);
                 Navigator.push(
                   context,
                   MaterialPageRoute(builder: (context) => AdminApprovalPage()),
@@ -79,10 +68,21 @@ class _AdminPageState extends State<AdminPage> {
               },
             ),
             ListTile(
+              leading: const Icon(Icons.access_alarm),
+              title: const Text('Activity'),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => AdminActivityPage()),
+                );
+              },
+            ),
+            ListTile(
               leading: const Icon(Icons.coffee),
               title: const Text('Break'),
               onTap: () {
-                Navigator.pop(context); // Tutup bottom sheet
+                Navigator.pop(context);
                 Navigator.push(
                   context,
                   MaterialPageRoute(builder: (context) => const AdminBreakPage()),
@@ -107,79 +107,39 @@ class _AdminPageState extends State<AdminPage> {
 
   @override
   Widget build(BuildContext context) {
-    // Menggunakan MediaQuery untuk mendapatkan ukuran layar
-    var screenSize = MediaQuery.of(context).size;
-    bool isWideScreen = screenSize.width > 600; // Menentukan jika layar lebih lebar (seperti di web)
-
     return WillPopScope(
       onWillPop: () async {
-        // Prevent back navigation
         return false;
       },
       child: Scaffold(
         body: Center(
-          child: isWideScreen
-              ? Row(
-            children: [
-              NavigationRail(
-                selectedIndex: _selectedIndex,
-                onDestinationSelected: (int index) {
-                  setState(() {
-                    _selectedIndex = index;
-                  });
-                },
-                destinations: const [
-                  NavigationRailDestination(
-                    icon: Icon(Icons.access_time),
-                    label: Text('Absensi'),
-                  ),
-                  NavigationRailDestination(
-                    icon: Icon(Icons.people),
-                    label: Text('Karyawan'),
-                  ),
-                  NavigationRailDestination(
-                    icon: Icon(Icons.beach_access),
-                    label: Text('Cuti'),
-                  ),
-                  NavigationRailDestination(
-                    icon: Icon(Icons.settings),
-                    label: Text('Pengaturan'),
-                  ),
-                ],
-                selectedLabelTextStyle: TextStyle(
-                  color: Colors.blue,
-                ),
-                unselectedLabelTextStyle: TextStyle(
-                  color: Colors.grey,
-                ),
-              ),
-              const VerticalDivider(thickness: 1, width: 1),
-              Expanded(
-                child: _pages[_selectedIndex],
-              ),
-            ],
-          )
-              : _pages[_selectedIndex], // Tetap menggunakan layout biasa untuk layar kecil (mobile)
+          child: _pages[_selectedIndex],
         ),
-        bottomNavigationBar: isWideScreen
-            ? null // Tidak menggunakan bottom navigation di layar lebar (web)
-            : BottomNavigationBar(
+        bottomNavigationBar: BottomNavigationBar(
           items: const [
             BottomNavigationBarItem(
               icon: Icon(Icons.access_time),
               label: 'Absensi',
             ),
             BottomNavigationBarItem(
+              icon: Icon(Icons.car_rental),
+              label: 'Visit',
+            ),
+            BottomNavigationBarItem(
               icon: Icon(Icons.people),
               label: 'Karyawan',
             ),
             BottomNavigationBarItem(
-              icon: Icon(Icons.beach_access), // Icon for Cuti
+              icon: Icon(Icons.beach_access),
               label: 'Cuti',
             ),
             BottomNavigationBarItem(
+              icon: Icon(Icons.attach_money),
+              label: 'Gaji',
+            ),
+            BottomNavigationBarItem(
               icon: Icon(Icons.settings),
-              label: 'Pengaturan',
+              label: 'Setting',
             ),
           ],
           currentIndex: _selectedIndex,
@@ -193,3 +153,5 @@ class _AdminPageState extends State<AdminPage> {
     );
   }
 }
+
+

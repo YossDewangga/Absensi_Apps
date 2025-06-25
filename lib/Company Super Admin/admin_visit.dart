@@ -1,3 +1,4 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:table_calendar/table_calendar.dart';
@@ -11,13 +12,63 @@ class AdminApprovalPage extends StatefulWidget {
 }
 
 class _AdminApprovalPageState extends State<AdminApprovalPage> {
-  DateTime _selectedDate = DateTime.now();
+  DateTime _selectedDate = DateTime.now(); // Mulai dengan tanggal saat ini (18 Juni 2025, 12:22 PM WIB)
   bool _isCalendarExpanded = false;
   String? _editableVisitId;
+  String? _adminCompanyName;
+  bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
+    _getAdminDetails().then((_) {
+      print('Admin details loaded. _adminCompanyName: $_adminCompanyName');
+      setState(() {
+        _isLoading = false;
+      });
+    }).catchError((e) {
+      print('Error in initState: $e');
+      setState(() {
+        _isLoading = false;
+      });
+    });
+  }
+
+  Future<void> _getAdminDetails() async {
+    try {
+      String? adminUid = FirebaseAuth.instance.currentUser?.uid;
+      print('Current User UID: $adminUid');
+      if (adminUid == null) {
+        print('No authenticated user found');
+        setState(() {
+          _adminCompanyName = 'tes';
+          _isLoading = false;
+        });
+        return;
+      }
+      DocumentSnapshot adminSnapshot = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(adminUid)
+          .get();
+      if (adminSnapshot.exists && adminSnapshot['Company Name'] != null) {
+        setState(() {
+          _adminCompanyName = adminSnapshot['Company Name'] as String;
+          print('Admin UID: $adminUid, Company Name: $_adminCompanyName');
+        });
+      } else {
+        print('Admin document does not exist or Company Name is null for UID: $adminUid. Data: ${adminSnapshot.data()}');
+        setState(() {
+          _adminCompanyName = 'tes';
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      print('Error fetching admin details: $e');
+      setState(() {
+        _adminCompanyName = 'tes';
+        _isLoading = false;
+      });
+    }
   }
 
   Future<String> _getUserDisplayName(String userId) async {
@@ -72,15 +123,62 @@ class _AdminApprovalPageState extends State<AdminApprovalPage> {
     });
   }
 
+  Future<void> _createIndexIfNeeded() async {
+    try {
+      QuerySnapshot snapshot = await FirebaseFirestore.instance
+          .collectionGroup('visits')
+          .where('Company Name', isEqualTo: _adminCompanyName ?? 'tes')
+          .limit(1)
+          .get();
+    } on FirebaseException catch (e) {
+      if (e.code == 'failed-precondition') {
+        // Ekstrak URL indeks dari pesan error
+        String errorMessage = e.message ?? '';
+        RegExp regExp = RegExp(r'http[s]?://[^\s]+');
+        Iterable<Match> matches = regExp.allMatches(errorMessage);
+        if (matches.isNotEmpty) {
+          String indexUrl = matches.first.group(0) ?? '';
+          if (await canLaunch(indexUrl)) {
+            await launch(indexUrl);
+            print('Opened index creation URL: $indexUrl');
+          } else {
+            print('Could not launch index URL: $indexUrl');
+          }
+        }
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    print('Building UI. _isLoading: $_isLoading, _adminCompanyName: $_adminCompanyName');
+    if (_isLoading || _adminCompanyName == null) {
+      _createIndexIfNeeded(); // Coba buat indeks jika diperlukan
+      return Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
     return WillPopScope(
       onWillPop: () async {
         return true;
       },
       child: Scaffold(
         appBar: AppBar(
-          title: Text('Visit Approval', style: TextStyle(color: Colors.white)),
+          title: Column(
+            children: [
+              Text('Visit Approval', style: TextStyle(color: Colors.white)),
+              Container(
+                margin: const EdgeInsets.only(top: 4.0),
+                height: 4.0,
+                width: 60.0,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(2.0),
+                ),
+              ),
+            ],
+          ),
           centerTitle: true,
           backgroundColor: Colors.teal.shade700,
           elevation: 4,
@@ -145,24 +243,24 @@ class _AdminApprovalPageState extends State<AdminApprovalPage> {
                 ),
                 Expanded(
                   child: StreamBuilder<QuerySnapshot>(
-                    stream: FirebaseFirestore.instance.collectionGroup('visits').snapshots(),
+                    stream: FirebaseFirestore.instance
+                        .collectionGroup('visits')
+                        .where('Company Name', isEqualTo: _adminCompanyName ?? 'tes')
+                        .snapshots(),
                     builder: (context, snapshot) {
+                      print('StreamBuilder snapshot: ${snapshot.connectionState}, hasData: ${snapshot.hasData}, error: ${snapshot.error}, data length: ${snapshot.data?.docs.length}');
                       if (!snapshot.hasData) {
+                        _createIndexIfNeeded(); // Coba buat indeks jika data belum tersedia
                         return Center(child: CircularProgressIndicator());
                       }
 
-                      var visits = snapshot.data!.docs;
-
-                      visits = visits.where((visit) {
+                      var visits = snapshot.data!.docs.where((visit) {
                         var data = visit.data() as Map<String, dynamic>?;
                         if (data == null || data['visit_in_time'] == null) {
                           return false;
                         }
-                        var visitTime = data['visit_in_time'] != null
-                            ? (data['visit_in_time'] as Timestamp).toDate()
-                            : null;
-                        return visitTime != null &&
-                            visitTime.year == _selectedDate.year &&
+                        var visitTime = (data['visit_in_time'] as Timestamp).toDate();
+                        return visitTime.year == _selectedDate.year &&
                             visitTime.month == _selectedDate.month &&
                             visitTime.day == _selectedDate.day;
                       }).toList();
@@ -230,7 +328,7 @@ class _AdminApprovalPageState extends State<AdminApprovalPage> {
                                         visitInAddress,
                                         visitInImageUrl,
                                         null,
-                                        destinationCompany,  // Tampilkan destination_company di Visit In
+                                        destinationCompany,
                                       ),
                                       Divider(thickness: 1, color: Colors.teal.shade700),
                                       Text('Visit Out', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.teal.shade900)),
@@ -277,7 +375,7 @@ class _AdminApprovalPageState extends State<AdminApprovalPage> {
       },
       defaultVerticalAlignment: TableCellVerticalAlignment.middle,
       children: [
-        if (visitType == 'Visit In' && destinationCompany != null) // Menampilkan destination_company di atas visit_in_time
+        if (visitType == 'Visit In' && destinationCompany != null)
           _buildTableRow('Destination :', destinationCompany),
         _buildTableRow('$visitType Time:', timestamp != null ? _formattedDateTime(timestamp) : 'N/A'),
         TableRow(
@@ -474,5 +572,13 @@ class _AdminApprovalPageState extends State<AdminApprovalPage> {
 
   String _formattedDateTime(DateTime dateTime) {
     return "${dateTime.day}-${dateTime.month}-${dateTime.year} ${dateTime.hour}:${dateTime.minute}";
+  }
+}
+
+extension DateTimeExtensions on DateTime {
+  bool isSameDay(DateTime other) {
+    return this.year == other.year &&
+        this.month == other.month &&
+        this.day == other.day;
   }
 }

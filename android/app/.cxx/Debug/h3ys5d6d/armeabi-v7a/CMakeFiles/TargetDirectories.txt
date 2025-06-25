@@ -1,0 +1,2 @@
+C:/Users/Lenovo/StudioProjects/absensi_baru/Absensi_Apps/android/app/.cxx/Debug/h3ys5d6d/armeabi-v7a/CMakeFiles/edit_cache.dir
+C:/Users/Lenovo/StudioProjects/absensi_baru/Absensi_Apps/android/app/.cxx/Debug/h3ys5d6d/armeabi-v7a/CMakeFiles/rebuild_cache.dir

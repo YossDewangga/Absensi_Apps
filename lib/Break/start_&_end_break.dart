@@ -7,6 +7,7 @@ import 'dart:async';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:vibration/vibration.dart';
 import 'package:audioplayers/src/source.dart';
+import 'package:absensi_apps/Super%20Admin/super_admin_page.dart';
 
 import 'history_break_page.dart';
 
@@ -32,6 +33,9 @@ class _BreakStartEndPageState extends State<BreakStartEndPage> {
   Duration _remainingTime = Duration(hours: 1);
   final AudioPlayer _audioPlayer = AudioPlayer();
   DocumentReference? _currentBreakDocRef;
+  Map<String, dynamic>? _userData;
+  List<dynamic> _userAccess = [];
+  bool _isLoadingUserAccess = true;
 
   @override
   void initState() {
@@ -39,6 +43,7 @@ class _BreakStartEndPageState extends State<BreakStartEndPage> {
     _loadBreakStatus();
     _loadAdminBreakTimes();
     _checkIfAdmin();
+    _fetchUserAccess();
   }
 
   @override
@@ -104,6 +109,34 @@ class _BreakStartEndPageState extends State<BreakStartEndPage> {
       DocumentSnapshot userDoc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
       setState(() {
         _isAdmin = userDoc['role'] == 'admin';
+      });
+    }
+  }
+
+  Future<void> _fetchUserAccess() async {
+    try {
+      User? user = FirebaseAuth.instance.currentUser;
+      if (user != null) {
+        DocumentSnapshot userSnapshot = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
+        if (userSnapshot.exists) {
+          setState(() {
+            _userData = userSnapshot.data() as Map<String, dynamic>?;
+            _userAccess = _userData?['access'] ?? [];
+            _isLoadingUserAccess = false;
+          });
+        } else {
+          setState(() {
+            _isLoadingUserAccess = false;
+          });
+        }
+      } else {
+        setState(() {
+          _isLoadingUserAccess = false;
+        });
+      }
+    } catch (e) {
+      setState(() {
+        _isLoadingUserAccess = false;
       });
     }
   }
@@ -327,6 +360,26 @@ class _BreakStartEndPageState extends State<BreakStartEndPage> {
 
   @override
   Widget build(BuildContext context) {
+    if (_isLoadingUserAccess) {
+      return Scaffold(
+        appBar: AppBar(
+          title: Text('Break Start/End'),
+          centerTitle: true,
+          backgroundColor: Colors.teal.shade700,
+        ),
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+    if (!_userAccess.contains('break')) {
+      return Scaffold(
+        appBar: AppBar(
+          title: Text('Break Start/End'),
+          centerTitle: true,
+          backgroundColor: Colors.teal.shade700,
+        ),
+        body: NoAccessWidget(featureName: 'Break'),
+      );
+    }
     return StreamBuilder<DocumentSnapshot>(
       stream: FirebaseFirestore.instance.collection('settings').doc('break_times').snapshots(),
       builder: (context, snapshot) {
